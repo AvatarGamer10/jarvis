@@ -6,8 +6,6 @@ import {
   type LlmReply,
   type ToolCall
 } from '../provider'
-import type { UsageCounter } from '../usage'
-
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 // --- Forma del payload de Gemini ------------------------------------------
@@ -30,6 +28,27 @@ interface GeminiResponse {
   }[]
   promptFeedback?: { blockReason?: string }
   error?: { message?: string; status?: string }
+}
+
+/**
+ * Las herramientas se declaran en JSON Schema estandar (tipos en minuscula),
+ * que es lo que entiende todo el mundo. Gemini usa su propio dialecto con los
+ * tipos en mayuscula, asi que la traduccion se hace aqui y no ensucia las
+ * definiciones de las herramientas.
+ */
+function toGeminiSchema(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(toGeminiSchema)
+  if (node === null || typeof node !== 'object') return node
+
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    if (key === 'type' && typeof value === 'string') {
+      out[key] = value.toUpperCase()
+    } else {
+      out[key] = toGeminiSchema(value)
+    }
+  }
+  return out
 }
 
 /**
@@ -84,10 +103,7 @@ function toContents(history: ConversationItem[]): GeminiContent[] {
 export class GeminiProvider implements LLMProvider {
   readonly id = 'gemini'
 
-  constructor(
-    private readonly getConfig: () => { apiKey: string; model: string },
-    private readonly usage: UsageCounter
-  ) {}
+  constructor(private readonly getConfig: () => { apiKey: string; model: string }) {}
 
   async complete(input: CompleteInput): Promise<LlmReply> {
     const { apiKey, model } = this.getConfig()
@@ -99,7 +115,16 @@ export class GeminiProvider implements LLMProvider {
       systemInstruction: { parts: [{ text: input.system }] },
       contents: toContents(input.history),
       ...(input.tools.length > 0
-        ? { tools: [{ functionDeclarations: input.tools }] }
+        ? {
+            tools: [
+              {
+                functionDeclarations: input.tools.map((tool) => ({
+                  ...tool,
+                  parameters: toGeminiSchema(tool.parameters)
+                }))
+              }
+            ]
+          }
         : {}),
       generationConfig: {
         temperature: 0.2,
@@ -117,8 +142,6 @@ export class GeminiProvider implements LLMProvider {
     } catch (err) {
       throw new LlmError(`No hay conexion con Gemini: ${(err as Error).message}`, true)
     }
-
-    this.usage.record()
 
     const data = (await res.json().catch(() => ({}))) as GeminiResponse
 

@@ -17,7 +17,10 @@ export class SettingsService {
   constructor(private readonly secrets: SecretStore) {
     this.store = new JsonStore<PlainSettings>('settings.json', {
       googleClientId: '',
+      llmProvider: 'ollama',
       geminiModel: 'gemini-2.5-flash',
+      ollamaHost: 'http://127.0.0.1:11434',
+      ollamaModel: '',
       dailyBriefTime: '07:30',
       dailyBriefEnabled: true,
       managedRoots: defaultRoots()

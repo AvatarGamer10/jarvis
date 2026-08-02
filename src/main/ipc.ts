@@ -34,7 +34,7 @@ function handle<Args extends unknown[], T>(
 }
 
 export function registerIpc(services: Services): void {
-  const { auth, settings, calendar, classroom, agent, usage, organizer } = services
+  const { auth, settings, calendar, classroom, agent, usage, organizer, ollama } = services
 
   // --- Autenticacion ---
   handle(Channels.authStatus, () => auth.status())
@@ -67,6 +67,7 @@ export function registerIpc(services: Services): void {
     return null
   })
   handle(Channels.agentUsage, () => ({ callsToday: usage.callsToday() }))
+  handle(Channels.agentOllamaModels, () => ollama.listModels())
 
   // --- Organizador de carpetas ---
   handle(Channels.organizerListRules, () => organizer.listRules())

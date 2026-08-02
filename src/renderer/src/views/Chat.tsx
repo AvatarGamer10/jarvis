@@ -81,7 +81,7 @@ export default function Chat(): JSX.Element {
         <div>
           <h1 className="page-title">Chat</h1>
           <p className="page-subtitle" style={{ marginBottom: 0 }}>
-            {calls > 0 ? `${calls} llamada(s) a Gemini hoy` : 'Pideme lo que necesites'}
+            {calls > 0 ? `${calls} llamada(s) al modelo hoy` : 'Pideme lo que necesites'}
           </p>
         </div>
         {messages.length > 0 && <button onClick={clear}>Vaciar</button>}

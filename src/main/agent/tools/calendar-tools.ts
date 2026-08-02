@@ -36,10 +36,10 @@ export const calendarList: Tool<z.infer<typeof listArgs>> = {
     'Consulta los eventos del calendario del usuario en un rango de fechas. ' +
     'Usala siempre antes de proponer un hueco libre, para saber que hay ocupado.',
   parameters: {
-    type: 'OBJECT',
+    type: 'object',
     properties: {
-      desde: { type: 'STRING', description: 'Inicio del rango en ISO 8601, por ejemplo 2026-08-03T00:00:00' },
-      hasta: { type: 'STRING', description: 'Fin del rango en ISO 8601' }
+      desde: { type: 'string', description: 'Inicio del rango en ISO 8601, por ejemplo 2026-08-03T00:00:00' },
+      hasta: { type: 'string', description: 'Fin del rango en ISO 8601' }
     },
     required: ['desde', 'hasta']
   },
@@ -76,12 +76,12 @@ export const calendarCreate: Tool<z.infer<typeof createArgs>> = {
     'Crea un evento nuevo en el calendario. Sirve tambien para bloquear tiempo de estudio. ' +
     'El usuario tendra que confirmarlo, asi que no preguntes tu antes: llama directamente.',
   parameters: {
-    type: 'OBJECT',
+    type: 'object',
     properties: {
-      titulo: { type: 'STRING', description: 'Titulo del evento' },
-      inicio: { type: 'STRING', description: 'Inicio en ISO 8601' },
-      fin: { type: 'STRING', description: 'Fin en ISO 8601' },
-      descripcion: { type: 'STRING', description: 'Nota opcional' }
+      titulo: { type: 'string', description: 'Titulo del evento' },
+      inicio: { type: 'string', description: 'Inicio en ISO 8601' },
+      fin: { type: 'string', description: 'Fin en ISO 8601' },
+      descripcion: { type: 'string', description: 'Nota opcional' }
     },
     required: ['titulo', 'inicio', 'fin']
   },
@@ -126,11 +126,11 @@ export const calendarMove: Tool<z.infer<typeof moveArgs>> = {
     'Cambia la fecha u hora de un evento que ya existe. Necesitas su id, ' +
     'asi que llama antes a calendar_list para localizarlo.',
   parameters: {
-    type: 'OBJECT',
+    type: 'object',
     properties: {
-      eventoId: { type: 'STRING', description: 'Id del evento devuelto por calendar_list' },
-      inicio: { type: 'STRING', description: 'Nuevo inicio en ISO 8601' },
-      fin: { type: 'STRING', description: 'Nuevo fin en ISO 8601' }
+      eventoId: { type: 'string', description: 'Id del evento devuelto por calendar_list' },
+      inicio: { type: 'string', description: 'Nuevo inicio en ISO 8601' },
+      fin: { type: 'string', description: 'Nuevo fin en ISO 8601' }
     },
     required: ['eventoId', 'inicio', 'fin']
   },

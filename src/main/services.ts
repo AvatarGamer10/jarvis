@@ -1,5 +1,7 @@
 import { AgentService } from './agent/loop'
 import { GeminiProvider } from './agent/providers/gemini'
+import { OllamaProvider } from './agent/providers/ollama'
+import { ProviderRouter } from './agent/providers/router'
 import type { ToolContext } from './agent/tools'
 import { UsageCounter } from './agent/usage'
 import { GoogleAuth } from './auth/google-oauth'
@@ -22,6 +24,7 @@ export interface Services {
   calendar: CalendarService
   classroom: ClassroomService
   organizer: OrganizerService
+  ollama: OllamaProvider
   usage: UsageCounter
   agent: AgentService
 }
@@ -38,11 +41,21 @@ export function createServices(): Services {
   const usage = new UsageCounter()
 
   // La configuracion se lee en cada llamada, no al construir: asi cambiar la
-  // API key en Ajustes tiene efecto sin reiniciar la app.
-  const provider = new GeminiProvider(() => {
+  // API key o el modelo en Ajustes tiene efecto sin reiniciar la app.
+  const gemini = new GeminiProvider(() => {
     const current = settings.all()
     return { apiKey: current.geminiApiKey, model: current.geminiModel }
-  }, usage)
+  })
+
+  const ollama = new OllamaProvider(() => {
+    const current = settings.all()
+    return { host: current.ollamaHost, model: current.ollamaModel }
+  })
+
+  const provider = new ProviderRouter(
+    () => (settings.all().llmProvider === 'gemini' ? gemini : ollama),
+    usage
+  )
 
   const toolContext = (): ToolContext => ({ calendar, classroom, organizer })
 
@@ -54,6 +67,7 @@ export function createServices(): Services {
     calendar,
     classroom,
     organizer,
+    ollama,
     usage,
     agent: new AgentService(provider, toolContext)
   }

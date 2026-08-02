@@ -31,7 +31,8 @@ const api: JarvisApi = {
     confirm: (actionId: string, approved: boolean) =>
       ipcRenderer.invoke(Channels.agentConfirm, actionId, approved),
     reset: () => ipcRenderer.invoke(Channels.agentReset),
-    usage: () => ipcRenderer.invoke(Channels.agentUsage)
+    usage: () => ipcRenderer.invoke(Channels.agentUsage),
+    ollamaModels: () => ipcRenderer.invoke(Channels.agentOllamaModels)
   },
   organizer: {
     listRules: () => ipcRenderer.invoke(Channels.organizerListRules),

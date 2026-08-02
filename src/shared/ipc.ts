@@ -44,6 +44,8 @@ export interface JarvisApi {
     confirm(actionId: string, approved: boolean): Promise<Result<ChatMessage[]>>
     reset(): Promise<Result<null>>
     usage(): Promise<Result<{ callsToday: number }>>
+    /** Modelos ya descargados en Ollama. Vacio si Ollama no responde. */
+    ollamaModels(): Promise<Result<string[]>>
   }
   organizer: {
     listRules(): Promise<Result<FileRule[]>>
@@ -75,6 +77,7 @@ export const Channels = {
   agentConfirm: 'agent:confirm',
   agentReset: 'agent:reset',
   agentUsage: 'agent:usage',
+  agentOllamaModels: 'agent:ollamaModels',
   organizerListRules: 'organizer:listRules',
   organizerSaveRule: 'organizer:saveRule',
   organizerDeleteRule: 'organizer:deleteRule',

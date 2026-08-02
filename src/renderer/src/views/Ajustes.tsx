@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AuthStatus, SafeSettings } from '@shared/types'
+import type { AuthStatus, LlmProviderId, SafeSettings } from '@shared/types'
 import { useAsync } from '../lib/useAsync'
 
 export default function Ajustes(): JSX.Element {
@@ -15,6 +15,10 @@ export default function Ajustes(): JSX.Element {
   const [geminiKey, setGeminiKey] = useState('')
   const [model, setModel] = useState('')
   const [briefTime, setBriefTime] = useState('07:30')
+  const [provider, setProvider] = useState<LlmProviderId>('ollama')
+  const [ollamaHost, setOllamaHost] = useState('http://127.0.0.1:11434')
+  const [ollamaModel, setOllamaModel] = useState('')
+  const [ollamaModels, setOllamaModels] = useState<string[] | null>(null)
 
   const settings = settingsState.data
 
@@ -23,7 +27,20 @@ export default function Ajustes(): JSX.Element {
     setClientId(settings.googleClientId)
     setModel(settings.geminiModel)
     setBriefTime(settings.dailyBriefTime)
+    setProvider(settings.llmProvider)
+    setOllamaHost(settings.ollamaHost)
+    setOllamaModel(settings.ollamaModel)
   }, [settings])
+
+  const detectOllama = async (): Promise<void> => {
+    setOllamaModels(null)
+    const result = await window.jarvis.agent.ollamaModels()
+    setOllamaModels(result.ok ? result.data : [])
+  }
+
+  useEffect(() => {
+    if (provider === 'ollama') void detectOllama()
+  }, [provider])
 
   const refreshStatus = async (): Promise<void> => {
     const result = await window.jarvis.auth.status()
@@ -39,7 +56,10 @@ export default function Ajustes(): JSX.Element {
     setMessage(null)
     const patch: Record<string, string> = {
       googleClientId: clientId.trim(),
+      llmProvider: provider,
       geminiModel: model.trim(),
+      ollamaHost: ollamaHost.trim(),
+      ollamaModel: ollamaModel.trim(),
       dailyBriefTime: briefTime
     }
     if (clientSecret.trim()) patch.googleClientSecret = clientSecret.trim()
@@ -142,34 +162,114 @@ export default function Ajustes(): JSX.Element {
       </div>
 
       <div className="card">
-        <h3>Gemini</h3>
+        <h3>Cerebro</h3>
         <div className="field">
-          <label htmlFor="geminiKey">API key</label>
-          <input
-            id="geminiKey"
-            type="password"
-            value={geminiKey}
-            placeholder={settings?.hasGeminiApiKey ? '•••••••• (guardada)' : 'Sin configurar'}
-            onChange={(e) => setGeminiKey(e.target.value)}
-          />
-          <p className="hint">
-            Se consigue en{' '}
+          <label>Motor de IA</label>
+          <div className="row">
             <button
-              className="link"
-              onClick={() => void window.jarvis.shell.openExternal('https://aistudio.google.com/apikey')}
+              className={provider === 'ollama' ? 'primary' : ''}
+              onClick={() => setProvider('ollama')}
             >
-              aistudio.google.com/apikey
+              Ollama (local)
             </button>
-          </p>
+            <button
+              className={provider === 'gemini' ? 'primary' : ''}
+              onClick={() => setProvider('gemini')}
+            >
+              Gemini (nube)
+            </button>
+          </div>
         </div>
 
-        <div className="field">
-          <label htmlFor="model">Modelo</label>
-          <input id="model" type="text" value={model} onChange={(e) => setModel(e.target.value)} />
-          <p className="hint">
-            Los modelos Flash son los que tienen cuota gratuita amplia (~1.000-1.500 peticiones al dia).
-          </p>
-        </div>
+        {provider === 'ollama' ? (
+          <>
+            <div className="field">
+              <label htmlFor="ollamaHost">Direccion de Ollama</label>
+              <input
+                id="ollamaHost"
+                type="text"
+                value={ollamaHost}
+                onChange={(e) => setOllamaHost(e.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="ollamaModel">Modelo</label>
+              <input
+                id="ollamaModel"
+                type="text"
+                value={ollamaModel}
+                placeholder="llama3.1:8b"
+                onChange={(e) => setOllamaModel(e.target.value)}
+              />
+
+              {ollamaModels === null && <p className="hint">Buscando Ollama…</p>}
+
+              {ollamaModels !== null && ollamaModels.length === 0 && (
+                <p className="hint">
+                  No se ha encontrado Ollama en esa direccion. Comprueba que esta arrancado.
+                </p>
+              )}
+
+              {ollamaModels !== null && ollamaModels.length > 0 && (
+                <>
+                  <p className="hint">Modelos que ya tienes descargados:</p>
+                  <div className="row" style={{ marginTop: 6 }}>
+                    {ollamaModels.map((name) => (
+                      <button key={name} onClick={() => setOllamaModel(name)}>
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <p className="hint" style={{ marginTop: 8 }}>
+                El modelo debe soportar herramientas (tool calling). `llama3.1:8b` y
+                `qwen2.5:7b` funcionan bien.
+              </p>
+            </div>
+
+            <button onClick={detectOllama}>Volver a buscar</button>
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label htmlFor="geminiKey">API key</label>
+              <input
+                id="geminiKey"
+                type="password"
+                value={geminiKey}
+                placeholder={settings?.hasGeminiApiKey ? '•••••••• (guardada)' : 'Sin configurar'}
+                onChange={(e) => setGeminiKey(e.target.value)}
+              />
+              <p className="hint">
+                Se consigue en{' '}
+                <button
+                  className="link"
+                  onClick={() =>
+                    void window.jarvis.shell.openExternal('https://aistudio.google.com/apikey')
+                  }
+                >
+                  aistudio.google.com/apikey
+                </button>
+              </p>
+            </div>
+
+            <div className="field">
+              <label htmlFor="model">Modelo</label>
+              <input
+                id="model"
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              />
+              <p className="hint">
+                Los modelos Flash son los que tienen cuota gratuita amplia.
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="card">

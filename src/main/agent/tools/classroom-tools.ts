@@ -11,10 +11,10 @@ export const classroomList: Tool<z.infer<typeof listArgs>> = {
     'Consulta las tareas del usuario en Google Classroom, con su asignatura, ' +
     'fecha de entrega y estado. Usala para responder que hay que entregar y cuando.',
   parameters: {
-    type: 'OBJECT',
+    type: 'object',
     properties: {
       soloPendientes: {
-        type: 'BOOLEAN',
+        type: 'boolean',
         description: 'Si es true, devuelve solo las tareas sin entregar. Por defecto true.'
       }
     },

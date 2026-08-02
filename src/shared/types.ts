@@ -14,11 +14,19 @@ export interface AuthStatus {
 
 // --- Ajustes ---------------------------------------------------------------
 
+/** Que motor de IA usa el asistente. */
+export type LlmProviderId = 'gemini' | 'ollama'
+
 export interface Settings {
   googleClientId: string
   googleClientSecret: string
+  /** Cerebro activo. Se puede cambiar en caliente, sin reiniciar. */
+  llmProvider: LlmProviderId
   geminiApiKey: string
   geminiModel: string
+  /** Direccion del servidor local de Ollama. */
+  ollamaHost: string
+  ollamaModel: string
   /** Hora del resumen diario en formato HH:mm. */
   dailyBriefTime: string
   dailyBriefEnabled: boolean

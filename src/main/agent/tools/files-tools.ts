@@ -15,7 +15,7 @@ export const filesPlan: Tool<z.infer<typeof noArgs>> = {
   description:
     'Calcula que archivos se moverian al aplicar las reglas de organizacion, sin mover nada. ' +
     'Usala siempre antes de files_apply y ensena al usuario cuantos archivos son.',
-  parameters: { type: 'OBJECT', properties: {}, required: [] },
+  parameters: { type: 'object', properties: {}, required: [] },
   schema: noArgs,
   requiresConfirmation: false,
   async execute(_args, ctx) {
@@ -51,9 +51,9 @@ export const filesApply: Tool<z.infer<typeof applyArgs>> = {
     'Aplica un plan de organizacion previamente calculado con files_plan. ' +
     'Mueve archivos de verdad, asi que el usuario lo tendra que confirmar.',
   parameters: {
-    type: 'OBJECT',
+    type: 'object',
     properties: {
-      planId: { type: 'STRING', description: 'El planId devuelto por files_plan' }
+      planId: { type: 'string', description: 'El planId devuelto por files_plan' }
     },
     required: ['planId']
   },
@@ -86,7 +86,7 @@ export const filesApply: Tool<z.infer<typeof applyArgs>> = {
 export const filesUndo: Tool<z.infer<typeof noArgs>> = {
   name: 'files_undo',
   description: 'Deshace el ultimo lote de archivos movidos, devolviendolos a su sitio original.',
-  parameters: { type: 'OBJECT', properties: {}, required: [] },
+  parameters: { type: 'object', properties: {}, required: [] },
   schema: noArgs,
   requiresConfirmation: true,
   describe() {
