@@ -2,12 +2,14 @@ import type { z } from 'zod'
 import type { PendingAction } from '@shared/types'
 import type { CalendarService } from '../../integrations/calendar'
 import type { ClassroomService } from '../../integrations/classroom'
+import type { OrganizerService } from '../../organizer'
 import type { FunctionDeclaration } from '../provider'
 
 /** Lo que una herramienta puede tocar. Se le pasa al ejecutar, no lo guarda ella. */
 export interface ToolContext {
   calendar: CalendarService
   classroom: ClassroomService
+  organizer: OrganizerService
 }
 
 export interface ToolResult {

@@ -33,6 +33,18 @@ const api: JarvisApi = {
     reset: () => ipcRenderer.invoke(Channels.agentReset),
     usage: () => ipcRenderer.invoke(Channels.agentUsage)
   },
+  organizer: {
+    listRules: () => ipcRenderer.invoke(Channels.organizerListRules),
+    saveRule: (rule) => ipcRenderer.invoke(Channels.organizerSaveRule, rule),
+    deleteRule: (id: string) => ipcRenderer.invoke(Channels.organizerDeleteRule, id),
+    plan: () => ipcRenderer.invoke(Channels.organizerPlan),
+    apply: (planId: string) => ipcRenderer.invoke(Channels.organizerApply, planId),
+    history: () => ipcRenderer.invoke(Channels.organizerHistory),
+    undoLast: () => ipcRenderer.invoke(Channels.organizerUndoLast)
+  },
+  dialog: {
+    pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder)
+  },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(Channels.shellOpenExternal, url)
   }

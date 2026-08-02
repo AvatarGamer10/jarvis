@@ -3,10 +3,18 @@ import type {
   Assignment,
   CalendarEvent,
   ChatMessage,
+  FileRule,
+  MovePlan,
   Result,
   SafeSettings,
-  Settings
+  Settings,
+  UndoBatch
 } from './types'
+
+export interface ApplyOutcomeDto {
+  moved: number
+  failed: { file: string; error: string }[]
+}
 
 /**
  * Superficie que el proceso main expone al renderer.
@@ -37,6 +45,18 @@ export interface JarvisApi {
     reset(): Promise<Result<null>>
     usage(): Promise<Result<{ callsToday: number }>>
   }
+  organizer: {
+    listRules(): Promise<Result<FileRule[]>>
+    saveRule(rule: Omit<FileRule, 'id'> & { id?: string }): Promise<Result<FileRule>>
+    deleteRule(id: string): Promise<Result<null>>
+    plan(): Promise<Result<MovePlan>>
+    apply(planId: string): Promise<Result<ApplyOutcomeDto>>
+    history(): Promise<Result<UndoBatch[]>>
+    undoLast(): Promise<Result<ApplyOutcomeDto>>
+  }
+  dialog: {
+    pickFolder(): Promise<Result<string | null>>
+  }
   shell: {
     openExternal(url: string): Promise<Result<null>>
   }
@@ -55,5 +75,13 @@ export const Channels = {
   agentConfirm: 'agent:confirm',
   agentReset: 'agent:reset',
   agentUsage: 'agent:usage',
+  organizerListRules: 'organizer:listRules',
+  organizerSaveRule: 'organizer:saveRule',
+  organizerDeleteRule: 'organizer:deleteRule',
+  organizerPlan: 'organizer:plan',
+  organizerApply: 'organizer:apply',
+  organizerHistory: 'organizer:history',
+  organizerUndoLast: 'organizer:undoLast',
+  dialogPickFolder: 'dialog:pickFolder',
   shellOpenExternal: 'shell:openExternal'
 } as const

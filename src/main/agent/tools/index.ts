@@ -1,5 +1,6 @@
 import { calendarCreate, calendarList, calendarMove } from './calendar-tools'
 import { classroomList } from './classroom-tools'
+import { filesApply, filesPlan, filesUndo } from './files-tools'
 import type { Tool } from './types'
 
 /**
@@ -10,7 +11,10 @@ export const TOOLS: Tool<never>[] = [
   calendarList,
   calendarCreate,
   calendarMove,
-  classroomList
+  classroomList,
+  filesPlan,
+  filesApply,
+  filesUndo
 ] as unknown as Tool<never>[]
 
 export const toolByName = (name: string): Tool<never> | undefined =>

@@ -6,6 +6,7 @@ import { GoogleAuth } from './auth/google-oauth'
 import { CalendarService } from './integrations/calendar'
 import { ClassroomService } from './integrations/classroom'
 import { GoogleApi } from './integrations/google-api'
+import { OrganizerService } from './organizer'
 import { SecretStore } from './store/secret-store'
 import { SettingsService } from './store/settings'
 
@@ -20,6 +21,7 @@ export interface Services {
   api: GoogleApi
   calendar: CalendarService
   classroom: ClassroomService
+  organizer: OrganizerService
   usage: UsageCounter
   agent: AgentService
 }
@@ -32,6 +34,7 @@ export function createServices(): Services {
 
   const calendar = new CalendarService(api)
   const classroom = new ClassroomService(api)
+  const organizer = new OrganizerService(settings)
   const usage = new UsageCounter()
 
   // La configuracion se lee en cada llamada, no al construir: asi cambiar la
@@ -41,7 +44,7 @@ export function createServices(): Services {
     return { apiKey: current.geminiApiKey, model: current.geminiModel }
   }, usage)
 
-  const toolContext = (): ToolContext => ({ calendar, classroom })
+  const toolContext = (): ToolContext => ({ calendar, classroom, organizer })
 
   return {
     secrets,
@@ -50,6 +53,7 @@ export function createServices(): Services {
     api,
     calendar,
     classroom,
+    organizer,
     usage,
     agent: new AgentService(provider, toolContext)
   }

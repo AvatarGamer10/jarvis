@@ -79,6 +79,7 @@ Otros comandos:
 
 | Comando | Qué hace |
 |---|---|
+| `npm test` | Pruebas del organizador de carpetas (rutas, mover, deshacer) |
 | `npm run typecheck` | Comprueba tipos de main, preload y renderer |
 | `npm run build` | Compila a `out/` |
 | `npm run build:win` | Instalador NSIS para Windows (ejecutar en Windows) |
@@ -125,12 +126,34 @@ aísla todo eso en un solo archivo.
 
 ```
 src/
-  main/         Proceso principal: OAuth, APIs, agente, ficheros, cron
-  preload/      Puente seguro entre main y renderer
-  renderer/     Interfaz React
-  shared/       Tipos compartidos por ambos lados
-scripts/        Spike de la Fase 0
+  main/
+    auth/         OAuth con PKCE y renovación de token
+    integrations/ Cliente REST de Google + Calendar y Classroom
+    agent/        Cerebro: proveedor, bucle de herramientas y prompt
+    organizer/    Organizador de carpetas (rutas, plan, ejecución, deshacer)
+    store/        Ajustes en claro y credenciales cifradas
+  preload/        Puente seguro entre main y renderer
+  renderer/       Interfaz React
+  shared/         Tipos compartidos por ambos lados
+scripts/          Spike de la Fase 0
+tests/            Pruebas del organizador
 ```
 
 Todo lo sensible (tokens, claves, acceso a disco) vive **solo en el proceso main**. El renderer
 nunca ve una credencial.
+
+## Seguridad del organizador de carpetas
+
+Es el único módulo que puede hacer daño real, así que va con varias capas:
+
+- Solo actúa dentro de las **carpetas que autorizas explícitamente**. Las rutas se resuelven
+  siguiendo enlaces simbólicos antes de comprobarlas, para que un enlace dentro de una carpeta
+  autorizada no pueda apuntar fuera.
+- **Nunca borra y nunca sobrescribe.** Si en el destino ya hay un archivo con ese nombre, añade
+  un sufijo ` (2)`.
+- Siempre simulacro primero: ves la tabla completa antes de que se mueva nada.
+- Cada lote queda registrado y se puede deshacer.
+- El agente no puede pasar rutas: solo pide un simulacro y aprueba el plan resultante por su id.
+
+Todo esto está cubierto por `npm test`, incluido el caso de un plan manipulado que intenta
+escribir en `C:\Windows`.
