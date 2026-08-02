@@ -1,6 +1,7 @@
 import { calendarCreate, calendarList, calendarMove } from './calendar-tools'
 import { classroomList } from './classroom-tools'
 import { filesApply, filesPlan, filesUndo } from './files-tools'
+import { tasksAdd, tasksComplete, tasksList } from './tasks-tools'
 import type { Tool } from './types'
 
 /**
@@ -12,6 +13,9 @@ export const TOOLS: Tool<never>[] = [
   calendarCreate,
   calendarMove,
   classroomList,
+  tasksList,
+  tasksAdd,
+  tasksComplete,
   filesPlan,
   filesApply,
   filesUndo

@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { Channels, type ApplyOutcomeDto } from '@shared/ipc'
-import type { FileRule, Result, Settings } from '@shared/types'
+import type { FileRule, ManualTask, Result, Settings } from '@shared/types'
 import type { ApplyOutcome } from './organizer/executor'
 import type { Services } from './services'
 
@@ -34,7 +34,7 @@ function handle<Args extends unknown[], T>(
 }
 
 export function registerIpc(services: Services): void {
-  const { auth, settings, calendar, classroom, agent, usage, organizer, ollama } = services
+  const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks } = services
 
   // --- Autenticacion ---
   handle(Channels.authStatus, () => auth.status())
@@ -56,6 +56,17 @@ export function registerIpc(services: Services): void {
 
   // --- Classroom ---
   handle(Channels.classroomList, (force: boolean) => classroom.listAssignments(force))
+
+  // --- Tareas propias ---
+  handle(Channels.tasksList, () => tasks.list())
+  handle(Channels.tasksAdd, (input: { title: string; subject?: string; dueDate?: string | null }) =>
+    tasks.add(input)
+  )
+  handle(Channels.tasksUpdate, (id: string, patch: Partial<ManualTask>) => tasks.update(id, patch))
+  handle(Channels.tasksRemove, (id: string) => {
+    tasks.remove(id)
+    return null
+  })
 
   // --- Agente ---
   handle(Channels.agentSend, (text: string) => agent.send(text))

@@ -4,6 +4,7 @@ import type {
   CalendarEvent,
   ChatMessage,
   FileRule,
+  ManualTask,
   MovePlan,
   Result,
   SafeSettings,
@@ -39,6 +40,17 @@ export interface JarvisApi {
   classroom: {
     list(force?: boolean): Promise<Result<Assignment[]>>
   }
+  tasks: {
+    list(): Promise<Result<ManualTask[]>>
+    add(input: { title: string; subject?: string; dueDate?: string | null }): Promise<
+      Result<ManualTask>
+    >
+    update(
+      id: string,
+      patch: Partial<Omit<ManualTask, 'id' | 'createdAt'>>
+    ): Promise<Result<ManualTask>>
+    remove(id: string): Promise<Result<null>>
+  }
   agent: {
     send(text: string): Promise<Result<ChatMessage[]>>
     confirm(actionId: string, approved: boolean): Promise<Result<ChatMessage[]>>
@@ -73,6 +85,10 @@ export const Channels = {
   settingsUpdate: 'settings:update',
   calendarList: 'calendar:list',
   classroomList: 'classroom:list',
+  tasksList: 'tasks:list',
+  tasksAdd: 'tasks:add',
+  tasksUpdate: 'tasks:update',
+  tasksRemove: 'tasks:remove',
   agentSend: 'agent:send',
   agentConfirm: 'agent:confirm',
   agentReset: 'agent:reset',

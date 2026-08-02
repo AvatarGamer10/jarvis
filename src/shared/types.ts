@@ -77,6 +77,29 @@ export interface Assignment {
   daysLeft: number | null
 }
 
+// --- Tareas propias --------------------------------------------------------
+
+/**
+ * Tarea que apunta el usuario a mano.
+ *
+ * Existe porque muchos centros bloquean el acceso de apps de terceros a
+ * Classroom, y sin esto el modulo de tareas se quedaria vacio. Convive con las
+ * de Classroom: cuando el colegio aprueba la app, se ven las dos cosas juntas.
+ */
+export interface ManualTask {
+  id: string
+  title: string
+  /** Asignatura. Texto libre, no hay lista cerrada. */
+  subject: string
+  /** ISO 8601, o null si no tiene fecha. */
+  dueDate: string | null
+  done: boolean
+  createdAt: string
+}
+
+/** Origen de una tarea en la vista unificada. */
+export type TaskSource = 'classroom' | 'manual'
+
 // --- Organizador de carpetas ----------------------------------------------
 
 export interface FileRule {

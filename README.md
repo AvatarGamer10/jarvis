@@ -87,6 +87,28 @@ Otros comandos:
 
 ---
 
+## Si tu centro bloquea la aplicación
+
+Si al iniciar sesión con la cuenta del colegio sale:
+
+> Acceso bloqueado: el administrador de tu institución debe revisar JARVIS
+> `Error 400: access_not_configured`
+
+No es un fallo de configuración. Los centros con Google Workspace for Education tienen activado
+el control de apps de terceros, y las cuentas marcadas como **menores de 18** no pueden usar
+ninguna aplicación que el administrador no haya aprobado. **Esto no se puede arreglar desde el
+lado del desarrollador**: solo un superadministrador del centro puede.
+
+**Qué puede hacer el administrador**, si le pides acceso: consola de administración →
+*Seguridad* → *Controles de API* → *Gestionar acceso de aplicaciones de terceros* →
+*Configurar nueva aplicación* → buscar por ID de cliente de OAuth → marcarla como *De confianza*.
+
+**Mientras tanto la app sigue siendo útil.** El módulo de Tareas funciona sin Classroom: apuntas
+las tuyas a mano y el asistente puede consultarlas, añadirlas y marcarlas como hechas. Calendar y
+Drive funcionan con cualquier cuenta personal. Si algún día aprueban la aplicación, cierras sesión
+en Ajustes, entras con la del colegio y las tareas de Classroom aparecen junto a las tuyas sin
+tocar nada más.
+
 ## Una limitación que conviene tener clara
 
 **JARVIS no puede pulsar "Entregar" en Classroom por ti.** No es un fallo ni un permiso que

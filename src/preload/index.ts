@@ -26,6 +26,12 @@ const api: JarvisApi = {
   classroom: {
     list: (force?: boolean) => ipcRenderer.invoke(Channels.classroomList, force ?? false)
   },
+  tasks: {
+    list: () => ipcRenderer.invoke(Channels.tasksList),
+    add: (input) => ipcRenderer.invoke(Channels.tasksAdd, input),
+    update: (id, patch) => ipcRenderer.invoke(Channels.tasksUpdate, id, patch),
+    remove: (id: string) => ipcRenderer.invoke(Channels.tasksRemove, id)
+  },
   agent: {
     send: (text: string) => ipcRenderer.invoke(Channels.agentSend, text),
     confirm: (actionId: string, approved: boolean) =>

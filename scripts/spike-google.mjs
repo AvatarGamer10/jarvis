@@ -165,8 +165,14 @@ async function authorize(clientId, clientSecret) {
   console.log('\nAbriendo el navegador para que inicies sesion.')
   console.log(`${c.dim}Si no se abre solo, copia esta URL:${c.reset}`)
   console.log(`${c.dim}${authUrl}${c.reset}\n`)
-  console.log(`${c.yellow}>> Inicia sesion con la CUENTA DEL COLEGIO. Ese es el objetivo de esta prueba.${c.reset}`)
+  console.log(`${c.yellow}>> Inicia sesion con la cuenta que quieras probar.${c.reset}`)
   console.log(`${c.dim}Si ves "Google no ha verificado esta aplicacion", pulsa Configuracion avanzada > Ir a JARVIS.${c.reset}`)
+  console.log(
+    `${c.dim}Si sale "Acceso bloqueado: el administrador de tu institucion debe revisar",${c.reset}`
+  )
+  console.log(
+    `${c.dim}esa cuenta es de un centro que no ha aprobado la app: prueba con una cuenta personal.${c.reset}`
+  )
 
   const code = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -405,8 +411,8 @@ async function main() {
     results.auth = true
   } catch (err) {
     fail(err.message)
-    info('Si el error menciona "blocked" o "admin", el colegio tiene bloqueadas las apps de terceros.')
-    info('En ese caso hay que hablar con el administrador o replantear el modulo de Classroom.')
+    info('Si viste "access_not_configured" o "Acceso bloqueado", el centro no ha aprobado la app.')
+    info('Solo un superadministrador del colegio puede arreglarlo. Ver la seccion del README.')
     printVerdict(results)
     process.exit(1)
   }
