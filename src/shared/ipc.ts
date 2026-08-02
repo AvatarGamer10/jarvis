@@ -2,6 +2,7 @@ import type {
   AuthStatus,
   Assignment,
   CalendarEvent,
+  ChatMessage,
   Result,
   SafeSettings,
   Settings
@@ -30,6 +31,12 @@ export interface JarvisApi {
   classroom: {
     list(force?: boolean): Promise<Result<Assignment[]>>
   }
+  agent: {
+    send(text: string): Promise<Result<ChatMessage[]>>
+    confirm(actionId: string, approved: boolean): Promise<Result<ChatMessage[]>>
+    reset(): Promise<Result<null>>
+    usage(): Promise<Result<{ callsToday: number }>>
+  }
   shell: {
     openExternal(url: string): Promise<Result<null>>
   }
@@ -44,5 +51,9 @@ export const Channels = {
   settingsUpdate: 'settings:update',
   calendarList: 'calendar:list',
   classroomList: 'classroom:list',
+  agentSend: 'agent:send',
+  agentConfirm: 'agent:confirm',
+  agentReset: 'agent:reset',
+  agentUsage: 'agent:usage',
   shellOpenExternal: 'shell:openExternal'
 } as const

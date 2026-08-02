@@ -43,6 +43,12 @@ body {
   height: 100%;
 }
 
+/* Pantalla en blanco mientras se decide la vista inicial. */
+.app-loading {
+  height: 100%;
+  background: var(--bg);
+}
+
 .sidebar {
   background: var(--bg-panel);
   border-right: 1px solid var(--border);
@@ -268,4 +274,106 @@ button.primary {
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
+}
+
+/* --- Chat ------------------------------------------------------------- */
+
+/* El chat gestiona su propio scroll: el contenedor no debe desplazarse. */
+.content:has(.chat) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bubble {
+  max-width: 78%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+}
+
+.bubble.thinking {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.bubble-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tool-trace {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.tool-trace .failed {
+  color: var(--danger);
+}
+
+.confirm-card {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+}
+
+.confirm-card ul {
+  margin: 8px 0 12px;
+  padding-left: 18px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+}
+
+.chat-input input {
+  flex: 1;
 }

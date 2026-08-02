@@ -1,3 +1,7 @@
+import { AgentService } from './agent/loop'
+import { GeminiProvider } from './agent/providers/gemini'
+import type { ToolContext } from './agent/tools'
+import { UsageCounter } from './agent/usage'
 import { GoogleAuth } from './auth/google-oauth'
 import { CalendarService } from './integrations/calendar'
 import { ClassroomService } from './integrations/classroom'
@@ -16,6 +20,8 @@ export interface Services {
   api: GoogleApi
   calendar: CalendarService
   classroom: ClassroomService
+  usage: UsageCounter
+  agent: AgentService
 }
 
 export function createServices(): Services {
@@ -24,12 +30,27 @@ export function createServices(): Services {
   const auth = new GoogleAuth(settings, secrets)
   const api = new GoogleApi(auth)
 
+  const calendar = new CalendarService(api)
+  const classroom = new ClassroomService(api)
+  const usage = new UsageCounter()
+
+  // La configuracion se lee en cada llamada, no al construir: asi cambiar la
+  // API key en Ajustes tiene efecto sin reiniciar la app.
+  const provider = new GeminiProvider(() => {
+    const current = settings.all()
+    return { apiKey: current.geminiApiKey, model: current.geminiModel }
+  }, usage)
+
+  const toolContext = (): ToolContext => ({ calendar, classroom })
+
   return {
     secrets,
     settings,
     auth,
     api,
-    calendar: new CalendarService(api),
-    classroom: new ClassroomService(api)
+    calendar,
+    classroom,
+    usage,
+    agent: new AgentService(provider, toolContext)
   }
 }

@@ -26,6 +26,13 @@ const api: JarvisApi = {
   classroom: {
     list: (force?: boolean) => ipcRenderer.invoke(Channels.classroomList, force ?? false)
   },
+  agent: {
+    send: (text: string) => ipcRenderer.invoke(Channels.agentSend, text),
+    confirm: (actionId: string, approved: boolean) =>
+      ipcRenderer.invoke(Channels.agentConfirm, actionId, approved),
+    reset: () => ipcRenderer.invoke(Channels.agentReset),
+    usage: () => ipcRenderer.invoke(Channels.agentUsage)
+  },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(Channels.shellOpenExternal, url)
   }

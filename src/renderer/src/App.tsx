@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Agenda from './views/Agenda'
 import Ajustes from './views/Ajustes'
 import Carpetas from './views/Carpetas'
@@ -16,7 +16,19 @@ const VIEWS = [
 type ViewId = (typeof VIEWS)[number]['id']
 
 export default function App(): JSX.Element {
-  const [view, setView] = useState<ViewId>('agenda')
+  // Hasta saber si hay sesion no pintamos nada: abrir en Agenda y saltar a
+  // Ajustes medio segundo despues se ve como un fallo.
+  const [view, setView] = useState<ViewId | null>(null)
+
+  useEffect(() => {
+    void window.jarvis.auth.status().then((result) => {
+      const connected = result.ok && result.data.connected
+      setView(connected ? 'agenda' : 'ajustes')
+    })
+  }, [])
+
+  if (view === null) return <div className="app-loading" />
+
   const active = VIEWS.find((v) => v.id === view) ?? VIEWS[0]
   const Current = active.component
 

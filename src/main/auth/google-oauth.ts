@@ -168,7 +168,9 @@ export class GoogleAuth {
 
   private async refresh(): Promise<string> {
     const refreshToken = this.secrets.get(SecretKeys.googleRefreshToken)
-    if (!refreshToken) throw new Error('No hay sesion de Google iniciada.')
+    if (!refreshToken) {
+      throw new Error('Ve a Ajustes y pulsa "Conectar con Google" para empezar.')
+    }
 
     const { googleClientId, googleClientSecret } = this.settings.all()
     const res = await fetch(TOKEN_ENDPOINT, {

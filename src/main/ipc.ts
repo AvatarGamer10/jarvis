@@ -25,7 +25,7 @@ function handle<Args extends unknown[], T>(
 }
 
 export function registerIpc(services: Services): void {
-  const { auth, settings, calendar, classroom } = services
+  const { auth, settings, calendar, classroom, agent, usage } = services
 
   // --- Autenticacion ---
   handle(Channels.authStatus, () => auth.status())
@@ -47,6 +47,17 @@ export function registerIpc(services: Services): void {
 
   // --- Classroom ---
   handle(Channels.classroomList, (force: boolean) => classroom.listAssignments(force))
+
+  // --- Agente ---
+  handle(Channels.agentSend, (text: string) => agent.send(text))
+  handle(Channels.agentConfirm, (actionId: string, approved: boolean) =>
+    agent.confirm(actionId, approved)
+  )
+  handle(Channels.agentReset, () => {
+    agent.reset()
+    return null
+  })
+  handle(Channels.agentUsage, () => ({ callsToday: usage.callsToday() }))
 
   // --- Sistema ---
   handle(Channels.shellOpenExternal, async (url: string) => {
