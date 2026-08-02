@@ -146,6 +146,18 @@ body::before {
   }
 }
 
+/* Entrada para elementos que ya usan `transform` para colocarse. */
+@keyframes orbit-in {
+  from {
+    opacity: 0;
+    filter: blur(7px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
 @keyframes pulse-ring {
   0% {
     box-shadow: 0 0 0 0 var(--signal-line);
@@ -193,6 +205,12 @@ body::before {
   position: absolute;
   width: 620px;
   height: 620px;
+  /* Se centra con margenes negativos, no con translate: `sweep` anima
+     transform y borraria el centrado al terminar. */
+  left: 50%;
+  top: 50%;
+  margin-left: -310px;
+  margin-top: -310px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(61, 143, 214, 0.13), transparent 62%);
   animation: sweep 1400ms var(--ease) both;
@@ -339,6 +357,16 @@ body::before {
   pointer-events: none;
 }
 
+/* La respiracion va en un envoltorio, no en la marca.
+   La marca usa `transform` para inclinarse hacia la seccion apuntada, y una
+   animacion sobre transform lo pisaria (mismo problema que en .orbit-item).
+   Separar los dos transforms en dos elementos es lo que hace que convivan. */
+.orbit-breath {
+  display: grid;
+  place-items: center;
+  animation: breathe 6s var(--ease-inout) infinite;
+}
+
 .orbit-mark {
   width: 92px;
   height: 92px;
@@ -346,7 +374,6 @@ body::before {
   transition:
     transform var(--dur-slow) var(--ease),
     filter var(--dur) var(--ease);
-  animation: breathe 6s var(--ease-inout) infinite;
 }
 
 .orbit-mark-text {
@@ -410,9 +437,13 @@ body::before {
   border-radius: 50%;
   background: rgba(18, 30, 46, 0.62);
   backdrop-filter: blur(16px);
-  color: var(--paper-dim);
   cursor: pointer;
-  animation: sweep 620ms var(--ease) both;
+  /* OJO: la animacion de entrada NO puede tocar `transform`.
+     La posicion en el circulo se define con transform, y una animacion con
+     fill-mode both lo sobrescribe al terminar (las animaciones ganan a las
+     declaraciones normales). Si se anima aqui el transform, los cinco botones
+     acaban apilados en el centro. Por eso `orbit-in` solo toca opacidad. */
+  animation: orbit-in 620ms var(--ease) both;
   /* Girar, alejarse del centro y desgirar: asi el elemento queda en su punto
      de la circunferencia pero sin salir inclinado. */
   transform: translate(-50%, -50%) rotate(var(--angle)) translate(var(--orbit-r))
@@ -438,6 +469,15 @@ body::before {
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  /* La etiqueta hereda el color de la seccion, algo mas apagada que el icono
+     para que el dibujo mande y el texto acompane. */
+  opacity: 0.78;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.orbit-item:hover .orbit-label,
+.orbit-item.is-on .orbit-label {
+  opacity: 1;
 }
 
 /* --- Movimiento dentro de cada icono --- */

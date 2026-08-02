@@ -51,30 +51,35 @@ export default function Hub({ onOpen }: Props): JSX.Element {
         />
 
         <div className="orbit-core">
-          {hasMark ? (
-            <img
-              className="orbit-mark"
-              src="./mark.png"
-              alt=""
-              onError={() => setHasMark(false)}
-              // La marca se inclina hacia lo que estas apuntando: el centro
-              // reacciona al anillo en vez de quedarse quieto.
-              style={{
-                transform:
-                  hovered === null
-                    ? undefined
-                    : `rotate(${orbitAngle(hovered, SECTIONS.length) / 22}deg) scale(1.05)`,
-                filter: active ? `drop-shadow(0 0 26px ${active.color}70)` : undefined
-              }}
-            />
-          ) : (
-            <div
-              className="orbit-mark orbit-mark-text"
-              style={{ color: active?.color, borderColor: active ? `${active.color}88` : undefined }}
-            >
-              J
-            </div>
-          )}
+          <div className="orbit-breath">
+            {hasMark ? (
+              <img
+                className="orbit-mark"
+                src="./mark.png"
+                alt=""
+                onError={() => setHasMark(false)}
+                // La marca se inclina hacia lo que estas apuntando: el centro
+                // reacciona al anillo en vez de quedarse quieto.
+                style={{
+                  transform:
+                    hovered === null
+                      ? undefined
+                      : `rotate(${orbitAngle(hovered, SECTIONS.length) / 22}deg) scale(1.05)`,
+                  filter: active ? `drop-shadow(0 0 26px ${active.color}70)` : undefined
+                }}
+              />
+            ) : (
+              <div
+                className="orbit-mark orbit-mark-text"
+                style={{
+                  color: active?.color,
+                  borderColor: active ? `${active.color}88` : undefined
+                }}
+              >
+                J
+              </div>
+            )}
+          </div>
 
           <div className="orbit-caption">
             <strong style={{ color: active?.color }}>{active?.label ?? 'JARVIS'}</strong>
@@ -97,11 +102,13 @@ export default function Hub({ onOpen }: Props): JSX.Element {
                   // El sitio en la circunferencia lo resuelve el CSS a partir
                   // del angulo; aqui solo va el color y el retardo de entrada.
                   '--angle': `${orbitAngle(index, SECTIONS.length)}deg`,
-                  color: isOn ? section.color : undefined,
-                  borderColor: isOn ? `${section.color}99` : undefined,
+                  // Cada seccion lleva su color siempre, no solo al apuntarla.
+                  // Al apuntar se intensifica: sube el borde y aparece el halo.
+                  color: section.color,
+                  borderColor: isOn ? `${section.color}cc` : `${section.color}4d`,
                   boxShadow: isOn
-                    ? `0 0 34px ${section.color}40, inset 0 0 18px ${section.color}18`
-                    : undefined,
+                    ? `0 0 38px ${section.color}45, inset 0 0 20px ${section.color}1f`
+                    : `inset 0 0 16px ${section.color}0f`,
                   animationDelay: `${140 + index * 80}ms`
                 } as CSSProperties
               }

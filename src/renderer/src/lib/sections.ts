@@ -21,9 +21,9 @@ export interface Section {
 export const SECTIONS: Section[] = [
   { id: 'chat', label: 'Chat', tagline: 'Pideme lo que necesites', color: '#3d8fd6' },
   { id: 'agenda', label: 'Agenda', tagline: 'Tu semana de un vistazo', color: '#8b6cf0' },
-  { id: 'tareas', label: 'Tareas', tagline: 'Lo que tienes que entregar', color: '#29be9b' },
-  { id: 'carpetas', label: 'Carpetas', tagline: 'Cada archivo en su sitio', color: '#d96ba8' },
-  { id: 'ajustes', label: 'Ajustes', tagline: 'Cuentas y apariencia', color: '#7a8ca8' }
+  { id: 'tareas', label: 'Tareas', tagline: 'Lo que tienes que entregar', color: '#3fcf8e' },
+  { id: 'carpetas', label: 'Carpetas', tagline: 'Cada archivo en su sitio', color: '#e066b0' },
+  { id: 'ajustes', label: 'Ajustes', tagline: 'Cuentas y apariencia', color: '#2fc8e0' }
 ]
 
 /**
