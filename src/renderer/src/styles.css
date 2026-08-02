@@ -1,0 +1,271 @@
+:root {
+  --bg: #0f1115;
+  --bg-panel: #161a21;
+  --bg-raised: #1d222b;
+  --border: #272d38;
+  --text: #e6e9ef;
+  --text-dim: #929aa8;
+  --accent: #4c8dff;
+  --accent-soft: rgba(76, 141, 255, 0.14);
+  --ok: #35c48a;
+  --warn: #e5a53d;
+  --danger: #f2604f;
+  --radius: 10px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Estructura ------------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Deja sitio a los botones de ventana de macOS. */
+  padding-top: env(titlebar-area-height, 18px);
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 6px 10px 16px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.nav-item:hover {
+  background: var(--bg-raised);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-spacer {
+  flex: 1;
+}
+
+.content {
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.page-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.page-subtitle {
+  margin: 0 0 24px;
+  color: var(--text-dim);
+}
+
+/* --- Componentes ------------------------------------------------------ */
+
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.card h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.field .hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+input[type='text'],
+input[type='password'],
+input[type='time'] {
+  width: 100%;
+  padding: 8px 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+}
+
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+button {
+  padding: 8px 15px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.ok {
+  background: rgba(53, 196, 138, 0.16);
+  color: var(--ok);
+}
+
+.badge.warn {
+  background: rgba(229, 165, 61, 0.16);
+  color: var(--warn);
+}
+
+.badge.danger {
+  background: rgba(242, 96, 79, 0.16);
+  color: var(--danger);
+}
+
+.badge.dim {
+  background: var(--bg-raised);
+  color: var(--text-dim);
+}
+
+.alert {
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+
+.alert.error {
+  background: rgba(242, 96, 79, 0.1);
+  border-color: rgba(242, 96, 79, 0.35);
+  color: #ffb3a8;
+}
+
+.alert.info {
+  background: var(--accent-soft);
+  border-color: rgba(76, 141, 255, 0.35);
+  color: #b6d0ff;
+}
+
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+.list-item .meta {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.empty {
+  color: var(--text-dim);
+  padding: 26px 0;
+  text-align: center;
+}
+
+.link {
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
