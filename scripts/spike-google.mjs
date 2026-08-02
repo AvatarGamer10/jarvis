@@ -175,10 +175,16 @@ async function authorize(clientId, clientSecret) {
   )
 
   const code = await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      server.close()
-      reject(new Error('Se agoto el tiempo de espera (5 min) sin completar el login.'))
-    }, 5 * 60 * 1000)
+    // 15 minutos: el flujo de Google tiene varias pantallas (elegir cuenta,
+    // aviso de app no verificada, lista de permisos) y con 5 minutos se
+    // quedaba corto en cuanto te distraias un momento.
+    const timeout = setTimeout(
+      () => {
+        server.close()
+        reject(new Error('Se agoto el tiempo de espera (15 min) sin completar el login.'))
+      },
+      15 * 60 * 1000
+    )
 
     server.on('request', (req, res) => {
       const url = new URL(req.url, redirectUri)

@@ -254,12 +254,15 @@ export class GoogleAuth {
     expectedState: string
   ): Promise<string> {
     return new Promise((resolve, reject) => {
+      // 15 minutos: el flujo de Google son varias pantallas y con 5 minutos
+      // caducaba en cuanto el usuario se paraba a leer el aviso de app no
+      // verificada.
       const timeout = setTimeout(
         () => {
           server.close()
-          reject(new Error('Se agoto el tiempo de espera del inicio de sesion (5 minutos).'))
+          reject(new Error('Se agoto el tiempo de espera del inicio de sesion (15 minutos).'))
         },
-        5 * 60 * 1000
+        15 * 60 * 1000
       )
 
       const finish = (fn: () => void): void => {
