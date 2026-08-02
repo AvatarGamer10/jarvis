@@ -1,0 +1,13 @@
+node_modules/
+out/
+dist/
+release/
+.env
+.env.local
+*.log
+
+# Credenciales y tokens del spike de Fase 0 - NUNCA subir esto
+.jarvis-spike-tokens.json
+
+.DS_Store
+Thumbs.db
