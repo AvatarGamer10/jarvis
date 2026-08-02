@@ -23,6 +23,9 @@ export class SettingsService {
       ollamaModel: '',
       dailyBriefTime: '07:30',
       dailyBriefEnabled: true,
+      onboardingDone: false,
+      soundEnabled: true,
+      glassEnabled: true,
       managedRoots: defaultRoots()
     })
   }

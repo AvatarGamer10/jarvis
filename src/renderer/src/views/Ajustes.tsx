@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AuthStatus, LlmProviderId, SafeSettings } from '@shared/types'
+import { sound } from '../lib/sound'
 import { useAsync } from '../lib/useAsync'
 
 export default function Ajustes(): JSX.Element {
@@ -75,6 +76,32 @@ export default function Ajustes(): JSX.Element {
       setMessage({ kind: 'error', text: result.error })
     }
     setBusy(false)
+  }
+
+  /**
+   * Los ajustes de apariencia se aplican al pulsar, sin pasar por Guardar.
+   * Son cambios que se ven al instante: pedir una confirmacion aparte para
+   * algo reversible y visible seria un paso de mas.
+   */
+  const toggleGlass = async (): Promise<void> => {
+    const next = !(settings?.glassEnabled ?? true)
+    document.documentElement.dataset.glass = next ? 'on' : 'off'
+    const updated = await window.jarvis.settings.update({ glassEnabled: next })
+    if (updated.ok) settingsState.reload()
+  }
+
+  const toggleSound = async (): Promise<void> => {
+    const next = !(settings?.soundEnabled ?? true)
+    sound.setEnabled(next)
+    // Se oye el que acabas de activar: la respuesta al ajuste es el ajuste.
+    if (next) sound.play('confirm')
+    const updated = await window.jarvis.settings.update({ soundEnabled: next })
+    if (updated.ok) settingsState.reload()
+  }
+
+  const replayIntro = async (): Promise<void> => {
+    await window.jarvis.settings.update({ onboardingDone: false })
+    setMessage({ kind: 'info', text: 'La veras la proxima vez que abras JARVIS.' })
   }
 
   const connect = async (): Promise<void> => {
@@ -270,6 +297,41 @@ export default function Ajustes(): JSX.Element {
             </div>
           </>
         )}
+      </div>
+
+      <div className="card">
+        <h3>Apariencia</h3>
+
+        <div className="list-item">
+          <div>
+            <div>Ventana translucida</div>
+            <div className="meta">Se intuye el escritorio detras de la app.</div>
+          </div>
+          <button
+            onClick={() => void toggleGlass()}
+            aria-pressed={settings?.glassEnabled ?? true}
+          >
+            {settings?.glassEnabled ? 'Activada' : 'Desactivada'}
+          </button>
+        </div>
+
+        <div className="list-item">
+          <div>
+            <div>Sonidos</div>
+            <div className="meta">Avisos cortos al confirmar, cancelar y completar.</div>
+          </div>
+          <button onClick={() => void toggleSound()} aria-pressed={settings?.soundEnabled ?? true}>
+            {settings?.soundEnabled ? 'Activados' : 'Desactivados'}
+          </button>
+        </div>
+
+        <div className="list-item">
+          <div>
+            <div>Pantalla de bienvenida</div>
+            <div className="meta">Volver a verla la proxima vez que abras JARVIS.</div>
+          </div>
+          <button onClick={() => void replayIntro()}>Mostrar</button>
+        </div>
       </div>
 
       <div className="card">

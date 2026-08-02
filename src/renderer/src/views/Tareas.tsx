@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Assignment, ManualTask, SubmissionState } from '@shared/types'
+import { sound } from '../lib/sound'
+import { dueLabel, urgencyOf } from '../lib/urgency'
 
 const BADGE: Record<SubmissionState, string> = {
   PENDIENTE: 'warn',
@@ -7,24 +9,6 @@ const BADGE: Record<SubmissionState, string> = {
   ENTREGADA: 'ok',
   DEVUELTA: 'ok',
   DESCONOCIDA: 'dim'
-}
-
-function daysLeft(dueDate: string | null): number | null {
-  if (!dueDate) return null
-  const startOfToday = new Date()
-  startOfToday.setHours(0, 0, 0, 0)
-  const due = new Date(dueDate)
-  due.setHours(0, 0, 0, 0)
-  return Math.round((due.getTime() - startOfToday.getTime()) / 86_400_000)
-}
-
-function dueLabel(dueDate: string | null): string {
-  const days = daysLeft(dueDate)
-  if (days === null) return 'Sin fecha'
-  if (days === 0) return 'Hoy'
-  if (days === 1) return 'Manana'
-  if (days < 0) return `Hace ${Math.abs(days)} dia(s)`
-  return `En ${days} dias`
 }
 
 export default function Tareas(): JSX.Element {
@@ -79,6 +63,7 @@ export default function Tareas(): JSX.Element {
     })
 
     if (result.ok) {
+      sound.play('confirm')
       setTitle('')
       setSubject('')
       setDue('')
@@ -90,11 +75,14 @@ export default function Tareas(): JSX.Element {
   }
 
   const toggle = async (task: ManualTask): Promise<void> => {
+    // Solo suena al completar. Deshacer no es un logro.
+    if (!task.done) sound.play('done')
     await window.jarvis.tasks.update(task.id, { done: !task.done })
     await load()
   }
 
   const remove = async (id: string): Promise<void> => {
+    sound.play('cancel')
     await window.jarvis.tasks.remove(id)
     await load()
   }
@@ -166,18 +154,17 @@ export default function Tareas(): JSX.Element {
             ) : (
               <>
                 {pendingManual.map((task) => (
-                  <div className="list-item" key={task.id}>
+                  <div className="list-item" key={task.id} data-urgency={urgencyOf(task.dueDate)}>
                     <div>
                       <div>{task.title}</div>
-                      <div className="meta">
-                        {task.subject ? `${task.subject} · ` : ''}
-                        {dueLabel(task.dueDate)}
+                      <div className="row" style={{ gap: 8, marginTop: 3 }}>
+                        <span className="due" data-urgency={urgencyOf(task.dueDate)}>
+                          {dueLabel(task.dueDate)}
+                        </span>
+                        {task.subject && <span className="meta">{task.subject}</span>}
                       </div>
                     </div>
                     <div className="row" style={{ flexWrap: 'nowrap' }}>
-                      {daysLeft(task.dueDate) !== null && daysLeft(task.dueDate)! < 0 && (
-                        <span className="badge danger">ATRASADA</span>
-                      )}
                       <button onClick={() => void toggle(task)}>Hecha</button>
                       <button onClick={() => void remove(task.id)}>Borrar</button>
                     </div>
@@ -185,11 +172,15 @@ export default function Tareas(): JSX.Element {
                 ))}
 
                 {pendingClassroom.map((a) => (
-                  <div className="list-item" key={a.id}>
+                  <div className="list-item" key={a.id} data-urgency={urgencyOf(a.dueDate)}>
                     <div>
                       <div>{a.title}</div>
-                      <div className="meta">
-                        {a.courseName} · {dueLabel(a.dueDate)} · Classroom
+                      <div className="row" style={{ gap: 8, marginTop: 3 }}>
+                        <span className="due" data-urgency={urgencyOf(a.dueDate)}>
+                          {dueLabel(a.dueDate)}
+                        </span>
+                        <span className="meta">{a.courseName}</span>
+                        <span className="badge dim">Classroom</span>
                       </div>
                     </div>
                     <div className="row" style={{ flexWrap: 'nowrap' }}>

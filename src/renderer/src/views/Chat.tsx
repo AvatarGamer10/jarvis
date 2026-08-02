@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '@shared/types'
+import { sound } from '../lib/sound'
 
 const SUGGESTIONS = [
   '¿Que tengo esta semana?',
@@ -51,6 +52,7 @@ export default function Chat(): JSX.Element {
   }
 
   const resolve = async (actionId: string, approved: boolean): Promise<void> => {
+    sound.play(approved ? 'confirm' : 'cancel')
     setBusy(true)
     setError(null)
 

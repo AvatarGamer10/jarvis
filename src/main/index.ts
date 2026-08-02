@@ -27,6 +27,32 @@ function applyContentSecurityPolicy(): void {
   })
 }
 
+/**
+ * Translucidez nativa de la ventana.
+ *
+ * Windows 11 y macOS tienen materiales de sistema distintos, y ninguno de los
+ * dos se consigue solo con CSS: `backdrop-filter` difumina lo que hay dentro de
+ * la app, no el escritorio de detras. Para eso hace falta pedirselo al sistema.
+ *
+ * Si la version del SO no lo soporta, Electron ignora la opcion y queda el
+ * color de fondo solido, que tambien es una interfaz valida.
+ */
+function glassOptions(): Electron.BrowserWindowConstructorOptions {
+  if (process.platform === 'win32') {
+    // El material solo se ve si el fondo es transparente del todo.
+    return { backgroundColor: '#00000000', backgroundMaterial: 'acrylic' }
+  }
+  if (process.platform === 'darwin') {
+    return {
+      backgroundColor: '#00000000',
+      vibrancy: 'under-window',
+      visualEffectState: 'active',
+      titleBarStyle: 'hiddenInset'
+    }
+  }
+  return { backgroundColor: '#080A0F' }
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1180,
@@ -36,9 +62,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: 'JARVIS',
-    backgroundColor: '#0f1115',
-    // En macOS queda mejor con la barra de titulo integrada.
-    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : {}),
+    ...glassOptions(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       // Las tres lineas que mantienen el renderer aislado del sistema.

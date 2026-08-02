@@ -30,6 +30,12 @@ export interface Settings {
   /** Hora del resumen diario en formato HH:mm. */
   dailyBriefTime: string
   dailyBriefEnabled: boolean
+  /** Se pone a true al terminar la pantalla de bienvenida. */
+  onboardingDone: boolean
+  /** Sonidos de interfaz. Se sintetizan, no hay ficheros de audio. */
+  soundEnabled: boolean
+  /** Translucidez de la ventana. Se puede apagar si molesta al leer. */
+  glassEnabled: boolean
   /** Carpetas dentro de las cuales el organizador tiene permiso para mover archivos. */
   managedRoots: string[]
 }
