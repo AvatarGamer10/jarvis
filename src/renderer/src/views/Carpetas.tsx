@@ -128,7 +128,6 @@ export default function Carpetas(): JSX.Element {
 
   return (
     <>
-      <h1 className="page-title">Carpetas</h1>
       <p className="page-subtitle">Reglas para mantener tus archivos del colegio en su sitio.</p>
 
       {message && <div className={`alert ${message.kind}`}>{message.text}</div>}

@@ -81,7 +81,6 @@ export default function Chat(): JSX.Element {
     <div className="chat">
       <div className="chat-header">
         <div>
-          <h1 className="page-title">Chat</h1>
           <p className="page-subtitle" style={{ marginBottom: 0 }}>
             {calls > 0 ? `${calls} llamada(s) al modelo hoy` : 'Pideme lo que necesites'}
           </p>

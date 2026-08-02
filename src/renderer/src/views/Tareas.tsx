@@ -95,7 +95,6 @@ export default function Tareas(): JSX.Element {
 
   return (
     <>
-      <h1 className="page-title">Tareas</h1>
       <p className="page-subtitle">Lo tuyo apuntado a mano, y lo de Classroom cuando este disponible.</p>
 
       {error && <div className="alert error">{error}</div>}

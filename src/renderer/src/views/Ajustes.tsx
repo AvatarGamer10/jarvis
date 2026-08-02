@@ -129,7 +129,6 @@ export default function Ajustes(): JSX.Element {
 
   return (
     <>
-      <h1 className="page-title">Ajustes</h1>
       <p className="page-subtitle">Credenciales y comportamiento del asistente.</p>
 
       {message && <div className={`alert ${message.kind}`}>{message.text}</div>}

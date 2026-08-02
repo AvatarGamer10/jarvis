@@ -1,26 +1,28 @@
 import { useEffect, useState } from 'react'
 import type { SafeSettings } from '@shared/types'
+import { SECTIONS, type SectionId } from './lib/sections'
 import { sound } from './lib/sound'
 import Agenda from './views/Agenda'
 import Ajustes from './views/Ajustes'
 import Carpetas from './views/Carpetas'
 import Chat from './views/Chat'
+import Hub from './views/Hub'
 import Onboarding from './views/Onboarding'
 import Tareas from './views/Tareas'
 
-const VIEWS = [
-  { id: 'chat', label: 'Chat', icon: '◆', component: Chat },
-  { id: 'agenda', label: 'Agenda', icon: '▦', component: Agenda },
-  { id: 'tareas', label: 'Tareas', icon: '✓', component: Tareas },
-  { id: 'carpetas', label: 'Carpetas', icon: '▤', component: Carpetas },
-  { id: 'ajustes', label: 'Ajustes', icon: '⚙', component: Ajustes }
-] as const
-
-type ViewId = (typeof VIEWS)[number]['id']
+const COMPONENTS: Record<SectionId, () => JSX.Element> = {
+  chat: Chat,
+  agenda: Agenda,
+  tareas: Tareas,
+  carpetas: Carpetas,
+  ajustes: Ajustes
+}
 
 export default function App(): JSX.Element {
   const [settings, setSettings] = useState<SafeSettings | null>(null)
-  const [view, setView] = useState<ViewId | null>(null)
+  const [ready, setReady] = useState(false)
+  /** null = el menu radial. */
+  const [section, setSection] = useState<SectionId | null>(null)
   const [hasMark, setHasMark] = useState(true)
 
   useEffect(() => {
@@ -36,77 +38,69 @@ export default function App(): JSX.Element {
         document.documentElement.dataset.glass = s.data.glassEnabled ? 'on' : 'off'
       }
 
-      // Sin sesion no tiene sentido abrir en Agenda: solo veria un error.
+      // Sin cuenta conectada se entra directo a Ajustes: el anillo lleno de
+      // secciones que aun no funcionan no ayuda a nadie.
       const connected = auth.ok && auth.data.connected
-      setView(connected ? 'agenda' : 'ajustes')
+      setSection(connected ? null : 'ajustes')
+      setReady(true)
     })()
   }, [])
+
+  // Escape siempre devuelve al anillo. Es la unica tecla que hace falta
+  // aprenderse, y se anuncia en la barra de cada seccion.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || section === null) return
+      sound.play('nav')
+      setSection(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [section])
 
   const finishOnboarding = async (): Promise<void> => {
     const updated = await window.jarvis.settings.update({ onboardingDone: true })
     if (updated.ok) setSettings(updated.data)
   }
 
-  const go = (id: ViewId): void => {
-    if (id === view) return
+  const backToHub = (): void => {
     sound.play('nav')
-    setView(id)
+    setSection(null)
   }
 
-  // Nada se pinta hasta saber que toca: abrir en una vista y saltar a otra
-  // medio segundo despues se lee como un fallo, no como una carga.
-  if (!settings || view === null) return <div className="app-loading" />
+  if (!settings || !ready) return <div className="app-loading" />
 
   if (!settings.onboardingDone) return <Onboarding onDone={finishOnboarding} />
 
-  const active = VIEWS.find((v) => v.id === view) ?? VIEWS[0]
-  const Current = active.component
+  if (section === null) {
+    return (
+      <div className="app">
+        <Hub onOpen={setSection} />
+      </div>
+    )
+  }
+
+  const current = SECTIONS.find((s) => s.id === section) ?? SECTIONS[0]
+  const Current = COMPONENTS[current.id]
 
   return (
     <div className="app">
-      <nav className="sidebar">
-        <div className="brand-row">
-          {hasMark && (
-            <img
-              className="brand-logo"
-              src="./mark.png"
-              alt=""
-              onError={() => setHasMark(false)}
-            />
-          )}
-          <span className="brand">JARVIS</span>
-        </div>
-
-        {VIEWS.slice(0, 4).map((item, index) => (
-          <button
-            key={item.id}
-            className={`nav-item ${view === item.id ? 'active' : ''}`}
-            style={{ animationDelay: `${60 + index * 45}ms` }}
-            onClick={() => go(item.id)}
-          >
-            <span className="nav-icon" aria-hidden="true">
-              {item.icon}
-            </span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-
-        <div className="nav-spacer" />
-
-        <button
-          className={`nav-item ${view === 'ajustes' ? 'active' : ''}`}
-          onClick={() => go('ajustes')}
-        >
-          <span className="nav-icon" aria-hidden="true">
-            ⚙
-          </span>
-          <span>Ajustes</span>
+      <header className="topbar">
+        <button className="back-mark" onClick={backToHub}>
+          {hasMark && <img src="./mark.png" alt="" onError={() => setHasMark(false)} />}
+          <span>Menu</span>
         </button>
-      </nav>
+
+        <span className="topbar-title" style={{ color: current.color }}>
+          {current.label}
+        </span>
+
+        <span className="topbar-hint">ESC</span>
+      </header>
 
       <main className="content">
         {/* La key fuerza que la animacion de entrada se repita en cada cambio. */}
-        <div className="view" key={view}>
+        <div className="view" key={current.id}>
           <Current />
         </div>
       </main>

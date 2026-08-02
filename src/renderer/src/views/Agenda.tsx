@@ -37,7 +37,6 @@ export default function Agenda(): JSX.Element {
 
   return (
     <>
-      <h1 className="page-title">Agenda</h1>
       <p className="page-subtitle">Los proximos 7 dias de tu calendario principal.</p>
 
       {error && (
