@@ -85,6 +85,25 @@ body {
   overflow: hidden;
 }
 
+/* Fondo de marca.
+   Va muy oscurecido, desaturado y desenfocado a proposito. A plena intensidad
+   sus naranjas competirian con la rampa de urgencia (donde el naranja significa
+   "vence hoy") y dejarian el texto ilegible. Asi aporta color y profundidad sin
+   disputarle protagonismo a nada.
+   Si el fichero no existe, esta capa simplemente no pinta nada. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: -20px;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url('./fondo.png');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.3;
+  filter: saturate(0.62) brightness(0.42) blur(3px);
+}
+
 /* Cuadricula de cuaderno. Casi invisible: se nota, no se mira. */
 body::before {
   content: '';
@@ -95,7 +114,8 @@ body::before {
     linear-gradient(to right, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
   background-size: 23px 23px;
-  z-index: 0;
+  /* Por encima del fondo, por debajo del contenido. */
+  z-index: 1;
 }
 
 /* Si el usuario apaga el vidrio en Ajustes, todo pasa a solido. */
@@ -187,7 +207,8 @@ body::before {
 
 .intro {
   position: relative;
-  z-index: 1;
+  /* Por encima del fondo de marca y de la cuadricula. */
+  z-index: 2;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -301,7 +322,8 @@ body::before {
 
 .app {
   position: relative;
-  z-index: 1;
+  /* Por encima del fondo de marca y de la cuadricula. */
+  z-index: 2;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -462,6 +484,14 @@ body::before {
   /* Se separa del centro al apuntarlo: sale del anillo hacia ti. */
   transform: translate(-50%, -50%) rotate(var(--angle)) translate(calc(var(--orbit-r) * 1.08))
     rotate(calc(var(--angle) * -1));
+}
+
+/* El hundido al pulsar conserva la posicion en la circunferencia: el `scale`
+   se anade al final del encadenado en vez de sustituirlo. Va despues de
+   :hover para ganarle a igualdad de especificidad. */
+.orbit-item:active {
+  transform: translate(-50%, -50%) rotate(var(--angle)) translate(calc(var(--orbit-r) * 1.04))
+    rotate(calc(var(--angle) * -1)) scale(0.96);
 }
 
 .orbit-label {
@@ -813,7 +843,11 @@ button:hover:not(:disabled) {
   background: rgba(61, 143, 214, 0.09);
 }
 
-button:active:not(:disabled) {
+/* Los elementos del anillo quedan fuera: se colocan con `transform`, y este
+   `scale` los mandaria al centro justo al pulsar. Al saltar de debajo del
+   cursor, el mouseup cae en otro sitio y el clic no llega a generarse.
+   Tienen su propio :active mas abajo. */
+button:active:not(:disabled):not(.orbit-item) {
   transform: scale(0.975);
 }
 
