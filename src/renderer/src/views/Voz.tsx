@@ -1,23 +1,24 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '@shared/types'
-import { grabar, MicrofonoNoDisponible, type Grabacion } from '../lib/microfono'
+import { BANDAS, grabar, MicrofonoNoDisponible, type Grabacion } from '../lib/microfono'
 import { sound } from '../lib/sound'
-import {
-  cargarModelo,
-  modeloListo,
-  transcribir,
-  type ProgresoModelo
-} from '../lib/transcripcion'
+import { cargarModelo, modeloListo, transcribir, type ProgresoModelo } from '../lib/transcripcion'
 import { tts } from '../lib/tts'
 
 type Fase = 'reposo' | 'escuchando' | 'transcribiendo' | 'pensando' | 'hablando'
 
 const TEXTO_FASE: Record<Fase, string> = {
   reposo: 'Manten pulsado para hablar',
-  escuchando: 'Te escucho…',
-  transcribiendo: 'Entendiendo lo que has dicho…',
-  pensando: 'Pensando…',
+  escuchando: 'Te escucho',
+  transcribiendo: 'Entendiendo lo que has dicho',
+  pensando: 'Pensando',
   hablando: 'Respondiendo'
+}
+
+interface Turno {
+  id: string
+  quien: 'tu' | 'jarvis'
+  texto: string
 }
 
 /**
@@ -30,14 +31,14 @@ const TEXTO_FASE: Record<Fase, string> = {
  */
 export default function Voz(): JSX.Element {
   const [fase, setFase] = useState<Fase>('reposo')
-  const [dicho, setDicho] = useState('')
-  const [respuesta, setRespuesta] = useState('')
+  const [turnos, setTurnos] = useState<Turno[]>([])
   const [error, setError] = useState<string | null>(null)
   const [modelo, setModelo] = useState<ProgresoModelo | null>(null)
-  const [nivel, setNivel] = useState(0)
+  const [barras, setBarras] = useState<number[]>(() => new Array(BANDAS).fill(0))
 
   const grabacion = useRef<Grabacion | null>(null)
   const animacion = useRef<number | null>(null)
+  const fondo = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     tts.preparar()
@@ -48,12 +49,20 @@ export default function Voz(): JSX.Element {
     }
   }, [])
 
+  // La conversacion crece hacia abajo, asi que se sigue al ultimo turno.
+  useEffect(() => {
+    fondo.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [turnos, fase])
+
+  const anadir = (quien: Turno['quien'], texto: string): void =>
+    setTurnos((previos) => [...previos, { id: crypto.randomUUID(), quien, texto }])
+
   const prepararModelo = async (): Promise<void> => {
     setError(null)
     try {
       await cargarModelo(setModelo)
     } catch {
-      // El estado de error ya lo ha publicado cargarModelo.
+      // cargarModelo ya ha publicado el estado de error.
     }
   }
 
@@ -61,15 +70,15 @@ export default function Voz(): JSX.Element {
     if (fase !== 'reposo') return
 
     setError(null)
-    setDicho('')
-    setRespuesta('')
     tts.callar()
 
     try {
       grabacion.current = await grabar()
     } catch (err) {
       setError(
-        err instanceof MicrofonoNoDisponible ? err.message : `No se pudo grabar: ${(err as Error).message}`
+        err instanceof MicrofonoNoDisponible
+          ? err.message
+          : `No se pudo grabar: ${(err as Error).message}`
       )
       return
     }
@@ -77,11 +86,11 @@ export default function Voz(): JSX.Element {
     sound.play('nav')
     setFase('escuchando')
 
-    // El nivel se lee por fotograma, no con un temporizador: asi el indicador
-    // va sincronizado con el repintado y no da tirones.
+    // Por fotograma y no con temporizador: asi el visualizador va sincronizado
+    // con el repintado y no da tirones.
     const medir = (): void => {
       if (!grabacion.current) return
-      setNivel(grabacion.current.nivel())
+      setBarras(grabacion.current.bandas())
       animacion.current = requestAnimationFrame(medir)
     }
     medir()
@@ -91,7 +100,7 @@ export default function Voz(): JSX.Element {
     if (fase !== 'escuchando' || !grabacion.current) return
 
     if (animacion.current) cancelAnimationFrame(animacion.current)
-    setNivel(0)
+    setBarras(new Array(BANDAS).fill(0))
     setFase('transcribiendo')
 
     let texto = ''
@@ -111,7 +120,7 @@ export default function Voz(): JSX.Element {
       return
     }
 
-    setDicho(texto)
+    anadir('tu', texto)
     setFase('pensando')
 
     const resultado = await window.jarvis.agent.send(texto)
@@ -122,13 +131,13 @@ export default function Voz(): JSX.Element {
     }
 
     const contestacion = ultimaRespuesta(resultado.data)
-    setRespuesta(contestacion)
+    anadir('jarvis', contestacion)
     setFase('hablando')
     tts.hablar(contestacion, () => setFase('reposo'))
   }
 
   // Barra espaciadora como alternativa al raton, sin capturarla si el foco
-  // esta en un campo de texto de otra parte de la app.
+  // esta en un campo de texto.
   useEffect(() => {
     const abajo = (e: KeyboardEvent): void => {
       if (e.code !== 'Space' || e.repeat) return
@@ -137,8 +146,7 @@ export default function Voz(): JSX.Element {
       void empezar()
     }
     const arriba = (e: KeyboardEvent): void => {
-      if (e.code !== 'Space') return
-      void terminar()
+      if (e.code === 'Space') void terminar()
     }
     window.addEventListener('keydown', abajo)
     window.addEventListener('keyup', arriba)
@@ -150,83 +158,136 @@ export default function Voz(): JSX.Element {
 
   const listo = modeloListo() || modelo?.fase === 'listo'
   const descargando = modelo?.fase === 'descargando'
+  const trabajando = fase === 'transcribiendo' || fase === 'pensando'
+
+  if (!listo) {
+    return (
+      <div className="voz-vacio">
+        <MicroSvg grande />
+        <h3 className="voz-titulo">Hablar con JARVIS</h3>
+        <p className="voz-explica">
+          Para entenderte, JARVIS necesita un modelo de voz que funciona dentro de tu ordenador.
+          Se descarga una vez, ocupa unos 145 MB, y despues no necesita internet.
+        </p>
+
+        {descargando ? (
+          <div className="voz-descarga">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <span className="meta">{modelo?.mensaje}</span>
+              <span className="mono">{modelo?.porcentaje}%</span>
+            </div>
+            <div className="update-bar" style={{ marginTop: 8 }}>
+              <div className="update-bar-fill" style={{ width: `${modelo?.porcentaje ?? 0}%` }} />
+            </div>
+          </div>
+        ) : (
+          <>
+            {modelo?.fase === 'error' && <div className="alert error">{modelo.mensaje}</div>}
+            <button className="primary" onClick={prepararModelo}>
+              Descargar el modelo de voz
+            </button>
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
-    <>
-      <p className="page-subtitle">Habla y te contesta. Todo se procesa en tu ordenador.</p>
+    <div className="voz-pantalla">
+      <div className="voz-hilo">
+        {turnos.length === 0 && (
+          <div className="voz-sugerencias">
+            <p className="meta">Prueba a decirle:</p>
+            {['¿Que tareas tengo?', '¿Que tengo manana?', 'Apunta que tengo examen el viernes'].map(
+              (s) => (
+                <span key={s} className="voz-sugerencia">
+                  {s}
+                </span>
+              )
+            )}
+          </div>
+        )}
+
+        {turnos.map((t) => (
+          <div key={t.id} className={`voz-turno ${t.quien}`}>
+            <span className="voz-quien">{t.quien === 'tu' ? 'Tu' : 'JARVIS'}</span>
+            <p>{t.texto}</p>
+            {t.quien === 'jarvis' && (
+              <button className="link" onClick={() => tts.hablar(t.texto)}>
+                Repetir
+              </button>
+            )}
+          </div>
+        ))}
+
+        <div ref={fondo} />
+      </div>
 
       {error && <div className="alert error">{error}</div>}
 
-      {!listo && (
-        <div className="card">
-          <h3>Primero, la voz</h3>
-          {descargando ? (
-            <>
-              <p className="meta" style={{ marginTop: 0 }}>
-                {modelo?.mensaje} · {modelo?.porcentaje}%
-              </p>
-              <div className="update-bar">
-                <div className="update-bar-fill" style={{ width: `${modelo?.porcentaje ?? 0}%` }} />
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="meta" style={{ marginTop: 0 }}>
-                Para entenderte hace falta descargar el modelo de voz una sola vez. Son unos 145
-                MB y tarda un par de minutos. Despues funciona sin internet.
-              </p>
-              {modelo?.fase === 'error' && <p className="hint intro-error">{modelo.mensaje}</p>}
-              <button className="primary" onClick={prepararModelo} style={{ marginTop: 12 }}>
-                Descargar el modelo de voz
-              </button>
-            </>
-          )}
+      <div className="voz-control">
+        <div className={`voz-barras ${fase === 'escuchando' ? 'activo' : ''}`} aria-hidden="true">
+          {barras.map((valor, i) => (
+            <span
+              key={i}
+              style={{
+                // Altura minima para que las barras existan en silencio; sin
+                // ella el visualizador desaparece y parece que se ha roto.
+                transform: `scaleY(${0.12 + valor * 0.88})`
+              }}
+            />
+          ))}
         </div>
-      )}
 
-      <div className="voz">
         <button
-          className={`voz-boton ${fase === 'escuchando' ? 'activo' : ''}`}
-          disabled={!listo || (fase !== 'reposo' && fase !== 'escuchando')}
+          className={`voz-boton ${fase}`}
+          disabled={trabajando}
           onMouseDown={empezar}
           onMouseUp={terminar}
           onMouseLeave={() => fase === 'escuchando' && void terminar()}
           aria-label="Manten pulsado para hablar"
         >
-          {/* El anillo crece con la voz: se ve que te esta oyendo de verdad. */}
-          <span
-            className="voz-onda"
-            style={{ transform: `scale(${1 + nivel * 0.85})`, opacity: 0.25 + nivel * 0.6 }}
-          />
-          <span className="voz-icono" aria-hidden="true">
-            {fase === 'escuchando' ? '●' : '🎙'}
-          </span>
+          <MicroSvg />
         </button>
 
-        <p className={`voz-estado ${fase !== 'reposo' ? 'trabajando' : ''}`}>{TEXTO_FASE[fase]}</p>
-        {listo && fase === 'reposo' && (
-          <p className="hint">Tambien vale mantener la barra espaciadora.</p>
+        <p className={`voz-estado ${fase !== 'reposo' ? 'trabajando' : ''}`}>
+          {TEXTO_FASE[fase]}
+          {trabajando && <span className="voz-puntos" aria-hidden="true" />}
+        </p>
+
+        {fase === 'reposo' && (
+          <p className="hint">
+            o manten <kbd>Espacio</kbd>
+          </p>
+        )}
+        {fase === 'hablando' && (
+          <button className="link" onClick={() => { tts.callar(); setFase('reposo') }}>
+            Callar
+          </button>
         )}
       </div>
+    </div>
+  )
+}
 
-      {dicho && (
-        <div className="card">
-          <h3>Has dicho</h3>
-          <p style={{ margin: 0 }}>{dicho}</p>
-        </div>
-      )}
-
-      {respuesta && (
-        <div className="card">
-          <h3>JARVIS</h3>
-          <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{respuesta}</p>
-          <div className="row" style={{ marginTop: 12 }}>
-            <button onClick={() => tts.hablar(respuesta)}>Repetir</button>
-            <button onClick={() => tts.callar()}>Callar</button>
-          </div>
-        </div>
-      )}
-    </>
+/** Microfono en SVG, no emoji: el resto de iconos de la app tambien lo son. */
+function MicroSvg({ grande }: { grande?: boolean }): JSX.Element {
+  const lado = grande ? 44 : 30
+  return (
+    <svg
+      width={lado}
+      height={lado}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="2.6" width="6" height="11" rx="3" />
+      <path d="M5.5 11.2a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.7v3.7" />
+    </svg>
   )
 }
 

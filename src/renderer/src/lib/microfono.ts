@@ -11,9 +11,20 @@
 /** Lo que espera Whisper. No es negociable: el modelo se entreno a 16 kHz. */
 const FRECUENCIA = 16_000
 
+/** Cuantas barras tiene el visualizador. */
+export const BANDAS = 13
+
 export interface Grabacion {
   /** Nivel de sonido actual, de 0 a 1, para pintar el indicador. */
   nivel(): number
+  /**
+   * Energia por banda de frecuencia, de 0 a 1.
+   *
+   * Un solo numero solo dice "hay ruido"; repartirlo por frecuencias hace que
+   * el visualizador se mueva distinto con cada palabra, y eso es lo que da la
+   * sensacion de que te esta oyendo a ti y no a la habitacion.
+   */
+  bandas(): number[]
   /** Detiene y devuelve el audio listo para transcribir. */
   detener(): Promise<Float32Array>
   /** Corta sin devolver nada. */
@@ -56,8 +67,11 @@ export async function grabar(): Promise<Grabacion> {
   const fuente = contexto.createMediaStreamSource(stream)
   const analizador = contexto.createAnalyser()
   analizador.fftSize = 512
+  // Suaviza los saltos entre fotogramas: sin esto el visualizador tiembla.
+  analizador.smoothingTimeConstant = 0.72
   fuente.connect(analizador)
   const muestras = new Uint8Array(analizador.frequencyBinCount)
+  const espectro = new Uint8Array(analizador.frequencyBinCount)
 
   const trozos: Blob[] = []
   const grabadora = new MediaRecorder(stream)
@@ -78,6 +92,28 @@ export async function grabar(): Promise<Grabacion> {
       let suma = 0
       for (const m of muestras) suma += Math.abs(m - 128)
       return Math.min(1, suma / muestras.length / 40)
+    },
+
+    bandas() {
+      analizador.getByteFrequencyData(espectro)
+
+      // La voz vive en los graves y medios; la mitad alta del espectro es
+      // practicamente siempre silencio y dejaria media barra plana siempre.
+      const util = Math.floor(espectro.length * 0.55)
+      const porBanda = Math.floor(util / BANDAS)
+      const salida: number[] = []
+
+      for (let b = 0; b < BANDAS; b++) {
+        let suma = 0
+        for (let i = 0; i < porBanda; i++) suma += espectro[b * porBanda + i]
+        const media = suma / porBanda / 255
+
+        // Realce de las bandas altas: sin esto solo se moverian las primeras
+        // barras y el visualizador pareceria roto.
+        salida.push(Math.min(1, media * (1 + b * 0.14)))
+      }
+
+      return salida
     },
 
     cancelar() {
