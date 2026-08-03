@@ -10,7 +10,8 @@ import type {
   Result,
   SafeSettings,
   Settings,
-  UndoBatch
+  UndoBatch,
+  UpdateState
 } from './types'
 
 export interface ApplyOutcomeDto {
@@ -73,6 +74,14 @@ export interface JarvisApi {
     /** `withSummary` en false evita la llamada al modelo, que es lo lento. */
     get(withSummary?: boolean): Promise<Result<DailyBrief>>
   }
+  updater: {
+    /** Estado actual, para pintar algo nada mas abrir sin esperar eventos. */
+    get(): Promise<Result<UpdateState>>
+    check(): Promise<Result<null>>
+    installAndRestart(): Promise<Result<null>>
+    /** Se suscribe a los cambios. Devuelve la funcion para darse de baja. */
+    onState(callback: (state: UpdateState) => void): () => void
+  }
   dialog: {
     pickFolder(): Promise<Result<string | null>>
     /**
@@ -113,6 +122,11 @@ export const Channels = {
   organizerHistory: 'organizer:history',
   organizerUndoLast: 'organizer:undoLast',
   briefGet: 'brief:get',
+  updaterGet: 'updater:get',
+  updaterCheck: 'updater:check',
+  updaterInstall: 'updater:install',
+  /** Empujado desde main hacia el renderer, al reves que el resto. */
+  updaterState: 'updater:state',
   dialogPickFolder: 'dialog:pickFolder',
   dialogImportGoogleJson: 'dialog:importGoogleJson',
   shellOpenExternal: 'shell:openExternal'

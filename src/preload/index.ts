@@ -1,6 +1,6 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { Channels, type JarvisApi } from '@shared/ipc'
-import type { Settings } from '@shared/types'
+import type { Settings, UpdateState } from '@shared/types'
 
 /**
  * Puente entre el renderer y el proceso main.
@@ -51,6 +51,18 @@ const api: JarvisApi = {
   },
   brief: {
     get: (withSummary?: boolean) => ipcRenderer.invoke(Channels.briefGet, withSummary ?? true)
+  },
+  updater: {
+    get: () => ipcRenderer.invoke(Channels.updaterGet),
+    check: () => ipcRenderer.invoke(Channels.updaterCheck),
+    installAndRestart: () => ipcRenderer.invoke(Channels.updaterInstall),
+    onState: (callback: (state: UpdateState) => void) => {
+      // Se envuelve el callback en vez de pasarlo tal cual: asi el renderer no
+      // recibe el objeto `event` de Electron, que trae el sender dentro.
+      const oyente = (_event: IpcRendererEvent, state: UpdateState): void => callback(state)
+      ipcRenderer.on(Channels.updaterState, oyente)
+      return () => ipcRenderer.removeListener(Channels.updaterState, oyente)
+    }
   },
   dialog: {
     pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder),

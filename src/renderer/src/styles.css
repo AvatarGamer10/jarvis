@@ -759,6 +759,90 @@ body::before {
 }
 
 /* =========================================================================
+   Actualizaciones
+   ========================================================================= */
+
+/* Mientras descarga no hay nada que decidir, asi que se queda en una esquina. */
+.update-toast,
+.update-card {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(18, 30, 46, 0.9);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  animation: rise var(--dur) var(--ease) both;
+}
+
+.update-toast {
+  width: 280px;
+  padding: 12px 15px;
+}
+
+.update-toast-text {
+  font-size: 13px;
+  color: var(--paper-dim);
+  margin-bottom: 9px;
+}
+
+.update-bar {
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+
+.update-bar-fill {
+  height: 100%;
+  background: var(--signal);
+  border-radius: 99px;
+  transition: width var(--dur) var(--ease);
+}
+
+/* Ya descargada: aqui si hay una decision, asi que se abre y se explica. */
+.update-card {
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  padding: 16px;
+  border-color: var(--signal-line);
+}
+
+.update-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.update-card-head button {
+  padding: 2px 8px;
+  border-color: transparent;
+  background: none;
+  color: var(--paper-faint);
+}
+
+.update-notes {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  max-height: 190px;
+  overflow-y: auto;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.3);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--paper-dim);
+  /* Las notas vienen del release, asi que se respetan sus saltos de linea
+     pero se dejan partir las lineas largas. */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* =========================================================================
    Resumen del dia
    ========================================================================= */
 

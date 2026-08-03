@@ -3,6 +3,7 @@ import { Channels, type ApplyOutcomeDto } from '@shared/ipc'
 import type { FileRule, ManualTask, Result, Settings } from '@shared/types'
 import type { ApplyOutcome } from './organizer/executor'
 import type { Services } from './services'
+import type { UpdaterService } from './updater'
 
 import path from 'node:path'
 import { readFile } from 'node:fs/promises'
@@ -42,7 +43,11 @@ export interface IpcHooks {
   onSettingsChanged: () => void
 }
 
-export function registerIpc(services: Services, hooks: IpcHooks): void {
+export function registerIpc(
+  services: Services,
+  hooks: IpcHooks,
+  updater: UpdaterService
+): void {
   const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
     services
 
@@ -110,6 +115,17 @@ export function registerIpc(services: Services, hooks: IpcHooks): void {
 
   // --- Resumen diario ---
   handle(Channels.briefGet, (withSummary: boolean) => brief.build(withSummary))
+
+  // --- Actualizaciones ---
+  handle(Channels.updaterGet, () => updater.estadoActual())
+  handle(Channels.updaterCheck, async () => {
+    await updater.check()
+    return null
+  })
+  handle(Channels.updaterInstall, () => {
+    updater.instalarYReiniciar()
+    return null
+  })
 
   // --- Sistema ---
   handle(Channels.dialogImportGoogleJson, async () => {

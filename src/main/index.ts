@@ -1,11 +1,14 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, Notification, session, shell, type Tray } from 'electron'
+import { Channels } from '@shared/ipc'
 import { registerIpc } from './ipc'
 import { createServices } from './services'
 import { crearBandeja, estadoSalida, prepararCierreABandeja } from './tray'
+import { UpdaterService } from './updater'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
+let updater: UpdaterService | null = null
 
 /**
  * Politica de seguridad de contenido. Solo se aplica en la app empaquetada:
@@ -153,6 +156,13 @@ if (!app.requestSingleInstanceLock()) {
 
     const scheduler = services.scheduler(() => void notificarResumen())
 
+    updater = new UpdaterService(
+      (estado) => mainWindow?.webContents.send(Channels.updaterState, estado),
+      () => {
+        estadoSalida.saliendo = true
+      }
+    )
+
     registerIpc(services, {
       onSettingsChanged: () => {
         scheduler.reschedule()
@@ -163,7 +173,7 @@ if (!app.requestSingleInstanceLock()) {
           args: ['--oculto']
         })
       }
-    })
+    }, updater)
 
     createWindow()
     tray = crearBandeja({
@@ -175,6 +185,9 @@ if (!app.requestSingleInstanceLock()) {
       }
     })
     scheduler.start()
+    // Se arranca despues de crear la ventana: si no, los primeros eventos se
+    // emitirian sin nadie escuchando y la interfaz abriria en blanco.
+    updater.start()
 
     // Arrancado por el sistema al iniciar sesion: no se muestra la ventana.
     if (process.argv.includes('--oculto')) mainWindow?.hide()
@@ -188,6 +201,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     estadoSalida.saliendo = true
+    updater?.stop()
     tray?.destroy()
   })
 }

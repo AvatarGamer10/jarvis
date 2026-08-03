@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { SafeSettings } from '@shared/types'
+import UpdateBanner from './components/UpdateBanner'
 import { SECTIONS, type SectionId } from './lib/sections'
 import { sound } from './lib/sound'
 import Agenda from './views/Agenda'
@@ -73,11 +74,16 @@ export default function App(): JSX.Element {
   // Si el fichero no existe, el navegador no pinta nada y no se rompe nada.
   const fondo = <div className="app-fondo" style={{ backgroundImage: "url('./fondo.png')" }} />
 
+  // El aviso de actualizacion va por encima de todo, incluida la bienvenida:
+  // flota en una esquina y no estorba a lo que estes haciendo.
+  const actualizacion = <UpdateBanner />
+
   if (!settings.onboardingDone) {
     return (
       <>
         {fondo}
         <Onboarding onDone={finishOnboarding} />
+        {actualizacion}
       </>
     )
   }
@@ -89,6 +95,7 @@ export default function App(): JSX.Element {
         <div className="app">
           <Hub onOpen={setSection} />
         </div>
+        {actualizacion}
       </>
     )
   }
@@ -120,6 +127,7 @@ export default function App(): JSX.Element {
           </div>
         </main>
       </div>
+      {actualizacion}
     </>
   )
 }

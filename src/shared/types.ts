@@ -218,6 +218,24 @@ export interface DailyBrief {
   headline: string
 }
 
+// --- Actualizaciones -------------------------------------------------------
+
+/**
+ * Estado del actualizador, tal y como lo ve la interfaz.
+ *
+ * Es una union discriminada en vez de un objeto con campos opcionales: asi no
+ * existe el estado imposible de "descargando pero sin version", y la interfaz
+ * no tiene que comprobar nulos por todas partes.
+ */
+export type UpdateState =
+  | { phase: 'idle' }
+  | { phase: 'checking' }
+  /** Al dia. Se guarda la version para poder ensenarla en Ajustes. */
+  | { phase: 'none'; currentVersion: string }
+  | { phase: 'downloading'; version: string; percent: number; notes: string }
+  | { phase: 'ready'; version: string; notes: string }
+  | { phase: 'error'; message: string }
+
 // --- Resultado generico para IPC ------------------------------------------
 
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string }

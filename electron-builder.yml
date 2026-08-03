@@ -11,6 +11,20 @@ files:
 
 asar: true
 
+# --- Actualizaciones -------------------------------------------------------
+#
+# Los releases van a un repositorio APARTE y publico. El codigo sigue privado:
+# electron-updater no puede leer releases privados sin un token dentro del
+# binario, y ese token seria extraible por cualquiera que abriera el .exe.
+#
+# Aqui solo se publican el instalador y las notas del parche, que es lo que la
+# app necesita descargar de todas formas.
+publish:
+  - provider: github
+    owner: AvatarGamer10
+    repo: jarvis-releases
+    releaseType: release
+
 # --- Windows ---------------------------------------------------------------
 
 win:
