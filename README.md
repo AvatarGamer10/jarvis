@@ -106,6 +106,36 @@ pone Windows. El instalador parece tuyo, no parece la app.
 el DMG de macOS desde Windows. Para el Mac: clona el repositorio allí, copia tu
 `.env`, y ejecuta `npm install && npm run build:mac`.
 
+### Si el antivirus lo marca como amenaza
+
+Pasa, y es un **falso positivo**. El instalador reúne todas las señales que un
+heurístico asocia a un troyano: es un ejecutable sin firmar, que nadie ha visto
+antes, hecho con NSIS (muy usado por malware real), que arranca con el sistema y
+que se autoactualiza descargando y ejecutando otro ejecutable.
+
+Ninguna de esas cosas se puede quitar sin quitar la funcionalidad. En orden de
+eficacia real:
+
+1. **Reportarlo como falso positivo.** Es gratis y funciona. Para Microsoft
+   Defender: [microsoft.com/wdsi/filesubmission](https://www.microsoft.com/en-us/wdsi/filesubmission)
+   → *Software developer* → subir el `.exe`. Suelen contestar en uno o dos días
+   y a partir de ahí deja de saltar para todo el mundo.
+2. **Comprobar el alcance en [VirusTotal](https://www.virustotal.com).** Si lo
+   marcan uno o dos motores raros, es ruido. Si lo marcan veinte, hay algo que
+   mirar.
+3. **Firmar el código.** Es la única solución completa. Un certificado OV cuesta
+   unos 200-400 € al año; uno EV da reputación inmediata en SmartScreen pero
+   sube de precio y necesita un token físico. Para un proyecto personal
+   raramente compensa.
+4. **Excluir la carpeta** en tu antivirus, si solo la usas tú.
+
+Lo que ya está hecho para no empeorarlo: el ejecutable declara `asInvoker` (no
+pide permisos de administrador), lleva metadatos completos de empresa,
+descripción y copyright, y la instalación es por usuario.
+
+**Cada versión nueva vuelve a ser un binario desconocido**, así que el falso
+positivo puede reaparecer hasta que haya firma.
+
 **Ninguno de los dos va firmado.** En Windows, SmartScreen avisará la primera vez
 (*Más información → Ejecutar de todas formas*). En macOS, Gatekeeper bloqueará la
 app salvo que la abras con clic derecho → *Abrir*. Firmarlas requiere un

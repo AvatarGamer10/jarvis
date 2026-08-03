@@ -1,6 +1,6 @@
 appId: com.iker.jarvis
 productName: JARVIS
-copyright: JARVIS
+copyright: Copyright (c) 2026 Iker
 directories:
   output: release
   buildResources: build
@@ -35,12 +35,21 @@ win:
     - target: nsis
       arch: [x64]
   icon: build/icon.ico
-  # Sin firma de codigo: SmartScreen avisara la primera vez. Es normal en apps
-  # personales y se acepta con "Mas informacion > Ejecutar de todas formas".
+  publisherName: Iker
+  # La app no necesita permisos de administrador para nada. Declararlo evita
+  # que Windows y los antivirus la traten como algo que quiere tocar el sistema.
+  requestedExecutionLevel: asInvoker
+  # Sin firma de codigo: SmartScreen avisara la primera vez, y algunos
+  # antivirus daran un falso positivo. Ver la seccion sobre esto en el README:
+  # la unica solucion completa es un certificado de firma.
 
 nsis:
   oneClick: false
   perMachine: false
+  # Sin esto, electron-builder empaqueta elevate.exe, un binario auxiliar para
+  # pedir permisos de administrador. Es un disparador conocido de heuristicos
+  # antivirus y aqui no se usa: la instalacion es por usuario.
+  allowElevation: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
