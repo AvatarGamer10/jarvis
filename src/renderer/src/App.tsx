@@ -24,7 +24,7 @@ export default function App(): JSX.Element {
   const [ready, setReady] = useState(false)
   /** null = el menu radial. */
   const [section, setSection] = useState<SectionId | null>(null)
-  const [hasMark, setHasMark] = useState(true)
+  const [hayLogo, setHayLogo] = useState(true)
 
   useEffect(() => {
     void (async () => {
@@ -109,7 +109,7 @@ export default function App(): JSX.Element {
       <div className="app">
         <header className="topbar">
           <button className="back-mark" onClick={backToHub}>
-            {hasMark && <img src="./mark.png" alt="" onError={() => setHasMark(false)} />}
+            {hayLogo && <img src="./logo.png" alt="" onError={() => setHayLogo(false)} />}
             <span>Menu</span>
           </button>
 

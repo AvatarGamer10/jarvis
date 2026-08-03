@@ -18,7 +18,9 @@ interface Props {
  */
 export default function Hub({ onOpen }: Props): JSX.Element {
   const [hovered, setHovered] = useState<number | null>(null)
-  const [hasMark, setHasMark] = useState(true)
+  // Un unico logo para toda la app: al no llevar texto, funciona igual grande
+  // en la bienvenida que a 26 px en el boton de volver.
+  const [hayLogo, setHayLogo] = useState(true)
   const buttons = useRef<(HTMLButtonElement | null)[]>([])
 
   const active = hovered === null ? null : SECTIONS[hovered]
@@ -52,12 +54,12 @@ export default function Hub({ onOpen }: Props): JSX.Element {
 
         <div className="orbit-core">
           <div className="orbit-breath">
-            {hasMark ? (
+            {hayLogo ? (
               <img
                 className="orbit-mark"
-                src="./mark.png"
+                src="./logo.png"
                 alt=""
-                onError={() => setHasMark(false)}
+                onError={() => setHayLogo(false)}
                 // La marca se inclina hacia lo que estas apuntando: el centro
                 // reacciona al anillo en vez de quedarse quieto.
                 style={{

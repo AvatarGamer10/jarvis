@@ -16,6 +16,9 @@ build/*.bmp
 build/*.ico
 build/*.icns
 
+# Originales guardados antes de recortarles el fondo.
+.copias/
+
 # Credenciales y tokens del spike de Fase 0 - NUNCA subir esto
 .jarvis-spike-tokens.json
 
