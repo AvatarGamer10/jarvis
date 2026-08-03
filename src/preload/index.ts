@@ -75,6 +75,13 @@ const api: JarvisApi = {
       return () => ipcRenderer.removeListener(Channels.updaterState, oyente)
     }
   },
+  hud: {
+    toggle: () => ipcRenderer.invoke(Channels.hudToggle),
+    close: () => ipcRenderer.invoke(Channels.hudClose),
+    move: (dx: number, dy: number) => ipcRenderer.invoke(Channels.hudMove, dx, dy),
+    expand: (open: boolean) => ipcRenderer.invoke(Channels.hudExpand, open),
+    openApp: () => ipcRenderer.invoke(Channels.hudOpenApp)
+  },
   dialog: {
     pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder),
     importGoogleJson: () => ipcRenderer.invoke(Channels.dialogImportGoogleJson)

@@ -93,6 +93,16 @@ export interface JarvisApi {
     /** Se suscribe a los cambios. Devuelve la funcion para darse de baja. */
     onState(callback: (state: UpdateState) => void): () => void
   }
+  hud: {
+    toggle(): Promise<Result<boolean>>
+    close(): Promise<Result<null>>
+    /** Desplazamiento en pixeles; se llama mientras se arrastra. */
+    move(dx: number, dy: number): Promise<Result<null>>
+    /** Crece para ensenar una respuesta, o vuelve a encogerse. */
+    expand(open: boolean): Promise<Result<null>>
+    /** Abre la ventana grande en una seccion concreta. */
+    openApp(): Promise<Result<null>>
+  }
   dialog: {
     pickFolder(): Promise<Result<string | null>>
     /**
@@ -144,6 +154,11 @@ export const Channels = {
   updaterInstall: 'updater:install',
   /** Empujado desde main hacia el renderer, al reves que el resto. */
   updaterState: 'updater:state',
+  hudToggle: 'hud:toggle',
+  hudClose: 'hud:close',
+  hudMove: 'hud:move',
+  hudExpand: 'hud:expand',
+  hudOpenApp: 'hud:openApp',
   dialogPickFolder: 'dialog:pickFolder',
   dialogImportGoogleJson: 'dialog:importGoogleJson',
   shellOpenExternal: 'shell:openExternal'

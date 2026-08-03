@@ -4,6 +4,7 @@ import type { FileRule, ManualTask, Result, Settings } from '@shared/types'
 import { MODELOS_RECOMENDADOS } from './integrations/ollama-manager'
 import type { ApplyOutcome } from './organizer/executor'
 import type { Services } from './services'
+import type { Hud } from './hud'
 import type { UpdaterService } from './updater'
 
 import path from 'node:path'
@@ -42,12 +43,15 @@ export interface IpcHooks {
    * aplicar el arranque automatico, que son cosas que solo el sabe hacer.
    */
   onSettingsChanged: () => void
+  /** Trae la ventana principal al frente. */
+  onOpenApp: () => void
 }
 
 export function registerIpc(
   services: Services,
   hooks: IpcHooks,
-  updater: UpdaterService
+  updater: UpdaterService,
+  hud: Hud
 ): void {
   const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
     services
@@ -142,6 +146,28 @@ export function registerIpc(
   })
   handle(Channels.updaterInstall, () => {
     updater.instalarYReiniciar()
+    return null
+  })
+
+  // --- Boton flotante ---
+  handle(Channels.hudToggle, () => {
+    hud.alternar()
+    return hud.visible()
+  })
+  handle(Channels.hudClose, () => {
+    hud.cerrar()
+    return null
+  })
+  handle(Channels.hudMove, (dx: number, dy: number) => {
+    hud.mover(dx, dy)
+    return null
+  })
+  handle(Channels.hudExpand, (abierto: boolean) => {
+    hud.ajustar(abierto)
+    return null
+  })
+  handle(Channels.hudOpenApp, () => {
+    hooks.onOpenApp()
     return null
   })
 

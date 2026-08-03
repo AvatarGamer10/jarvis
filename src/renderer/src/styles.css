@@ -1059,6 +1059,164 @@ body::before {
   --voz: #5ad0e0;
 }
 
+/* =========================================================================
+   HUD flotante
+
+   Ventana transparente y sin marco: aqui el fondo lo pone la tarjeta, no el
+   body, o se veria un rectangulo opaco flotando sobre el escritorio.
+   ========================================================================= */
+
+:root[data-ventana='hud'],
+:root[data-ventana='hud'] body {
+  background: transparent !important;
+  overflow: hidden;
+}
+
+:root[data-ventana='hud'] body::before,
+:root[data-ventana='hud'] body::after {
+  display: none;
+}
+
+.hud {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  height: 100vh;
+}
+
+.hud-fila {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-boton {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  flex: none;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(12, 21, 34, 0.92);
+  backdrop-filter: blur(20px);
+  color: var(--paper-dim);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.hud-boton:hover {
+  border-color: var(--voz);
+  color: var(--paper);
+}
+
+.hud-boton.escuchando,
+.hud-boton.hablando {
+  border-color: var(--voz);
+  color: var(--voz);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.55),
+    0 0 30px rgba(90, 208, 224, 0.3);
+}
+
+.hud-boton.transcribiendo::after,
+.hud-boton.pensando::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: var(--voz);
+  animation: voz-giro 1.1s linear infinite;
+}
+
+.hud-boton.error {
+  border-color: var(--t-overdue);
+  color: var(--t-overdue);
+}
+
+/* Visualizador reducido: a este tamano, siete barras ya se leen. */
+.hud-barras {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+}
+
+.hud-barras span {
+  width: 2px;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--voz);
+  transition: transform 70ms linear;
+}
+
+.hud-acciones {
+  display: flex;
+  gap: 4px;
+  animation: fade var(--dur) var(--ease) both;
+}
+
+.hud-acciones button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  border-radius: 8px;
+  background: rgba(12, 21, 34, 0.92);
+  color: var(--paper-faint);
+}
+
+.hud-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(12, 21, 34, 0.94);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  animation: rise var(--dur) var(--ease) both;
+}
+
+.hud-pista {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--voz);
+}
+
+.hud-dicho {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--paper-faint);
+}
+
+.hud-respuesta {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--paper);
+}
+
+.hud-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--t-overdue);
+}
+
 /* La seccion gestiona su propio scroll: el hilo arriba, el control abajo. */
 .content:has(.voz-pantalla) {
   overflow: hidden;

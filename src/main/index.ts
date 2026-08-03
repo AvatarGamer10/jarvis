@@ -1,6 +1,15 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, Notification, session, shell, type Tray } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  globalShortcut,
+  Notification,
+  session,
+  shell,
+  type Tray
+} from 'electron'
 import { Channels } from '@shared/ipc'
+import { Hud } from './hud'
 import { registerIpc } from './ipc'
 import { createServices } from './services'
 import { crearBandeja, estadoSalida, prepararCierreABandeja } from './tray'
@@ -9,6 +18,7 @@ import { UpdaterService } from './updater'
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let updater: UpdaterService | null = null
+let hud: Hud | null = null
 
 /**
  * Politica de seguridad de contenido. Solo se aplica en la app empaquetada:
@@ -216,7 +226,17 @@ if (!app.requestSingleInstanceLock()) {
       }
     )
 
+    hud = new Hud(services.settings)
+    if (services.settings.all().hudVisible) hud.abrir()
+
+    // Atajo global para sacar el boton flotante sin buscar la ventana. Si otra
+    // app ya lo tiene cogido, register devuelve false y no se insiste.
+    if (!globalShortcut.register('Control+Alt+J', () => hud?.alternar())) {
+      console.warn('[hud] Ctrl+Alt+J ya lo usa otra aplicacion')
+    }
+
     registerIpc(services, {
+      onOpenApp: mostrarVentana,
       onSettingsChanged: () => {
         scheduler.reschedule()
         // El arranque automatico lo gestiona el sistema, no un fichero nuestro.
@@ -226,12 +246,13 @@ if (!app.requestSingleInstanceLock()) {
           args: ['--oculto']
         })
       }
-    }, updater)
+    }, updater, hud)
 
     createWindow()
     tray = crearBandeja({
       mostrarVentana,
       mostrarResumen: () => void notificarResumen(),
+      alternarHud: () => hud?.alternar(),
       salir: () => {
         estadoSalida.saliendo = true
         app.quit()
@@ -255,6 +276,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('before-quit', () => {
     estadoSalida.saliendo = true
     updater?.stop()
+    globalShortcut.unregisterAll()
     tray?.destroy()
   })
 }

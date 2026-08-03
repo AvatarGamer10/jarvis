@@ -4,6 +4,7 @@ import { crearIconoBandeja } from './tray-icon'
 interface Opciones {
   mostrarVentana: () => void
   mostrarResumen: () => void
+  alternarHud: () => void
   salir: () => void
 }
 
@@ -20,6 +21,7 @@ export function crearBandeja(opciones: Opciones): Tray {
 
   const menu = Menu.buildFromTemplate([
     { label: 'Abrir JARVIS', click: opciones.mostrarVentana },
+    { label: 'Boton flotante   Ctrl+Alt+J', click: opciones.alternarHud },
     { label: 'Resumen de hoy', click: opciones.mostrarResumen },
     { type: 'separator' },
     { label: 'Salir', click: opciones.salir }

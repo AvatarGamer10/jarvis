@@ -32,6 +32,11 @@ export interface Settings {
   dailyBriefEnabled: boolean
   /** Arrancar JARVIS al iniciar sesion en el sistema. */
   startAtLogin: boolean
+  /** Boton flotante siempre encima. */
+  hudVisible: boolean
+  /** Ultima posicion del boton flotante. null = aun sin colocar. */
+  hudX: number | null
+  hudY: number | null
   /** Se pone a true al terminar la pantalla de bienvenida. */
   onboardingDone: boolean
   /** Sonidos de interfaz. Se sintetizan, no hay ficheros de audio. */
