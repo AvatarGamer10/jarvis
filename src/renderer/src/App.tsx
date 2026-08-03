@@ -70,13 +70,26 @@ export default function App(): JSX.Element {
 
   if (!settings || !ready) return <div className="app-loading" />
 
-  if (!settings.onboardingDone) return <Onboarding onDone={finishOnboarding} />
+  // Si el fichero no existe, el navegador no pinta nada y no se rompe nada.
+  const fondo = <div className="app-fondo" style={{ backgroundImage: "url('./fondo.png')" }} />
+
+  if (!settings.onboardingDone) {
+    return (
+      <>
+        {fondo}
+        <Onboarding onDone={finishOnboarding} />
+      </>
+    )
+  }
 
   if (section === null) {
     return (
-      <div className="app">
-        <Hub onOpen={setSection} />
-      </div>
+      <>
+        {fondo}
+        <div className="app">
+          <Hub onOpen={setSection} />
+        </div>
+      </>
     )
   }
 
@@ -84,26 +97,29 @@ export default function App(): JSX.Element {
   const Current = COMPONENTS[current.id]
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <button className="back-mark" onClick={backToHub}>
-          {hasMark && <img src="./mark.png" alt="" onError={() => setHasMark(false)} />}
-          <span>Menu</span>
-        </button>
+    <>
+      {fondo}
+      <div className="app">
+        <header className="topbar">
+          <button className="back-mark" onClick={backToHub}>
+            {hasMark && <img src="./mark.png" alt="" onError={() => setHasMark(false)} />}
+            <span>Menu</span>
+          </button>
 
-        <span className="topbar-title" style={{ color: current.color }}>
-          {current.label}
-        </span>
+          <span className="topbar-title" style={{ color: current.color }}>
+            {current.label}
+          </span>
 
-        <span className="topbar-hint">ESC</span>
-      </header>
+          <span className="topbar-hint">ESC</span>
+        </header>
 
-      <main className="content">
-        {/* La key fuerza que la animacion de entrada se repita en cada cambio. */}
-        <div className="view" key={current.id}>
-          <Current />
-        </div>
-      </main>
-    </div>
+        <main className="content">
+          {/* La key fuerza que la animacion de entrada se repita en cada cambio. */}
+          <div className="view" key={current.id}>
+            <Current />
+          </div>
+        </main>
+      </div>
+    </>
   )
 }

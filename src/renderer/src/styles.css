@@ -90,14 +90,17 @@ body {
    sus naranjas competirian con la rampa de urgencia (donde el naranja significa
    "vence hoy") y dejarian el texto ilegible. Asi aporta color y profundidad sin
    disputarle protagonismo a nada.
-   Si el fichero no existe, esta capa simplemente no pinta nada. */
-body::after {
-  content: '';
+
+   La imagen se pone desde JavaScript, no aqui con url(): en CSS la ruta se
+   resuelve respecto al fichero .css, que al empaquetar acaba en assets/,
+   mientras que los ficheros de public/ se copian un nivel por encima. Puesta
+   en linea desde el componente, se resuelve respecto al documento y funciona
+   igual en desarrollo y empaquetado. */
+.app-fondo {
   position: fixed;
   inset: -20px;
   pointer-events: none;
   z-index: 0;
-  background-image: url('./fondo.png');
   background-size: cover;
   background-position: center;
   opacity: 0.3;
