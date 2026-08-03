@@ -12,11 +12,28 @@ import { pipeline, env, type AutomaticSpeechRecognitionPipeline } from '@hugging
  */
 
 /**
+ * Combinaciones de modelo y precision, en orden de preferencia.
+ *
+ * No basta con elegir una: onnxruntime falla al abrir la sesion si los pesos
+ * cuantizados no son de la generacion que espera, y el error solo aparece al
+ * cargar, no al descargar. Paso exactamente eso con Xenova/whisper-base, cuyos
+ * pesos q8 son del runtime anterior:
+ *
+ *   Missing required scale: model.decoder.embed_tokens.weight_merged_0_scale
+ *
+ * Los repositorios onnx-community estan construidos para el runtime actual.
+ * Se prueba de la mas ligera a la mas segura, y la ultima es sin cuantizar:
+ * pesa el doble pero no depende de ninguna tabla de escalas.
+ *
  * Whisper "base" es el punto dulce para espanol: "tiny" se inventa palabras
  * con acento y "small" pasa de 400 MB para una mejora que no se nota en
  * frases cortas como las que se le dicen a un asistente.
  */
-const MODELO = 'Xenova/whisper-base'
+const CANDIDATOS = [
+  { modelo: 'onnx-community/whisper-base', dtype: 'q8', aprox: '~80 MB' },
+  { modelo: 'onnx-community/whisper-base', dtype: 'fp32', aprox: '~145 MB' },
+  { modelo: 'Xenova/whisper-base', dtype: 'fp32', aprox: '~145 MB' }
+] as const
 
 // El modelo se guarda en la cache del navegador, dentro de los datos de la
 // app: se descarga una vez y sobrevive a los reinicios.
@@ -64,31 +81,45 @@ export async function cargarModelo(
   if (cargando) return cargando
 
   cargando = (async () => {
-    try {
-      const creado = await pipeline('automatic-speech-recognition', MODELO, {
-        dtype: 'q8',
-        device: 'wasm',
-        progress_callback: (info: { status?: string; progress?: number; file?: string }) => {
-          if (info.status === 'progress' && typeof info.progress === 'number') {
-            alProgresar?.({
-              fase: 'descargando',
-              porcentaje: Math.round(info.progress),
-              mensaje: 'Descargando el modelo de voz'
-            })
-          }
-        }
-      })
+    const fallos: string[] = []
 
-      transcriptor = creado as AutomaticSpeechRecognitionPipeline
-      alProgresar?.({ fase: 'listo', porcentaje: 100, mensaje: 'Modelo de voz listo' })
-      return transcriptor
-    } catch (err) {
-      alProgresar?.({
-        fase: 'error',
-        porcentaje: 0,
-        mensaje: `No se pudo cargar el modelo de voz: ${(err as Error).message}`
-      })
-      throw err
+    try {
+      for (const [indice, candidato] of CANDIDATOS.entries()) {
+        try {
+          const creado = await pipeline('automatic-speech-recognition', candidato.modelo, {
+            dtype: candidato.dtype,
+            device: 'wasm',
+            progress_callback: (info: { status?: string; progress?: number }) => {
+              if (info.status === 'progress' && typeof info.progress === 'number') {
+                alProgresar?.({
+                  fase: 'descargando',
+                  porcentaje: Math.round(info.progress),
+                  mensaje:
+                    indice === 0
+                      ? 'Descargando el modelo de voz'
+                      : `Probando otra version del modelo (${candidato.aprox})`
+                })
+              }
+            }
+          })
+
+          transcriptor = creado as AutomaticSpeechRecognitionPipeline
+          alProgresar?.({ fase: 'listo', porcentaje: 100, mensaje: 'Modelo de voz listo' })
+          return transcriptor
+        } catch (err) {
+          // Se guarda y se sigue: que una combinacion no abra no significa que
+          // ninguna vaya a hacerlo.
+          console.error(`[voz] ${candidato.modelo} (${candidato.dtype}) no cargo:`, err)
+          fallos.push(`${candidato.modelo} ${candidato.dtype}: ${(err as Error).message}`)
+        }
+      }
+
+      const mensaje = fallos.some((f) => /Missing required scale|create a session/i.test(f))
+        ? 'Ninguna version del modelo de voz es compatible con este equipo.'
+        : 'No se pudo descargar el modelo de voz. Comprueba tu conexion.'
+
+      alProgresar?.({ fase: 'error', porcentaje: 0, mensaje })
+      throw new Error(fallos.join(' | '))
     } finally {
       cargando = null
     }
