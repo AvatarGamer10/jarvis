@@ -120,6 +120,21 @@ function mostrarVentana(): void {
   mainWindow.focus()
 }
 
+/**
+ * En desarrollo, los datos van a una carpeta aparte.
+ *
+ * Sin esto, la version de desarrollo y la instalada comparten ajustes, sesion
+ * de Google y tareas, porque en Windows "jarvis" y "JARVIS" son la misma
+ * carpeta. Eso trae dos problemas: probar cosas corrompe los datos reales, y
+ * el bloqueo de instancia unica (que se calcula sobre esta ruta) impide tener
+ * las dos abiertas a la vez.
+ *
+ * Tiene que ejecutarse antes de que la app este lista.
+ */
+if (!app.isPackaged) {
+  app.setPath('userData', `${app.getPath('userData')}-dev`)
+}
+
 // Una sola instancia: si se abre dos veces, la segunda enfoca la primera.
 if (!app.requestSingleInstanceLock()) {
   app.quit()
