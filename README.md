@@ -79,11 +79,38 @@ Otros comandos:
 
 | Comando | Qué hace |
 |---|---|
-| `npm test` | Pruebas del organizador de carpetas (rutas, mover, deshacer) |
+| `npm test` | Pruebas del organizador y del programador del resumen |
 | `npm run typecheck` | Comprueba tipos de main, preload y renderer |
 | `npm run build` | Compila a `out/` |
-| `npm run build:win` | Instalador NSIS para Windows (ejecutar en Windows) |
+| `npm run recursos` | Dibuja los iconos e imágenes del instalador |
+| `npm run build:win` | Instalador para Windows (ejecutar en Windows) |
 | `npm run build:mac` | DMG universal para macOS (ejecutar en macOS) |
+
+---
+
+## Instaladores
+
+Los iconos y las imágenes del instalador **no están guardados como ficheros**:
+los dibuja [`scripts/generar-recursos.mjs`](scripts/generar-recursos.mjs) en cada
+empaquetado, escribiendo el PNG, el BMP y el ICO a mano. Cambiar el color de
+marca es tocar una constante y volver a ejecutarlo, sin abrir ningún editor.
+
+Por eso `build/*.png`, `*.bmp` e `*.ico` están en `.gitignore` mientras que el
+script y [`build/installer.nsh`](build/installer.nsh) sí se versionan.
+
+**Hasta dónde llega la personalización.** NSIS deja cambiar imágenes, colores,
+textos e idioma, pero no el marco de la ventana: los botones y la tipografía los
+pone Windows. El instalador parece tuyo, no parece la app.
+
+**Cada plataforma se compila en su sistema.** `electron-builder` no puede generar
+el DMG de macOS desde Windows. Para el Mac: clona el repositorio allí, copia tu
+`.env`, y ejecuta `npm install && npm run build:mac`.
+
+**Ninguno de los dos va firmado.** En Windows, SmartScreen avisará la primera vez
+(*Más información → Ejecutar de todas formas*). En macOS, Gatekeeper bloqueará la
+app salvo que la abras con clic derecho → *Abrir*. Firmarlas requiere un
+certificado de pago en Windows y una cuenta de Apple Developer (99 €/año); para
+uso personal no compensa.
 
 ---
 

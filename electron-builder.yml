@@ -1,5 +1,6 @@
 appId: com.iker.jarvis
 productName: JARVIS
+copyright: JARVIS
 directories:
   output: release
   buildResources: build
@@ -10,24 +11,47 @@ files:
 
 asar: true
 
+# --- Windows ---------------------------------------------------------------
+
 win:
   target:
     - target: nsis
       arch: [x64]
-  # Sin firma de codigo: Windows SmartScreen avisara la primera vez.
-  # Es normal en apps personales; se acepta con "Mas informacion > Ejecutar de todas formas".
+  icon: build/icon.ico
+  # Sin firma de codigo: SmartScreen avisara la primera vez. Es normal en apps
+  # personales y se acepta con "Mas informacion > Ejecutar de todas formas".
 
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: JARVIS
+  # 1034 es el identificador de espanol en NSIS.
+  language: '1034'
+  # Al desinstalar no se borran los ajustes ni las tareas apuntadas: si alguien
+  # reinstala, se encuentra sus cosas donde las dejo.
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-${version}-instalador.${ext}
+
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  installerHeader: build/installerHeader.bmp
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
+  include: build/installer.nsh
+
+# --- macOS -----------------------------------------------------------------
 
 mac:
   target:
     - target: dmg
       arch: [universal]
+  icon: build/icon.png
   category: public.app-category.productivity
-  # macOS necesita declarar por que pide acceso a carpetas del usuario.
+  # macOS necesita declarar por que se pide acceso a carpetas del usuario.
   extendInfo:
     NSDesktopFolderUsageDescription: JARVIS necesita acceso para organizar tus archivos del escritorio.
     NSDocumentsFolderUsageDescription: JARVIS necesita acceso para organizar tus documentos del colegio.
@@ -35,3 +59,19 @@ mac:
 
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
+  title: JARVIS
+  background: build/dmg-background.png
+  window:
+    width: 540
+    height: 380
+  iconSize: 96
+  # El icono a la izquierda y la carpeta Aplicaciones a la derecha: el gesto de
+  # arrastrar de una a otra se entiende sin escribir instrucciones.
+  contents:
+    - x: 150
+      y: 250
+      type: file
+    - x: 390
+      y: 250
+      type: link
+      path: /Applications

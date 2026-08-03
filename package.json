@@ -16,8 +16,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "tsc -p tsconfig.test.json && node --test \"tests/**/*.test.cjs\"",
     "build": "npm run typecheck && electron-vite build",
-    "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm run build && electron-builder --mac"
+    "recursos": "node scripts/generar-recursos.mjs",
+    "build:win": "npm run recursos && npm run build && electron-builder --win",
+    "build:mac": "npm run recursos && npm run build && electron-builder --mac"
   },
   "dependencies": {
     "react": "^18.3.1",

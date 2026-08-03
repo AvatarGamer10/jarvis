@@ -9,6 +9,13 @@ release/
 # Cache incremental de TypeScript: se regenera en cada compilacion.
 *.tsbuildinfo
 
+# Recursos de marca: los dibuja scripts/generar-recursos.mjs en cada empaquetado.
+# El script si se versiona; sus imagenes no, para no meter binarios en el repo.
+build/*.png
+build/*.bmp
+build/*.ico
+build/*.icns
+
 # Credenciales y tokens del spike de Fase 0 - NUNCA subir esto
 .jarvis-spike-tokens.json
 
