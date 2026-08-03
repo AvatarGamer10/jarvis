@@ -15,20 +15,47 @@ let updater: UpdaterService | null = null
  * en desarrollo, Vite inyecta scripts en linea para el hot-reload y una CSP
  * estricta los bloquearia.
  *
- * El renderer no necesita conectarse a ningun sitio (todas las llamadas de red
- * salen del proceso main), asi que connect-src se queda en 'self'.
+ * Dos permisos existen solo por el reconocimiento de voz, y conviene saber por
+ * que estan antes de tocarlos:
+ *
+ * - `wasm-unsafe-eval`: Whisper corre en WebAssembly. Sin esto no se puede
+ *   compilar el modulo. Es mucho mas acotado que 'unsafe-eval': permite WASM,
+ *   no permite eval() de JavaScript.
+ * - Los dominios de Hugging Face: de ahi se descarga el modelo de voz, una
+ *   sola vez. Despues queda en cache y funciona sin conexion.
+ *
+ * El resto de llamadas de red siguen saliendo del proceso main, no de aqui.
  */
 function applyContentSecurityPolicy(): void {
+  const modeloVoz = 'https://huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.hf.co'
+
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'"
+          "default-src 'self'; " +
+            "script-src 'self' 'wasm-unsafe-eval'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; " +
+            `connect-src 'self' ${modeloVoz}; ` +
+            "media-src 'self' blob:; " +
+            "object-src 'none'; base-uri 'none'"
         ]
       }
     })
+  })
+}
+
+/**
+ * Permisos del sistema que el renderer puede pedir.
+ *
+ * Por defecto Electron los concede todos sin preguntar. Aqui solo se admite el
+ * microfono, que es el unico que la app necesita; cualquier otro se deniega.
+ */
+function restringirPermisos(): void {
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
+    callback(permission === 'media')
   })
 }
 
@@ -143,6 +170,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     if (app.isPackaged) applyContentSecurityPolicy()
+    restringirPermisos()
 
     const services = createServices()
 

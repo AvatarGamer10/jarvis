@@ -1052,6 +1052,84 @@ body::before {
 }
 
 /* =========================================================================
+   Voz
+   ========================================================================= */
+
+.voz {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 30px 0 24px;
+}
+
+.voz-boton {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(24, 40, 60, 0.65);
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.voz-boton:hover:not(:disabled) {
+  border-color: var(--signal-line);
+}
+
+.voz-boton.activo {
+  border-color: #5ad0e0;
+  box-shadow: 0 0 46px rgba(90, 208, 224, 0.35);
+}
+
+/* El anillo se escala con el nivel del microfono. Va detras del icono y sin
+   capturar el raton, para no robarle el evento de soltar al boton. */
+.voz-onda {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid #5ad0e0;
+  pointer-events: none;
+  transition:
+    transform 80ms linear,
+    opacity 80ms linear;
+}
+
+.voz-boton:not(.activo) .voz-onda {
+  opacity: 0 !important;
+  transform: scale(1) !important;
+}
+
+.voz-icono {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.voz-boton.activo .voz-icono {
+  color: #5ad0e0;
+  animation: latido 1.4s var(--ease-inout) infinite;
+}
+
+.voz-estado {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+.voz-estado.trabajando {
+  color: #5ad0e0;
+}
+
+/* =========================================================================
    Resumen del dia
    ========================================================================= */
 

@@ -10,9 +10,11 @@ import Chat from './views/Chat'
 import Hub from './views/Hub'
 import Onboarding from './views/Onboarding'
 import Tareas from './views/Tareas'
+import Voz from './views/Voz'
 
 const COMPONENTS: Record<SectionId, () => JSX.Element> = {
   chat: Chat,
+  voz: Voz,
   agenda: Agenda,
   tareas: Tareas,
   carpetas: Carpetas,

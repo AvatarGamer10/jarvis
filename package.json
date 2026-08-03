@@ -29,6 +29,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "//": "transformers va aqui, no en dependencies: solo se usa en el renderer, que Vite empaqueta. Como dependencia arrastraria onnxruntime-node (210 MB) al instalador sin usarse.",
+    "@huggingface/transformers": "^4.2.0",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",

@@ -74,8 +74,19 @@ function AjustesIcon(): JSX.Element {
   )
 }
 
+function VozIcon(): JSX.Element {
+  return (
+    <svg {...COMMON} aria-hidden="true">
+      <rect className="ic-capsula" x="9" y="2.6" width="6" height="11" rx="3" />
+      <path d="M5.5 11.2a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.7v3.7" />
+    </svg>
+  )
+}
+
 const ICONS: Record<SectionId, () => JSX.Element> = {
   chat: ChatIcon,
+  voz: VozIcon,
   agenda: AgendaIcon,
   tareas: TareasIcon,
   carpetas: CarpetasIcon,
