@@ -64,7 +64,26 @@ Desde el Mac, para el DMG:
 export GH_TOKEN=$(gh auth token) && npm run publicar:mac
 ```
 
-### 4. Repasa el release en GitHub
+### 4. Reporta el instalador a Microsoft (opcional pero recomendado)
+
+Cada versión nueva es un binario que nadie ha visto, así que Defender puede
+volver a marcarla como `Wacatac.B!ml`. Es un falso positivo —ver
+[FALSO-POSITIVO.md](FALSO-POSITIVO.md)— y se limpia reportándolo:
+
+1. Entra en [microsoft.com/wdsi/filesubmission](https://www.microsoft.com/en-us/wdsi/filesubmission)
+2. Elige **Software developer**, no *Home customer*: va a una cola más rápida
+3. Sube `release/JARVIS-<versión>-instalador.exe`
+4. Marca que crees que es un falso positivo y adjunta el enlace a
+   `FALSO-POSITIVO.md`
+
+Suelen contestar en uno o dos días. Si publicas antes de que respondan, quien
+descargue en ese hueco verá el aviso.
+
+**La única forma de no tener que hacer esto cada vez es firmar el código**, y
+eso cuesta dinero. Lo más barato hoy es Azure Trusted Signing (~10 €/mes),
+aunque exige una validación de identidad que no todo el mundo puede pasar.
+
+### 5. Repasa el release en GitHub
 
 Se crea como **borrador**. Entra en
 [releases](https://github.com/AvatarGamer10/jarvis-releases/releases), pega ahí
