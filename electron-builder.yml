@@ -23,7 +23,10 @@ publish:
   - provider: github
     owner: AvatarGamer10
     repo: jarvis-releases
-    releaseType: release
+    # Borrador a proposito: compilar y que eso llegue solo a todos los equipos
+    # en el mismo gesto no deja margen para revisar nada. Se publica a mano
+    # desde GitHub, y hasta entonces nadie recibe la actualizacion.
+    releaseType: draft
 
 # --- Windows ---------------------------------------------------------------
 
