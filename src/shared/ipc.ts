@@ -3,6 +3,7 @@ import type {
   Assignment,
   CalendarEvent,
   ChatMessage,
+  DailyBrief,
   FileRule,
   ManualTask,
   MovePlan,
@@ -68,6 +69,10 @@ export interface JarvisApi {
     history(): Promise<Result<UndoBatch[]>>
     undoLast(): Promise<Result<ApplyOutcomeDto>>
   }
+  brief: {
+    /** `withSummary` en false evita la llamada al modelo, que es lo lento. */
+    get(withSummary?: boolean): Promise<Result<DailyBrief>>
+  }
   dialog: {
     pickFolder(): Promise<Result<string | null>>
   }
@@ -101,6 +106,7 @@ export const Channels = {
   organizerApply: 'organizer:apply',
   organizerHistory: 'organizer:history',
   organizerUndoLast: 'organizer:undoLast',
+  briefGet: 'brief:get',
   dialogPickFolder: 'dialog:pickFolder',
   shellOpenExternal: 'shell:openExternal'
 } as const

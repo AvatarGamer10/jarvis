@@ -99,6 +99,20 @@ export default function Ajustes(): JSX.Element {
     if (updated.ok) settingsState.reload()
   }
 
+  const toggleBrief = async (): Promise<void> => {
+    const updated = await window.jarvis.settings.update({
+      dailyBriefEnabled: !(settings?.dailyBriefEnabled ?? true)
+    })
+    if (updated.ok) settingsState.reload()
+  }
+
+  const toggleStartAtLogin = async (): Promise<void> => {
+    const updated = await window.jarvis.settings.update({
+      startAtLogin: !(settings?.startAtLogin ?? false)
+    })
+    if (updated.ok) settingsState.reload()
+  }
+
   const replayIntro = async (): Promise<void> => {
     await window.jarvis.settings.update({ onboardingDone: false })
     setMessage({ kind: 'info', text: 'La veras la proxima vez que abras JARVIS.' })
@@ -335,7 +349,20 @@ export default function Ajustes(): JSX.Element {
 
       <div className="card">
         <h3>Resumen diario</h3>
-        <div className="field">
+
+        <div className="list-item">
+          <div>
+            <div>Aviso por la manana</div>
+            <div className="meta">
+              Notificacion con lo que entregas hoy, lo atrasado y tu calendario.
+            </div>
+          </div>
+          <button onClick={() => void toggleBrief()}>
+            {settings?.dailyBriefEnabled ? 'Activado' : 'Desactivado'}
+          </button>
+        </div>
+
+        <div className="field" style={{ marginTop: 15 }}>
           <label htmlFor="briefTime">Hora del aviso</label>
           <input
             id="briefTime"
@@ -343,7 +370,25 @@ export default function Ajustes(): JSX.Element {
             value={briefTime}
             onChange={(e) => setBriefTime(e.target.value)}
           />
+          <p className="hint">Se aplica al guardar los ajustes.</p>
         </div>
+
+        <div className="list-item">
+          <div>
+            <div>Arrancar con el sistema</div>
+            <div className="meta">
+              Necesario para que el aviso salte si no has abierto JARVIS a mano.
+            </div>
+          </div>
+          <button onClick={() => void toggleStartAtLogin()}>
+            {settings?.startAtLogin ? 'Activado' : 'Desactivado'}
+          </button>
+        </div>
+
+        <p className="hint" style={{ marginTop: 12 }}>
+          Al cerrar la ventana JARVIS se queda en la bandeja del sistema para poder avisarte a su
+          hora. Para cerrarlo del todo, usa Salir en el menu de la bandeja.
+        </p>
       </div>
 
       <button className="primary" onClick={save} disabled={busy}>

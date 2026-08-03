@@ -5,6 +5,8 @@ import { ProviderRouter } from './agent/providers/router'
 import type { ToolContext } from './agent/tools'
 import { UsageCounter } from './agent/usage'
 import { GoogleAuth } from './auth/google-oauth'
+import { BriefService } from './brief/daily-brief'
+import { BriefScheduler } from './brief/scheduler'
 import { CalendarService } from './integrations/calendar'
 import { ClassroomService } from './integrations/classroom'
 import { GoogleApi } from './integrations/google-api'
@@ -29,6 +31,9 @@ export interface Services {
   ollama: OllamaProvider
   usage: UsageCounter
   agent: AgentService
+  brief: BriefService
+  /** Se arranca desde main, que es quien sabe como notificar. */
+  scheduler: (onFire: () => void) => BriefScheduler
 }
 
 export function createServices(): Services {
@@ -73,6 +78,8 @@ export function createServices(): Services {
     tasks,
     ollama,
     usage,
-    agent: new AgentService(provider, toolContext)
+    agent: new AgentService(provider, toolContext),
+    brief: new BriefService(calendar, classroom, tasks, provider),
+    scheduler: (onFire) => new BriefScheduler(settings, onFire)
   }
 }

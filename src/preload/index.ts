@@ -49,6 +49,9 @@ const api: JarvisApi = {
     history: () => ipcRenderer.invoke(Channels.organizerHistory),
     undoLast: () => ipcRenderer.invoke(Channels.organizerUndoLast)
   },
+  brief: {
+    get: (withSummary?: boolean) => ipcRenderer.invoke(Channels.briefGet, withSummary ?? true)
+  },
   dialog: {
     pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder)
   },

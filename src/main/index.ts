@@ -1,9 +1,11 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, session, shell } from 'electron'
+import { app, BrowserWindow, Notification, session, shell, type Tray } from 'electron'
 import { registerIpc } from './ipc'
 import { createServices } from './services'
+import { crearBandeja, estadoSalida, prepararCierreABandeja } from './tray'
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 
 /**
  * Politica de seguridad de contenido. Solo se aplica en la app empaquetada:
@@ -96,35 +98,96 @@ function createWindow(): void {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  prepararCierreABandeja(mainWindow)
+
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+}
+
+/** Trae la ventana al frente, creandola si el usuario la habia cerrado. */
+function mostrarVentana(): void {
+  if (!mainWindow) {
+    createWindow()
+    return
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  if (!mainWindow.isVisible()) mainWindow.show()
+  if (process.platform === 'darwin') void app.dock?.show()
+  mainWindow.focus()
 }
 
 // Una sola instancia: si se abre dos veces, la segunda enfoca la primera.
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.on('second-instance', () => {
-    if (!mainWindow) return
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.focus()
-  })
+  app.on('second-instance', mostrarVentana)
 
   void app.whenReady().then(() => {
     if (app.isPackaged) applyContentSecurityPolicy()
 
     const services = createServices()
-    registerIpc(services)
-    createWindow()
 
-    app.on('activate', () => {
-      // En macOS es normal reabrir la ventana al pulsar el icono del dock.
-      if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    /**
+     * Lanza el resumen del dia como notificacion del sistema.
+     *
+     * Se pide sin redaccion del modelo: la notificacion solo muestra el
+     * titular, y esperar a que un modelo local escriba dos frases retrasaria
+     * el aviso varios segundos sin que se vea el resultado.
+     */
+    const notificarResumen = async (): Promise<void> => {
+      try {
+        const brief = await services.brief.build(false)
+        if (!Notification.isSupported()) return
+
+        const notificacion = new Notification({
+          title: 'Tu dia en JARVIS',
+          body: brief.headline
+        })
+        notificacion.on('click', mostrarVentana)
+        notificacion.show()
+      } catch (err) {
+        console.error('[brief] no se pudo generar el resumen:', err)
+      }
+    }
+
+    const scheduler = services.scheduler(() => void notificarResumen())
+
+    registerIpc(services, {
+      onSettingsChanged: () => {
+        scheduler.reschedule()
+        // El arranque automatico lo gestiona el sistema, no un fichero nuestro.
+        app.setLoginItemSettings({
+          openAtLogin: services.settings.all().startAtLogin,
+          // Si arranca solo, que lo haga discreto: a la bandeja, sin robar foco.
+          args: ['--oculto']
+        })
+      }
     })
+
+    createWindow()
+    tray = crearBandeja({
+      mostrarVentana,
+      mostrarResumen: () => void notificarResumen(),
+      salir: () => {
+        estadoSalida.saliendo = true
+        app.quit()
+      }
+    })
+    scheduler.start()
+
+    // Arrancado por el sistema al iniciar sesion: no se muestra la ventana.
+    if (process.argv.includes('--oculto')) mainWindow?.hide()
+
+    app.on('activate', mostrarVentana)
   })
 
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+  // La app sigue viva sin ventanas: la bandeja la mantiene, y sin eso el
+  // resumen diario no podria dispararse. Se sale desde el menu de la bandeja.
+  app.on('window-all-closed', () => {})
+
+  app.on('before-quit', () => {
+    estadoSalida.saliendo = true
+    tray?.destroy()
   })
 }

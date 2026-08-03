@@ -756,6 +756,30 @@ body::before {
 }
 
 /* =========================================================================
+   Resumen del dia
+   ========================================================================= */
+
+.brief {
+  /* Un filo azul a la izquierda lo separa del resto de tarjetas sin gritar:
+     es la unica que resume en vez de listar. */
+  border-left: 2px solid var(--signal);
+}
+
+.brief-headline {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-size: 19px;
+  letter-spacing: 0.01em;
+}
+
+.brief-summary {
+  margin: 0 0 14px;
+  color: var(--paper-dim);
+  max-width: 62ch;
+}
+
+/* =========================================================================
    Urgencia — la firma
    ========================================================================= */
 

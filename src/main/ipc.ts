@@ -33,8 +33,17 @@ function handle<Args extends unknown[], T>(
   })
 }
 
-export function registerIpc(services: Services): void {
-  const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks } = services
+export interface IpcHooks {
+  /**
+   * Se llama tras guardar ajustes. Lo usa main para reprogramar el resumen y
+   * aplicar el arranque automatico, que son cosas que solo el sabe hacer.
+   */
+  onSettingsChanged: () => void
+}
+
+export function registerIpc(services: Services, hooks: IpcHooks): void {
+  const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
+    services
 
   // --- Autenticacion ---
   handle(Channels.authStatus, () => auth.status())
@@ -47,7 +56,11 @@ export function registerIpc(services: Services): void {
 
   // --- Ajustes ---
   handle(Channels.settingsGet, () => settings.safe())
-  handle(Channels.settingsUpdate, (patch: Partial<Settings>) => settings.update(patch))
+  handle(Channels.settingsUpdate, (patch: Partial<Settings>) => {
+    const updated = settings.update(patch)
+    hooks.onSettingsChanged()
+    return updated
+  })
 
   // --- Calendario ---
   handle(Channels.calendarList, (timeMin: string, timeMax: string) =>
@@ -93,6 +106,9 @@ export function registerIpc(services: Services): void {
   handle(Channels.organizerApply, (planId: string) => toDto(organizer.apply(planId)))
   handle(Channels.organizerHistory, () => organizer.history())
   handle(Channels.organizerUndoLast, () => toDto(organizer.undoLast()))
+
+  // --- Resumen diario ---
+  handle(Channels.briefGet, (withSummary: boolean) => brief.build(withSummary))
 
   // --- Sistema ---
   handle(Channels.dialogPickFolder, async () => {

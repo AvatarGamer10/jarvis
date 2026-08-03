@@ -30,6 +30,8 @@ export interface Settings {
   /** Hora del resumen diario en formato HH:mm. */
   dailyBriefTime: string
   dailyBriefEnabled: boolean
+  /** Arrancar JARVIS al iniciar sesion en el sistema. */
+  startAtLogin: boolean
   /** Se pone a true al terminar la pantalla de bienvenida. */
   onboardingDone: boolean
   /** Sonidos de interfaz. Se sintetizan, no hay ficheros de audio. */
@@ -183,14 +185,33 @@ export interface PendingAction {
 
 // --- Resumen diario --------------------------------------------------------
 
+/**
+ * Entrada del resumen, venga de donde venga.
+ *
+ * El resumen mezcla tareas de Classroom y tareas propias: a quien lo lee por la
+ * manana le da igual de que fuente sale cada una, solo cuando vence.
+ */
+export interface BriefTask {
+  title: string
+  /** Asignatura, o nombre del curso si viene de Classroom. */
+  subject: string
+  dueDate: string | null
+  source: TaskSource
+  /** Enlace a Classroom, si aplica. */
+  link?: string
+}
+
 export interface DailyBrief {
+  /** Fecha del resumen en ISO. */
   date: string
   events: CalendarEvent[]
-  dueToday: Assignment[]
-  dueSoon: Assignment[]
-  overdue: Assignment[]
-  /** Texto redactado por el modelo, o null si Gemini no estaba disponible. */
+  dueToday: BriefTask[]
+  dueSoon: BriefTask[]
+  overdue: BriefTask[]
+  /** Texto redactado por el modelo, o null si no habia ninguno disponible. */
   summary: string | null
+  /** Frase corta para la notificacion del sistema. */
+  headline: string
 }
 
 // --- Resultado generico para IPC ------------------------------------------

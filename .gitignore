@@ -6,6 +6,9 @@ release/
 .env.local
 *.log
 
+# Cache incremental de TypeScript: se regenera en cada compilacion.
+*.tsbuildinfo
+
 # Credenciales y tokens del spike de Fase 0 - NUNCA subir esto
 .jarvis-spike-tokens.json
 
