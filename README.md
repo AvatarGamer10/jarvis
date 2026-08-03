@@ -83,7 +83,7 @@ Otros comandos:
 | `npm run typecheck` | Comprueba tipos de main, preload y renderer |
 | `npm run build` | Compila a `out/` |
 | `npm run recursos` | Dibuja los iconos e imágenes del instalador |
-| `npm run build:win` | Instalador para Windows (ejecutar en Windows) |
+| `npm run build:win` | Instalador y portable para Windows (ejecutar en Windows) |
 | `npm run build:mac` | DMG universal para macOS (ejecutar en macOS) |
 
 ---
@@ -108,13 +108,19 @@ el DMG de macOS desde Windows. Para el Mac: clona el repositorio allí, copia tu
 
 ### Si el antivirus lo marca como amenaza
 
-Pasa, y es un **falso positivo**. El instalador reúne todas las señales que un
-heurístico asocia a un troyano: es un ejecutable sin firmar, que nadie ha visto
-antes, hecho con NSIS (muy usado por malware real), que arranca con el sistema y
-que se autoactualiza descargando y ejecutando otro ejecutable.
+Pasa, y es un **falso positivo**. Windows Defender lo detecta como
+`Trojan:Win32/Wacatac.B!ml` — el sufijo `!ml` significa que viene de un modelo
+de aprendizaje automático, no de una firma concreta. Es la etiqueta genérica de
+Defender para binarios recién compilados y sin firmar.
 
-Ninguna de esas cosas se puede quitar sin quitar la funcionalidad. En orden de
-eficacia real:
+**Hay un informe completo en [FALSO-POSITIVO.md](FALSO-POSITIVO.md)** con la lista
+de todo lo que dispara el modelo, por qué está cada cosa, y cómo verificarlo de
+forma independiente. Sirve para adjuntarlo al reporte de Microsoft.
+
+Se publica también una **versión portable en `.zip`** junto al instalador: los
+zip disparan bastante menos el modelo. A cambio no se actualiza sola.
+
+En orden de eficacia real:
 
 1. **Reportarlo como falso positivo.** Es gratis y funciona. Para Microsoft
    Defender: [microsoft.com/wdsi/filesubmission](https://www.microsoft.com/en-us/wdsi/filesubmission)

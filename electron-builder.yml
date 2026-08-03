@@ -34,6 +34,14 @@ win:
   target:
     - target: nsis
       arch: [x64]
+    # Alternativa portable. Los .zip disparan bastante menos el modelo de
+    # aprendizaje automatico de Defender que un .exe recien compilado, asi que
+    # sirve de salida cuando el instalador da falso positivo.
+    #
+    # No se actualiza sola: electron-updater solo sabe reemplazar
+    # instalaciones hechas con NSIS. Queda avisado en el README.
+    - target: zip
+      arch: [x64]
   icon: build/icon.ico
   publisherName: Iker
   # La app no necesita permisos de administrador para nada. Declararlo evita
