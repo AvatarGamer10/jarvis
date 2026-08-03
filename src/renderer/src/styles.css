@@ -441,6 +441,60 @@ body::before {
   color: var(--paper);
 }
 
+/* Cada modelo es una tarjeta con su para-quien-es y su peso, no una lista de
+   nombres tecnicos: "llama3.1:8b" no le dice nada a nadie. */
+.intro-modelos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.intro-modelos button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 11px 14px;
+  text-align: left;
+}
+
+.intro-modelos strong {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--signal-bright);
+}
+
+.intro-modelos span {
+  font-size: 13px;
+  color: var(--paper-dim);
+}
+
+.intro-modelos em {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--paper-faint);
+}
+
+/* Late despacio para que se vea que sigue mirando, sin distraer. */
+.intro-latido {
+  animation: latido 2.2s var(--ease-inout) infinite;
+}
+
+@keyframes latido {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .intro-tour {
   position: relative;
   display: grid;

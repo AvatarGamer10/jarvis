@@ -9,6 +9,8 @@ import type {
   MovePlan,
   Result,
   SafeSettings,
+  ModeloRecomendado,
+  ProgresoDescarga,
   Settings,
   UndoBatch,
   UpdateState
@@ -52,6 +54,15 @@ export interface JarvisApi {
       patch: Partial<Omit<ManualTask, 'id' | 'createdAt'>>
     ): Promise<Result<ManualTask>>
     remove(id: string): Promise<Result<null>>
+  }
+  ollama: {
+    /** True si Ollama responde. Se consulta en bucle mientras se instala. */
+    isRunning(): Promise<Result<boolean>>
+    recommended(): Promise<Result<ModeloRecomendado[]>>
+    /** Arranca la descarga; el progreso llega por onProgress. */
+    pull(model: string): Promise<Result<null>>
+    cancelPull(): Promise<Result<null>>
+    onProgress(callback: (progress: ProgresoDescarga) => void): () => void
   }
   agent: {
     send(text: string): Promise<Result<ChatMessage[]>>
@@ -114,6 +125,12 @@ export const Channels = {
   agentReset: 'agent:reset',
   agentUsage: 'agent:usage',
   agentOllamaModels: 'agent:ollamaModels',
+  ollamaIsRunning: 'ollama:isRunning',
+  ollamaRecommended: 'ollama:recommended',
+  ollamaPull: 'ollama:pull',
+  ollamaCancelPull: 'ollama:cancelPull',
+  /** Empujado desde main hacia el renderer. */
+  ollamaProgress: 'ollama:progress',
   organizerListRules: 'organizer:listRules',
   organizerSaveRule: 'organizer:saveRule',
   organizerDeleteRule: 'organizer:deleteRule',

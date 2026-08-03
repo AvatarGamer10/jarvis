@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { Channels, type ApplyOutcomeDto } from '@shared/ipc'
 import type { FileRule, ManualTask, Result, Settings } from '@shared/types'
+import { MODELOS_RECOMENDADOS } from './integrations/ollama-manager'
 import type { ApplyOutcome } from './organizer/executor'
 import type { Services } from './services'
 import type { UpdaterService } from './updater'
@@ -50,6 +51,7 @@ export function registerIpc(
 ): void {
   const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
     services
+  const { ollamaManager } = services
 
   // --- Autenticacion ---
   handle(Channels.authStatus, () => auth.status())
@@ -115,6 +117,22 @@ export function registerIpc(
 
   // --- Resumen diario ---
   handle(Channels.briefGet, (withSummary: boolean) => brief.build(withSummary))
+
+  // --- Ollama ---
+  handle(Channels.ollamaIsRunning, () => ollamaManager.estaFuncionando())
+  handle(Channels.ollamaRecommended, () => [...MODELOS_RECOMENDADOS])
+  handle(Channels.ollamaPull, async (model: string) => {
+    // No se espera a que termine: la descarga son varios GB y el renderer se
+    // quedaria bloqueado. El progreso viaja por su propio canal.
+    void ollamaManager.descargarModelo(model, (progreso) =>
+      BrowserWindow.getAllWindows()[0]?.webContents.send(Channels.ollamaProgress, progreso)
+    )
+    return null
+  })
+  handle(Channels.ollamaCancelPull, () => {
+    ollamaManager.cancelarDescarga()
+    return null
+  })
 
   // --- Actualizaciones ---
   handle(Channels.updaterGet, () => updater.estadoActual())

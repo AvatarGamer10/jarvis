@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { AuthStatus } from '@shared/types'
+import type { AuthStatus, ModeloRecomendado, ProgresoDescarga } from '@shared/types'
 import { sound } from '../lib/sound'
 
 const MARK = 'JARVIS'
@@ -179,39 +179,77 @@ function PasoGoogle({ onSiguiente }: { onSiguiente: () => void }): JSX.Element {
 // --- Paso: el cerebro --------------------------------------------------------
 
 function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element {
-  const [modelos, setModelos] = useState<string[] | null>(null)
-  const [elegido, setElegido] = useState('')
-  const [copiado, setCopiado] = useState<string | null>(null)
-
-  const buscar = async (): Promise<void> => {
-    setModelos(null)
-    const r = await window.jarvis.agent.ollamaModels()
-    const lista = r.ok ? r.data : []
-    setModelos(lista)
-    if (lista.length > 0 && !elegido) {
-      setElegido(lista[0])
-      void window.jarvis.settings.update({ ollamaModel: lista[0] })
-    }
-  }
+  const [instalado, setInstalado] = useState<boolean | null>(null)
+  const [modelos, setModelos] = useState<string[]>([])
+  const [recomendados, setRecomendados] = useState<ModeloRecomendado[]>([])
+  const [descarga, setDescarga] = useState<ProgresoDescarga | null>(null)
 
   useEffect(() => {
-    void buscar()
+    void window.jarvis.ollama.recommended().then((r) => {
+      if (r.ok) setRecomendados(r.data)
+    })
+    return window.jarvis.ollama.onProgress(setDescarga)
   }, [])
 
+  /**
+   * Mientras Ollama no aparezca, se comprueba cada 3 segundos. Asi el usuario
+   * lo instala en otra ventana y al volver ya esta detectado, sin tener que
+   * acordarse de pulsar nada.
+   */
+  useEffect(() => {
+    let vivo = true
+
+    const mirar = async (): Promise<void> => {
+      const r = await window.jarvis.ollama.isRunning()
+      if (!vivo) return
+      const activo = r.ok && r.data
+      setInstalado(activo)
+
+      if (activo) {
+        const m = await window.jarvis.agent.ollamaModels()
+        if (vivo && m.ok) setModelos(m.data)
+      }
+    }
+
+    void mirar()
+    const id = setInterval(() => void mirar(), 3000)
+    return () => {
+      vivo = false
+      clearInterval(id)
+    }
+  }, [])
+
+  // Al terminar una descarga, refrescar la lista para que aparezca ya elegido.
+  useEffect(() => {
+    if (!descarga?.terminado || descarga.error) return
+    sound.play('done')
+    void window.jarvis.agent.ollamaModels().then((r) => {
+      if (r.ok) setModelos(r.data)
+    })
+  }, [descarga?.terminado])
+
   const elegir = async (nombre: string): Promise<void> => {
-    setElegido(nombre)
     sound.play('confirm')
     await window.jarvis.settings.update({ ollamaModel: nombre })
+    setModelos((previos) => [nombre, ...previos.filter((m) => m !== nombre)])
   }
 
-  const copiar = async (texto: string): Promise<void> => {
-    await navigator.clipboard.writeText(texto)
-    setCopiado(texto)
+  const descargar = (nombre: string): void => {
     sound.play('nav')
-    setTimeout(() => setCopiado(null), 2000)
+    setDescarga({
+      modelo: nombre,
+      fase: 'Preparando',
+      porcentaje: 0,
+      descargado: 0,
+      total: 0,
+      terminado: false
+    })
+    void window.jarvis.ollama.pull(nombre)
   }
 
-  const hayOllama = modelos !== null && modelos.length > 0
+  const hayModelo = modelos.length > 0
+  const descargando = descarga !== null && !descarga.terminado
+  const gb = (bytes: number): string => (bytes / 1024 ** 3).toFixed(1)
 
   return (
     <>
@@ -222,46 +260,74 @@ function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element 
       </p>
 
       <div className="intro-caja">
-        {modelos === null && <p className="hint">Buscando Ollama…</p>}
+        {instalado === null && <p className="hint">Buscando Ollama…</p>}
 
-        {modelos !== null && !hayOllama && (
+        {instalado === false && (
           <>
-            <div className="intro-falta">No encuentro Ollama en tu ordenador</div>
-            <ol className="intro-lista">
-              <li>
-                Descargalo de{' '}
-                <button
-                  className="link"
-                  onClick={() => void window.jarvis.shell.openExternal('https://ollama.com/download')}
-                >
-                  ollama.com
-                </button>{' '}
-                e instalalo.
-              </li>
-              <li>
-                Abre la aplicacion Terminal y pega esto:
-                <div className="intro-comando">
-                  <code>ollama pull llama3.1:8b</code>
-                  <button onClick={() => void copiar('ollama pull llama3.1:8b')}>
-                    {copiado ? 'Copiado' : 'Copiar'}
-                  </button>
-                </div>
-                Tarda un rato: son unos 5 GB.
-              </li>
-              <li>Vuelve aqui y pulsa Buscar otra vez.</li>
-            </ol>
-            <button onClick={buscar}>Buscar otra vez</button>
+            <div className="intro-falta">Falta instalar Ollama</div>
+            <p className="hint" style={{ maxWidth: '42ch' }}>
+              Pulsa el boton, instalalo como cualquier otro programa y vuelve aqui. Te detectare
+              solo, no hace falta que hagas nada mas.
+            </p>
+            <button
+              className="primary"
+              onClick={() => void window.jarvis.shell.openExternal('https://ollama.com/download')}
+            >
+              Descargar Ollama
+            </button>
+            <p className="hint intro-latido">Comprobando cada pocos segundos…</p>
           </>
         )}
 
-        {hayOllama && (
+        {instalado === true && descargando && descarga && (
           <>
             <div className="intro-ok">Ollama funcionando</div>
-            <p className="hint">Elige con cual quieres que piense:</p>
-            <div className="row" style={{ justifyContent: 'center', marginTop: 10 }}>
-              {modelos.map((m) => (
-                <button key={m} className={m === elegido ? 'primary' : ''} onClick={() => void elegir(m)}>
-                  {m}
+            <p className="hint">
+              {descarga.fase} {descarga.modelo}
+              {descarga.total > 0 && ` · ${gb(descarga.descargado)} de ${gb(descarga.total)} GB`}
+            </p>
+            <div className="update-bar" style={{ width: '100%' }}>
+              <div className="update-bar-fill" style={{ width: `${descarga.porcentaje}%` }} />
+            </div>
+            <button onClick={() => void window.jarvis.ollama.cancelPull()}>Cancelar</button>
+          </>
+        )}
+
+        {instalado === true && !descargando && descarga?.error && (
+          <p className="hint intro-error">{descarga.error}</p>
+        )}
+
+        {instalado === true && !descargando && hayModelo && (
+          <>
+            <div className="intro-ok">Todo listo, usando {modelos[0]}</div>
+            {modelos.length > 1 && (
+              <div className="row" style={{ justifyContent: 'center', marginTop: 6 }}>
+                {modelos.map((m) => (
+                  <button
+                    key={m}
+                    className={m === modelos[0] ? 'primary' : ''}
+                    onClick={() => void elegir(m)}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {instalado === true && !descargando && !hayModelo && (
+          <>
+            <div className="intro-ok">Ollama funcionando</div>
+            <p className="hint">Falta descargar un modelo. Yo me encargo, elige cual:</p>
+            <div className="intro-modelos">
+              {recomendados.map((m) => (
+                <button key={m.nombre} onClick={() => descargar(m.nombre)}>
+                  <strong>{m.etiqueta}</strong>
+                  <span>{m.descripcion}</span>
+                  <em>
+                    {m.nombre} · {m.gigas} GB
+                  </em>
                 </button>
               ))}
             </div>
@@ -270,12 +336,12 @@ function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element 
       </div>
 
       <div className="row" style={{ justifyContent: 'center' }}>
-        <button className={hayOllama ? 'primary' : ''} onClick={onSiguiente}>
-          {hayOllama ? 'Siguiente' : 'Ahora no, seguir'}
+        <button className={hayModelo ? 'primary' : ''} onClick={onSiguiente} disabled={descargando}>
+          {hayModelo ? 'Siguiente' : 'Ahora no, seguir'}
         </button>
       </div>
 
-      {!hayOllama && (
+      {!hayModelo && !descargando && (
         <p className="intro-note">SIN ESTO, TODO FUNCIONA MENOS EL CHAT</p>
       )}
     </>

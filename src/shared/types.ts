@@ -218,6 +218,26 @@ export interface DailyBrief {
   headline: string
 }
 
+// --- Ollama ----------------------------------------------------------------
+
+export interface ModeloRecomendado {
+  nombre: string
+  etiqueta: string
+  gigas: number
+  descripcion: string
+  memoriaMinimaGb: number
+}
+
+export interface ProgresoDescarga {
+  modelo: string
+  fase: string
+  porcentaje: number
+  descargado: number
+  total: number
+  terminado: boolean
+  error?: string
+}
+
 // --- Actualizaciones -------------------------------------------------------
 
 /**

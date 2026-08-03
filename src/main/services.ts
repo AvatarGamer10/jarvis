@@ -10,6 +10,7 @@ import { BriefScheduler } from './brief/scheduler'
 import { CalendarService } from './integrations/calendar'
 import { ClassroomService } from './integrations/classroom'
 import { GoogleApi } from './integrations/google-api'
+import { OllamaManager } from './integrations/ollama-manager'
 import { OrganizerService } from './organizer'
 import { SecretStore } from './store/secret-store'
 import { SettingsService } from './store/settings'
@@ -29,6 +30,7 @@ export interface Services {
   organizer: OrganizerService
   tasks: ManualTaskService
   ollama: OllamaProvider
+  ollamaManager: OllamaManager
   usage: UsageCounter
   agent: AgentService
   brief: BriefService
@@ -77,6 +79,7 @@ export function createServices(): Services {
     organizer,
     tasks,
     ollama,
+    ollamaManager: new OllamaManager(settings),
     usage,
     agent: new AgentService(provider, toolContext),
     brief: new BriefService(calendar, classroom, tasks, provider),

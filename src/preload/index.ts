@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { Channels, type JarvisApi } from '@shared/ipc'
-import type { Settings, UpdateState } from '@shared/types'
+import type { ProgresoDescarga, Settings, UpdateState } from '@shared/types'
 
 /**
  * Puente entre el renderer y el proceso main.
@@ -31,6 +31,17 @@ const api: JarvisApi = {
     add: (input) => ipcRenderer.invoke(Channels.tasksAdd, input),
     update: (id, patch) => ipcRenderer.invoke(Channels.tasksUpdate, id, patch),
     remove: (id: string) => ipcRenderer.invoke(Channels.tasksRemove, id)
+  },
+  ollama: {
+    isRunning: () => ipcRenderer.invoke(Channels.ollamaIsRunning),
+    recommended: () => ipcRenderer.invoke(Channels.ollamaRecommended),
+    pull: (model: string) => ipcRenderer.invoke(Channels.ollamaPull, model),
+    cancelPull: () => ipcRenderer.invoke(Channels.ollamaCancelPull),
+    onProgress: (callback: (progress: ProgresoDescarga) => void) => {
+      const oyente = (_e: IpcRendererEvent, progress: ProgresoDescarga): void => callback(progress)
+      ipcRenderer.on(Channels.ollamaProgress, oyente)
+      return () => ipcRenderer.removeListener(Channels.ollamaProgress, oyente)
+    }
   },
   agent: {
     send: (text: string) => ipcRenderer.invoke(Channels.agentSend, text),
