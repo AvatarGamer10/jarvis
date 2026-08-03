@@ -14,23 +14,25 @@ import { pipeline, env, type AutomaticSpeechRecognitionPipeline } from '@hugging
 /**
  * Combinaciones de modelo y precision, en orden de preferencia.
  *
- * No basta con elegir una: onnxruntime falla al abrir la sesion si los pesos
- * cuantizados no son de la generacion que espera, y el error solo aparece al
- * cargar, no al descargar. Paso exactamente eso con Xenova/whisper-base, cuyos
- * pesos q8 son del runtime anterior:
+ * NO USAR LOS PESOS EN q8. Esta version de onnxruntime no puede abrirlos, y da
+ * igual el repositorio: se probo con Xenova y con onnx-community y los dos
+ * fallan igual, despues de haber descargado los 80 MB enteros.
  *
  *   Missing required scale: model.decoder.embed_tokens.weight_merged_0_scale
  *
- * Los repositorios onnx-community estan construidos para el runtime actual.
- * Se prueba de la mas ligera a la mas segura, y la ultima es sin cuantizar:
- * pesa el doble pero no depende de ninguna tabla de escalas.
+ * El error salta al crear la sesion, no al descargar, asi que un q8 "de
+ * prueba" no sale gratis: cuesta una descarga completa antes de fallar. Por
+ * eso solo quedan versiones sin cuantizar, que pesan el doble pero no dependen
+ * de ninguna tabla de escalas.
+ *
+ * La lista sigue teniendo dos entradas por si un repositorio deja de estar
+ * disponible, no por variar de formato.
  *
  * Whisper "base" es el punto dulce para espanol: "tiny" se inventa palabras
  * con acento y "small" pasa de 400 MB para una mejora que no se nota en
  * frases cortas como las que se le dicen a un asistente.
  */
 const CANDIDATOS = [
-  { modelo: 'onnx-community/whisper-base', dtype: 'q8', aprox: '~80 MB' },
   { modelo: 'onnx-community/whisper-base', dtype: 'fp32', aprox: '~145 MB' },
   { modelo: 'Xenova/whisper-base', dtype: 'fp32', aprox: '~145 MB' }
 ] as const
@@ -89,21 +91,50 @@ export async function cargarModelo(
           const creado = await pipeline('automatic-speech-recognition', candidato.modelo, {
             dtype: candidato.dtype,
             device: 'wasm',
-            progress_callback: (info: { status?: string; progress?: number }) => {
-              if (info.status === 'progress' && typeof info.progress === 'number') {
+            progress_callback: (info: {
+              status?: string
+              progress?: number
+              file?: string
+            }) => {
+              console.log(
+                `[voz] ${candidato.modelo} ${candidato.dtype} · ${info.status} ${info.file ?? ''} ${
+                  info.progress !== undefined ? `${Math.round(info.progress)}%` : ''
+                }`
+              )
+
+              // OJO: "progress" es el porcentaje DE CADA FICHERO, no del
+              // conjunto. El primero que baja es config.json, de un kilobyte,
+              // que llega al 100% al instante: si se pinta eso, la barra se
+              // clava en 100% mientras los dos ficheros de 80 MB siguen
+              // bajando en silencio, y parece colgada.
+              //
+              // El progreso real del conjunto viene en "progress_total".
+              if (info.status === 'progress_total' && typeof info.progress === 'number') {
                 alProgresar?.({
                   fase: 'descargando',
                   porcentaje: Math.round(info.progress),
                   mensaje:
                     indice === 0
                       ? 'Descargando el modelo de voz'
-                      : `Probando otra version del modelo (${candidato.aprox})`
+                      : `Probando otra version (${candidato.aprox})`
+                })
+              }
+
+              // Tras la descarga viene abrir la sesion, que no informa de nada
+              // y tarda bastante en WebAssembly. Sin este aviso, la barra se
+              // queda clavada en 100% y parece colgada.
+              if (info.status === 'done' || info.status === 'ready') {
+                alProgresar?.({
+                  fase: 'descargando',
+                  porcentaje: 100,
+                  mensaje: 'Preparando el modelo, esto tarda un poco…'
                 })
               }
             }
           })
 
           transcriptor = creado as AutomaticSpeechRecognitionPipeline
+          console.log(`[voz] cargado: ${candidato.modelo} ${candidato.dtype}`)
           alProgresar?.({ fase: 'listo', porcentaje: 100, mensaje: 'Modelo de voz listo' })
           return transcriptor
         } catch (err) {

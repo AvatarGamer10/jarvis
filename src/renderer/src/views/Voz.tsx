@@ -172,8 +172,8 @@ export default function Voz(): JSX.Element {
           ) : (
             <>
               <p className="meta" style={{ marginTop: 0 }}>
-                Para entenderte hace falta descargar el modelo de voz una sola vez. Entre 80 y 145
-                MB segun cual admita tu equipo. Despues funciona sin internet.
+                Para entenderte hace falta descargar el modelo de voz una sola vez. Son unos 145
+                MB y tarda un par de minutos. Despues funciona sin internet.
               </p>
               {modelo?.fase === 'error' && <p className="hint intro-error">{modelo.mensaje}</p>}
               <button className="primary" onClick={prepararModelo} style={{ marginTop: 12 }}>

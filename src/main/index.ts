@@ -128,6 +128,16 @@ function createWindow(): void {
     void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
+  // En desarrollo, lo que pasa en la interfaz se ve en la terminal. Sin esto,
+  // un error del renderer se queda en unas DevTools que nadie esta mirando.
+  if (!app.isPackaged) {
+    mainWindow.webContents.on('console-message', (_event, nivel, mensaje, linea, origen) => {
+      const etiqueta = ['LOG', 'AVISO', 'ERROR', 'DEBUG'][nivel] ?? 'LOG'
+      const sitio = origen ? ` (${origen.split('/').pop()}:${linea})` : ''
+      console.log(`[render:${etiqueta}]${sitio} ${mensaje}`)
+    })
+  }
+
   prepararCierreABandeja(mainWindow)
 
   mainWindow.on('closed', () => {
