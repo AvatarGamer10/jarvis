@@ -99,6 +99,37 @@ export default function Ajustes(): JSX.Element {
     if (updated.ok) settingsState.reload()
   }
 
+  const importarJson = async (): Promise<void> => {
+    setBusy(true)
+    setMessage(null)
+    const result = await window.jarvis.dialog.importGoogleJson()
+    if (result.ok) {
+      // null significa que el usuario cerro el dialogo: no es un error.
+      if (result.data) {
+        setMessage({ kind: 'info', text: 'Credenciales importadas.' })
+        settingsState.reload()
+      }
+    } else {
+      setMessage({ kind: 'error', text: result.error })
+    }
+    setBusy(false)
+  }
+
+  const volverAIncluidas = async (): Promise<void> => {
+    setBusy(true)
+    const updated = await window.jarvis.settings.update({
+      googleClientId: '',
+      googleClientSecret: ''
+    })
+    if (updated.ok) {
+      setClientId('')
+      setClientSecret('')
+      setMessage({ kind: 'info', text: 'Se usaran las credenciales incluidas.' })
+      settingsState.reload()
+    }
+    setBusy(false)
+  }
+
   const toggleBrief = async (): Promise<void> => {
     const updated = await window.jarvis.settings.update({
       dailyBriefEnabled: !(settings?.dailyBriefEnabled ?? true)
@@ -163,42 +194,77 @@ export default function Ajustes(): JSX.Element {
           )}
         </div>
 
-        <div className="field">
-          <label htmlFor="clientId">Client ID</label>
-          <input
-            id="clientId"
-            type="text"
-            value={clientId}
-            placeholder="000000000000-xxxx.apps.googleusercontent.com"
-            onChange={(e) => setClientId(e.target.value)}
-          />
-        </div>
-
-        <div className="field">
-          <label htmlFor="clientSecret">Client Secret</label>
-          <input
-            id="clientSecret"
-            type="password"
-            value={clientSecret}
-            placeholder={settings?.hasGoogleClientSecret ? '•••••••• (guardado)' : 'Sin configurar'}
-            onChange={(e) => setClientSecret(e.target.value)}
-          />
-          <p className="hint">
-            Se guarda cifrado con el llavero del sistema. Dejalo en blanco para no cambiarlo.
-          </p>
-        </div>
-
         <div className="row">
           {status?.connected ? (
             <button onClick={disconnect} disabled={busy}>
               Cerrar sesion
             </button>
           ) : (
-            <button className="primary" onClick={connect} disabled={busy || !clientId}>
+            <button
+              className="primary"
+              onClick={connect}
+              disabled={busy || !settings?.listoParaConectar}
+            >
               Conectar con Google
             </button>
           )}
         </div>
+
+        {!settings?.listoParaConectar && (
+          <p className="hint" style={{ marginTop: 10 }}>
+            Esta copia de JARVIS no trae credenciales incluidas. Configura las tuyas en Avanzado.
+          </p>
+        )}
+
+        {/* Casi nadie necesita esto: solo quien quiera usar su propio proyecto
+            de Google Cloud. Por eso va plegado y no compitiendo con el boton. */}
+        <details className="avanzado">
+          <summary>Usar mi propio proyecto de Google Cloud</summary>
+
+          <p className="hint" style={{ marginTop: 12 }}>
+            {settings?.usaCredencialesPropias
+              ? 'Ahora mismo JARVIS usa tus credenciales.'
+              : 'Ahora mismo JARVIS usa las credenciales que trae incluidas.'}
+          </p>
+
+          <div className="row" style={{ margin: '12px 0' }}>
+            <button onClick={importarJson} disabled={busy}>
+              Importar client_secret.json…
+            </button>
+            {settings?.usaCredencialesPropias && (
+              <button onClick={volverAIncluidas} disabled={busy}>
+                Volver a las incluidas
+              </button>
+            )}
+          </div>
+
+          <div className="field">
+            <label htmlFor="clientId">Client ID</label>
+            <input
+              id="clientId"
+              type="text"
+              value={clientId}
+              placeholder="000000000000-xxxx.apps.googleusercontent.com"
+              onChange={(e) => setClientId(e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="clientSecret">Client Secret</label>
+            <input
+              id="clientSecret"
+              type="password"
+              value={clientSecret}
+              placeholder={
+                settings?.hasGoogleClientSecret ? '•••••••• (guardado)' : 'Sin configurar'
+              }
+              onChange={(e) => setClientSecret(e.target.value)}
+            />
+            <p className="hint">
+              Se guarda cifrado con el llavero del sistema. Dejalo en blanco para no cambiarlo.
+            </p>
+          </div>
+        </details>
       </div>
 
       <div className="card">

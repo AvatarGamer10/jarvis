@@ -46,6 +46,10 @@ export interface Settings {
 export type SafeSettings = Omit<Settings, 'googleClientSecret' | 'geminiApiKey'> & {
   hasGoogleClientSecret: boolean
   hasGeminiApiKey: boolean
+  /** El usuario ha puesto su propio proyecto de Google Cloud. */
+  usaCredencialesPropias: boolean
+  /** Hay credenciales validas, propias o empaquetadas: se puede pulsar Conectar. */
+  listoParaConectar: boolean
 }
 
 // --- Calendario ------------------------------------------------------------

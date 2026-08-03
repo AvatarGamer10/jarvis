@@ -959,6 +959,41 @@ input:focus {
   flex-wrap: wrap;
 }
 
+/* Ajustes que casi nadie necesita. Plegados para que no compitan con lo que
+   si se usa, pero a un clic de distancia y sin esconderse en otra pantalla. */
+.avanzado {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.avanzado > summary {
+  cursor: pointer;
+  color: var(--paper-dim);
+  font-size: 13px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avanzado > summary::-webkit-details-marker {
+  display: none;
+}
+
+.avanzado > summary::before {
+  content: '▸';
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.avanzado[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.avanzado > summary:hover {
+  color: var(--paper);
+}
+
 .badge {
   display: inline-block;
   padding: 2px 9px;

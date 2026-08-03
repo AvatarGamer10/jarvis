@@ -5,6 +5,7 @@ import type { ApplyOutcome } from './organizer/executor'
 import type { Services } from './services'
 
 import path from 'node:path'
+import { readFile } from 'node:fs/promises'
 
 /** El renderer no necesita la lista completa de movimientos fallidos, solo el nombre. */
 const toDto = (outcome: ApplyOutcome): ApplyOutcomeDto => ({
@@ -111,6 +112,46 @@ export function registerIpc(services: Services, hooks: IpcHooks): void {
   handle(Channels.briefGet, (withSummary: boolean) => brief.build(withSummary))
 
   // --- Sistema ---
+  handle(Channels.dialogImportGoogleJson, async () => {
+    const window = BrowserWindow.getFocusedWindow()
+    const opciones = {
+      title: 'Elige el client_secret que descargaste de Google Cloud',
+      filters: [{ name: 'Credenciales de Google', extensions: ['json'] }],
+      properties: ['openFile' as const]
+    }
+    const elegido = window
+      ? await dialog.showOpenDialog(window, opciones)
+      : await dialog.showOpenDialog(opciones)
+
+    if (elegido.canceled || !elegido.filePaths[0]) return null
+
+    const crudo = await readFile(elegido.filePaths[0], 'utf8')
+    let json: unknown
+    try {
+      json = JSON.parse(crudo)
+    } catch {
+      throw new Error('Ese fichero no es un JSON valido.')
+    }
+
+    // Google mete las credenciales bajo "installed" para clientes de escritorio
+    // y bajo "web" para los de servidor; aceptamos las dos formas.
+    const contenedor = (json as { installed?: unknown; web?: unknown }).installed ??
+      (json as { web?: unknown }).web ?? json
+    const { client_id: clientId, client_secret: clientSecret } = contenedor as {
+      client_id?: string
+      client_secret?: string
+    }
+
+    if (!clientId || !clientSecret) {
+      throw new Error(
+        'No encuentro client_id y client_secret ahi dentro. ' +
+          'Descarga el JSON desde el cliente de OAuth en Google Cloud.'
+      )
+    }
+
+    return settings.update({ googleClientId: clientId, googleClientSecret: clientSecret })
+  })
+
   handle(Channels.dialogPickFolder, async () => {
     const window = BrowserWindow.getFocusedWindow()
     const result = window

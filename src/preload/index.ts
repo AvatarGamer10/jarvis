@@ -53,7 +53,8 @@ const api: JarvisApi = {
     get: (withSummary?: boolean) => ipcRenderer.invoke(Channels.briefGet, withSummary ?? true)
   },
   dialog: {
-    pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder)
+    pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder),
+    importGoogleJson: () => ipcRenderer.invoke(Channels.dialogImportGoogleJson)
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(Channels.shellOpenExternal, url)

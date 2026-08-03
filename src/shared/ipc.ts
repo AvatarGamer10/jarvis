@@ -75,6 +75,12 @@ export interface JarvisApi {
   }
   dialog: {
     pickFolder(): Promise<Result<string | null>>
+    /**
+     * Abre el client_secret_*.json que descarga Google Cloud y guarda las
+     * credenciales. Se lee y se extrae en el proceso principal: el secreto no
+     * llega a cruzar al renderer en ningun momento.
+     */
+    importGoogleJson(): Promise<Result<SafeSettings | null>>
   }
   shell: {
     openExternal(url: string): Promise<Result<null>>
@@ -108,5 +114,6 @@ export const Channels = {
   organizerUndoLast: 'organizer:undoLast',
   briefGet: 'brief:get',
   dialogPickFolder: 'dialog:pickFolder',
+  dialogImportGoogleJson: 'dialog:importGoogleJson',
   shellOpenExternal: 'shell:openExternal'
 } as const

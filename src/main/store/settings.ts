@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import path from 'node:path'
 import type { SafeSettings, Settings } from '@shared/types'
+import { CREDENCIALES_EMPAQUETADAS, traeCredenciales } from '../auth/credentials'
 import { JsonStore } from './json-store'
 import { SecretKeys, SecretStore } from './secret-store'
 
@@ -31,12 +32,23 @@ export class SettingsService {
     })
   }
 
-  /** Version completa, solo para uso interno del proceso main. */
+  /**
+   * Version completa, solo para uso interno del proceso main.
+   *
+   * Si el usuario no ha puesto sus propias credenciales de Google, se usan las
+   * que vienen empaquetadas con la app. Lo que el guarde manda siempre: quien
+   * quiera su propio proyecto de Google Cloud solo tiene que rellenarlo.
+   */
   all(): Settings {
     const plain = this.store.get()
+    const clientId = plain.googleClientId || CREDENCIALES_EMPAQUETADAS.clientId
+    const clientSecret =
+      this.secrets.get(SecretKeys.googleClientSecret) || CREDENCIALES_EMPAQUETADAS.clientSecret
+
     return {
       ...plain,
-      googleClientSecret: this.secrets.get(SecretKeys.googleClientSecret) ?? '',
+      googleClientId: clientId,
+      googleClientSecret: clientSecret,
       geminiApiKey: this.secrets.get(SecretKeys.geminiApiKey) ?? ''
     }
   }
@@ -45,8 +57,11 @@ export class SettingsService {
   safe(): SafeSettings {
     return {
       ...this.store.get(),
-      hasGoogleClientSecret: this.secrets.has(SecretKeys.googleClientSecret),
-      hasGeminiApiKey: this.secrets.has(SecretKeys.geminiApiKey)
+      hasGoogleClientSecret:
+        this.secrets.has(SecretKeys.googleClientSecret) || traeCredenciales(),
+      hasGeminiApiKey: this.secrets.has(SecretKeys.geminiApiKey),
+      usaCredencialesPropias: this.store.get().googleClientId.length > 0,
+      listoParaConectar: this.all().googleClientId.length > 0 && this.all().googleClientSecret.length > 0
     }
   }
 
