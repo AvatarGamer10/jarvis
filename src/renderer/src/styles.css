@@ -319,6 +319,161 @@ body::before {
   transform: scale(0.97);
 }
 
+/* --- Asistente de configuracion --- */
+
+.intro-pasos {
+  position: absolute;
+  top: 34px;
+  display: flex;
+  gap: 8px;
+}
+
+.intro-punto {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line);
+  transition:
+    background var(--dur) var(--ease),
+    width var(--dur) var(--ease);
+}
+
+.intro-punto.activo {
+  width: 20px;
+  border-radius: 99px;
+  background: var(--signal);
+}
+
+.intro-titulo {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-display);
+  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-size: clamp(28px, 5vw, 40px);
+  letter-spacing: 0.01em;
+  animation: rise 700ms var(--ease) both;
+}
+
+/* Caja del paso. Ancho fijo para que el contenido no baile al cambiar de
+   pantalla, que es lo que hace que un asistente parezca inestable. */
+.intro-caja {
+  position: relative;
+  width: min(520px, 88vw);
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+  background: rgba(20, 26, 38, 0.5);
+  backdrop-filter: blur(18px);
+  animation: rise 700ms var(--ease) 120ms both;
+}
+
+.intro-ok,
+.intro-falta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+.intro-ok {
+  color: #5ecfa0;
+}
+
+.intro-ok::before {
+  content: '✓';
+}
+
+.intro-falta {
+  color: var(--t-soon);
+}
+
+.intro-falta::before {
+  content: '!';
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 11px;
+}
+
+.intro-error {
+  color: #ffb0a4;
+}
+
+.intro-lista {
+  margin: 4px 0 14px;
+  padding-left: 20px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--paper-dim);
+}
+
+.intro-lista li + li {
+  margin-top: 9px;
+}
+
+.intro-comando {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 7px 0;
+}
+
+.intro-comando code {
+  flex: 1;
+  padding: 7px 11px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--paper);
+}
+
+.intro-tour {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: min(560px, 90vw);
+  animation: rise 700ms var(--ease) 120ms both;
+}
+
+.intro-tour > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 13px 15px;
+  text-align: left;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-soft);
+  background: rgba(20, 26, 38, 0.45);
+}
+
+.intro-tour strong {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--signal-bright);
+}
+
+.intro-tour span {
+  font-size: 13px;
+  color: var(--paper-dim);
+}
+
 /* =========================================================================
    Estructura
    ========================================================================= */
