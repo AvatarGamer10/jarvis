@@ -183,6 +183,8 @@ function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element 
   const [modelos, setModelos] = useState<string[]>([])
   const [recomendados, setRecomendados] = useState<ModeloRecomendado[]>([])
   const [descarga, setDescarga] = useState<ProgresoDescarga | null>(null)
+  const [prueba, setPrueba] = useState<{ ok: boolean; detalle: string } | null>(null)
+  const [probando, setProbando] = useState(false)
 
   useEffect(() => {
     void window.jarvis.ollama.recommended().then((r) => {
@@ -232,6 +234,21 @@ function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element 
     sound.play('confirm')
     await window.jarvis.settings.update({ ollamaModel: nombre })
     setModelos((previos) => [nombre, ...previos.filter((m) => m !== nombre)])
+    // Cambiar de modelo invalida la prueba anterior.
+    setPrueba(null)
+  }
+
+  const probar = async (): Promise<void> => {
+    setProbando(true)
+    setPrueba(null)
+    const r = await window.jarvis.ollama.probar()
+    if (r.ok) {
+      setPrueba(r.data)
+      sound.play(r.data.ok ? 'done' : 'cancel')
+    } else {
+      setPrueba({ ok: false, detalle: r.error })
+    }
+    setProbando(false)
   }
 
   const descargar = (nombre: string): void => {
@@ -299,7 +316,7 @@ function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element 
 
         {instalado === true && !descargando && hayModelo && (
           <>
-            <div className="intro-ok">Todo listo, usando {modelos[0]}</div>
+            <div className="intro-ok">Ollama listo, usando {modelos[0]}</div>
             {modelos.length > 1 && (
               <div className="row" style={{ justifyContent: 'center', marginTop: 6 }}>
                 {modelos.map((m) => (
@@ -312,6 +329,20 @@ function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element 
                   </button>
                 ))}
               </div>
+            )}
+
+            {/* Que exista no significa que sirva: hay modelos que no saben
+                usar herramientas y fallan al primer mensaje util. */}
+            {prueba === null && (
+              <button onClick={probar} disabled={probando} style={{ marginTop: 10 }}>
+                {probando ? 'Probandolo…' : 'Comprobar que funciona'}
+              </button>
+            )}
+            {prueba && (
+              <p className={`hint ${prueba.ok ? '' : 'intro-error'}`} style={{ marginTop: 8 }}>
+                {prueba.ok ? '✓ ' : ''}
+                {prueba.detalle}
+              </p>
             )}
           </>
         )}

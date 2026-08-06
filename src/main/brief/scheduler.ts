@@ -20,7 +20,37 @@ export class BriefScheduler {
   ) {}
 
   start(): void {
+    this.recuperarPerdido()
     this.arm()
+  }
+
+  /**
+   * Lanza el resumen si hoy tocaba y no llego a salir.
+   *
+   * Sin esto, un dia que la app no estuviera abierta a las 7:30 se saltaba el
+   * aviso sin que nadie se enterase de que faltaba. Y el resumen de un dia
+   * escolar sirve durante todo ese dia, no solo a su hora exacta.
+   */
+  private recuperarPerdido(): void {
+    const { dailyBriefEnabled, dailyBriefTime, lastBriefDate } = this.settings.all()
+    if (!dailyBriefEnabled) return
+
+    const hoy = new Date().toISOString().slice(0, 10)
+    if (lastBriefDate === hoy) return
+
+    // Solo si la hora de hoy ya paso; si aun no ha llegado, ya saltara sola.
+    const objetivo = nextOccurrence(dailyBriefTime)
+    const yaPaso = objetivo.toISOString().slice(0, 10) !== hoy
+
+    if (!yaPaso) return
+
+    this.lastFired = hoy
+    this.settings.update({ lastBriefDate: hoy })
+    try {
+      this.onFire()
+    } catch (err) {
+      console.error('[brief] fallo al recuperar el resumen del dia:', err)
+    }
   }
 
   stop(): void {
@@ -47,6 +77,7 @@ export class BriefScheduler {
       // varias veces; la marca del dia evita repetir el aviso.
       if (this.lastFired !== today) {
         this.lastFired = today
+        this.settings.update({ lastBriefDate: today })
         try {
           this.onFire()
         } catch (err) {

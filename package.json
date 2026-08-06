@@ -1,6 +1,6 @@
 {
   "name": "jarvis",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Asistente escolar de escritorio: calendario, Classroom y organizacion de carpetas",
   "main": "./out/main/index.js",
   "author": "Iker",

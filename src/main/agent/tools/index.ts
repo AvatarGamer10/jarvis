@@ -1,6 +1,7 @@
 import { calendarCreate, calendarList, calendarMove } from './calendar-tools'
 import { classroomList } from './classroom-tools'
 import { filesApply, filesPlan, filesUndo } from './files-tools'
+import { planificarEstudio } from './planificador'
 import { tasksAdd, tasksComplete, tasksList } from './tasks-tools'
 import type { Tool } from './types'
 
@@ -16,6 +17,7 @@ export const TOOLS: Tool<never>[] = [
   tasksList,
   tasksAdd,
   tasksComplete,
+  planificarEstudio,
   filesPlan,
   filesApply,
   filesUndo

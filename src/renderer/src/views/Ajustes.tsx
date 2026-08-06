@@ -130,6 +130,31 @@ export default function Ajustes(): JSX.Element {
     setBusy(false)
   }
 
+  const exportarDatos = async (): Promise<void> => {
+    setBusy(true)
+    setMessage(null)
+    const r = await window.jarvis.datos.exportar()
+    if (!r.ok) setMessage({ kind: 'error', text: r.error })
+    else if (r.data) {
+      setMessage({ kind: 'info', text: `Copia guardada en ${r.data.ruta}` })
+    }
+    setBusy(false)
+  }
+
+  const importarDatos = async (): Promise<void> => {
+    setBusy(true)
+    setMessage(null)
+    const r = await window.jarvis.datos.importar()
+    if (!r.ok) setMessage({ kind: 'error', text: r.error })
+    else if (r.data) {
+      setMessage({
+        kind: 'info',
+        text: `Restaurados ${r.data.ficheros} fichero(s). Cierra y vuelve a abrir JARVIS para verlos.`
+      })
+    }
+    setBusy(false)
+  }
+
   const toggleBrief = async (): Promise<void> => {
     const updated = await window.jarvis.settings.update({
       dailyBriefEnabled: !(settings?.dailyBriefEnabled ?? true)
@@ -376,6 +401,37 @@ export default function Ajustes(): JSX.Element {
             </div>
           </>
         )}
+      </div>
+
+      <div className="card">
+        <h3>Tus datos</h3>
+
+        <div className="list-item">
+          <div>
+            <div>Guardar una copia</div>
+            <div className="meta">
+              Tus tareas, las reglas de carpetas y la conversacion, en un fichero.
+            </div>
+          </div>
+          <button onClick={() => void exportarDatos()} disabled={busy}>
+            Exportar
+          </button>
+        </div>
+
+        <div className="list-item">
+          <div>
+            <div>Restaurar desde una copia</div>
+            <div className="meta">Sustituye lo que tengas ahora. Hay que reiniciar despues.</div>
+          </div>
+          <button onClick={() => void importarDatos()} disabled={busy}>
+            Importar
+          </button>
+        </div>
+
+        <p className="hint" style={{ marginTop: 12 }}>
+          JARVIS ya guarda una copia diaria automatica de los ultimos 14 dias, en la subcarpeta
+          «copias» de sus datos. La exportacion es para llevartelos a otro ordenador.
+        </p>
       </div>
 
       <div className="card">

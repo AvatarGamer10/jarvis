@@ -37,6 +37,9 @@ export interface Settings {
   /** Ultima posicion del boton flotante. null = aun sin colocar. */
   hudX: number | null
   hudY: number | null
+  /** Fecha (YYYY-MM-DD) del ultimo resumen lanzado. Sirve para recuperar el
+      aviso si la app no estaba abierta a su hora. */
+  lastBriefDate: string | null
   /** Se pone a true al terminar la pantalla de bienvenida. */
   onboardingDone: boolean
   /** Sonidos de interfaz. Se sintetizan, no hay ficheros de audio. */

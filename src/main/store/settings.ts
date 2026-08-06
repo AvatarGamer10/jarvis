@@ -25,6 +25,7 @@ export class SettingsService {
       dailyBriefTime: '07:30',
       dailyBriefEnabled: true,
       startAtLogin: false,
+      lastBriefDate: null,
       hudVisible: false,
       hudX: null,
       hudY: null,

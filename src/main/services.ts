@@ -1,3 +1,4 @@
+import { ChatStore } from './agent/chat-store'
 import { AgentService } from './agent/loop'
 import { GeminiProvider } from './agent/providers/gemini'
 import { OllamaProvider } from './agent/providers/ollama'
@@ -81,7 +82,7 @@ export function createServices(): Services {
     ollama,
     ollamaManager: new OllamaManager(settings),
     usage,
-    agent: new AgentService(provider, toolContext),
+    agent: new AgentService(provider, toolContext, new ChatStore()),
     brief: new BriefService(calendar, classroom, tasks, provider),
     scheduler: (onFire) => new BriefScheduler(settings, onFire)
   }

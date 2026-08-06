@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { ChatMessage, PendingAction, ToolCallRecord } from '@shared/types'
+import type { ChatStore } from './chat-store'
 import { LlmError, type ConversationItem, type LLMProvider, type ToolCall } from './provider'
 import { systemPrompt } from './prompt'
 import { toolByName, TOOLS, type Tool, type ToolContext } from './tools'
@@ -23,17 +24,29 @@ interface PendingBatch {
 }
 
 export class AgentService {
-  private history: ConversationItem[] = []
+  private history: ConversationItem[]
   private pending: PendingBatch | null = null
 
   constructor(
     private readonly provider: LLMProvider,
-    private readonly context: () => ToolContext
-  ) {}
+    private readonly context: () => ToolContext,
+    private readonly store: ChatStore
+  ) {
+    // La conversacion sobrevive a los reinicios: sin esto, cerrar la app
+    // borraba todo lo hablado y el asistente no recordaba nada de un dia
+    // para otro.
+    this.history = store.contexto()
+  }
+
+  /** Lo que hay que pintar al abrir el chat. */
+  mensajesGuardados(): ChatMessage[] {
+    return this.store.mensajes()
+  }
 
   reset(): void {
     this.history = []
     this.pending = null
+    this.store.vaciar()
   }
 
   /** Manda un mensaje del usuario y devuelve los mensajes nuevos del asistente. */
@@ -43,7 +56,30 @@ export class AgentService {
     this.pending = null
     this.history.push({ role: 'user', text })
     this.trim()
-    return this.run([])
+
+    const propios: ChatMessage = {
+      id: randomUUID(),
+      role: 'user',
+      text,
+      at: new Date().toISOString()
+    }
+
+    const respuestas = await this.run([])
+    this.persistir([propios, ...respuestas])
+    return respuestas
+  }
+
+  /**
+   * Vuelca a disco lo nuevo.
+   *
+   * Se guarda tras cada intercambio y no al cerrar: si la app se cierra de
+   * golpe, un guardado al final no llega a ejecutarse nunca.
+   */
+  private persistir(nuevos: ChatMessage[]): void {
+    // Las acciones pendientes no se guardan: al reabrir la app ya no se pueden
+    // confirmar, y un boton que no hace nada es peor que ninguno.
+    const limpios = nuevos.map(({ pendingAction: _omitido, ...resto }) => resto)
+    this.store.guardar([...this.store.mensajes(), ...limpios], this.history)
   }
 
   /** Resuelve una confirmacion pendiente y sigue desde donde se quedo. */
@@ -75,9 +111,14 @@ export class AgentService {
     // El modelo espera una respuesta por cada llamada que hizo. Las que quedaron
     // detras de la confirmacion se responden como no ejecutadas.
     const paused = await this.consume(batch.calls, batch.index + 1, records, produced)
-    if (paused) return produced
+    if (paused) {
+      this.persistir(produced)
+      return produced
+    }
 
-    return this.run(produced, records)
+    const finales = await this.run(produced, records)
+    this.persistir(finales)
+    return finales
   }
 
   // ------------------------------------------------------------------------
@@ -174,7 +215,22 @@ export class AgentService {
       }
 
       if (tool.requiresConfirmation) {
-        const described = tool.describe?.(parsed.data as never) ?? {
+        // Algunas herramientas necesitan calcular antes de poder explicar que
+        // van a hacer. Si ese calculo falla, se trata como un fallo normal de
+        // la herramienta en vez de dejar la conversacion colgada.
+        let datos = parsed.data
+        if (tool.prepare) {
+          try {
+            datos = await tool.prepare(datos as never, this.context())
+          } catch (err) {
+            const message = (err as Error).message
+            this.history.push({ role: 'tool', name: call.name, response: { error: message } })
+            records.push({ name: call.name, args: call.args, summary: message, ok: false })
+            continue
+          }
+        }
+
+        const described = tool.describe?.(datos as never) ?? {
           description: `Ejecutar ${tool.name}`,
           details: []
         }
@@ -184,7 +240,7 @@ export class AgentService {
           args: call.args,
           ...described
         }
-        this.pending = { action, calls, index: i, args: parsed.data }
+        this.pending = { action, calls, index: i, args: datos }
         produced.push({
           id: randomUUID(),
           role: 'assistant',

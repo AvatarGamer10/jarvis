@@ -3,6 +3,7 @@ import { Channels, type ApplyOutcomeDto } from '@shared/ipc'
 import type { FileRule, ManualTask, Result, Settings } from '@shared/types'
 import { MODELOS_RECOMENDADOS } from './integrations/ollama-manager'
 import type { ApplyOutcome } from './organizer/executor'
+import { exportar, importar, nombreSugerido } from './store/exportar'
 import type { Services } from './services'
 import type { Hud } from './hud'
 import type { UpdaterService } from './updater'
@@ -94,6 +95,7 @@ export function registerIpc(
   })
 
   // --- Agente ---
+  handle(Channels.agentHistory, () => agent.mensajesGuardados())
   handle(Channels.agentSend, (text: string) => agent.send(text))
   handle(Channels.agentConfirm, (actionId: string, approved: boolean) =>
     agent.confirm(actionId, approved)
@@ -138,6 +140,44 @@ export function registerIpc(
     return null
   })
 
+  /**
+   * Prueba de verdad, no solo de presencia.
+   *
+   * Que Ollama responda y tenga un modelo descargado no significa que ese
+   * modelo sepa usar herramientas: los que no lo soportan contestan con texto
+   * corriente y el chat falla al primer mensaje util. Se le pide algo que
+   * obliga a llamar a una herramienta y se comprueba si lo hace.
+   */
+  handle(Channels.ollamaProbar, async () => {
+    try {
+      const respuesta = await ollama.complete({
+        system:
+          'Eres un asistente con herramientas. Usa la herramienta adecuada cuando te pidan datos.',
+        history: [{ role: 'user', text: '¿Que tareas tengo apuntadas?' }],
+        tools: [
+          {
+            name: 'tasks_list',
+            description: 'Consulta las tareas apuntadas por el usuario.',
+            parameters: { type: 'object', properties: {}, required: [] }
+          }
+        ]
+      })
+
+      if (respuesta.toolCalls.length > 0) {
+        return { ok: true, detalle: 'El modelo responde y sabe usar herramientas.' }
+      }
+
+      return {
+        ok: false,
+        detalle:
+          'El modelo responde, pero no ha usado la herramienta. Puede que no las admita; ' +
+          'prueba con llama3.1:8b o qwen2.5:7b.'
+      }
+    } catch (err) {
+      return { ok: false, detalle: (err as Error).message }
+    }
+  })
+
   // --- Actualizaciones ---
   handle(Channels.updaterGet, () => updater.estadoActual())
   handle(Channels.updaterCheck, async () => {
@@ -169,6 +209,38 @@ export function registerIpc(
   handle(Channels.hudOpenApp, () => {
     hooks.onOpenApp()
     return null
+  })
+
+  // --- Copias de seguridad ---
+  handle(Channels.datosExportar, async () => {
+    const ventana = BrowserWindow.getFocusedWindow()
+    const opciones = {
+      title: 'Guardar una copia de tus datos',
+      defaultPath: nombreSugerido(),
+      filters: [{ name: 'Copia de JARVIS', extensions: ['json'] }]
+    }
+    const elegido = ventana
+      ? await dialog.showSaveDialog(ventana, opciones)
+      : await dialog.showSaveDialog(opciones)
+
+    if (elegido.canceled || !elegido.filePath) return null
+    const { ficheros } = exportar(elegido.filePath)
+    return { ruta: elegido.filePath, ficheros }
+  })
+
+  handle(Channels.datosImportar, async () => {
+    const ventana = BrowserWindow.getFocusedWindow()
+    const opciones = {
+      title: 'Elige la copia que quieres restaurar',
+      filters: [{ name: 'Copia de JARVIS', extensions: ['json'] }],
+      properties: ['openFile' as const]
+    }
+    const elegido = ventana
+      ? await dialog.showOpenDialog(ventana, opciones)
+      : await dialog.showOpenDialog(opciones)
+
+    if (elegido.canceled || !elegido.filePaths[0]) return null
+    return importar(elegido.filePaths[0])
   })
 
   // --- Sistema ---

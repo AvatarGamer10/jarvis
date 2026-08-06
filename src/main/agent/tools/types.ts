@@ -34,6 +34,17 @@ export interface Tool<Args = unknown> {
    * PendingAction y hace falta que el usuario la confirme.
    */
   requiresConfirmation: boolean
+  /**
+   * Paso previo opcional, antes de describir o ejecutar.
+   *
+   * Existe para herramientas que necesitan calcular algo para poder explicar
+   * al usuario que va a pasar. El planificador, por ejemplo, tiene que mirar
+   * el calendario y las tareas para poder listar los bloques que propone: sin
+   * esto, la tarjeta de confirmacion diria "voy a planificar" sin decir que.
+   *
+   * Lo que devuelva sustituye a los argumentos en `describe` y `execute`.
+   */
+  prepare?(args: Args, ctx: ToolContext): Promise<Args>
   /** Texto de la tarjeta de confirmacion. Solo si requiresConfirmation. */
   describe?(args: Args): Pick<PendingAction, 'description' | 'details'>
   execute(args: Args, ctx: ToolContext): Promise<ToolResult>

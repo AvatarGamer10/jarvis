@@ -41,9 +41,11 @@ const api: JarvisApi = {
       const oyente = (_e: IpcRendererEvent, progress: ProgresoDescarga): void => callback(progress)
       ipcRenderer.on(Channels.ollamaProgress, oyente)
       return () => ipcRenderer.removeListener(Channels.ollamaProgress, oyente)
-    }
+    },
+    probar: () => ipcRenderer.invoke(Channels.ollamaProbar)
   },
   agent: {
+    history: () => ipcRenderer.invoke(Channels.agentHistory),
     send: (text: string) => ipcRenderer.invoke(Channels.agentSend, text),
     confirm: (actionId: string, approved: boolean) =>
       ipcRenderer.invoke(Channels.agentConfirm, actionId, approved),
@@ -81,6 +83,10 @@ const api: JarvisApi = {
     move: (dx: number, dy: number) => ipcRenderer.invoke(Channels.hudMove, dx, dy),
     expand: (open: boolean) => ipcRenderer.invoke(Channels.hudExpand, open),
     openApp: () => ipcRenderer.invoke(Channels.hudOpenApp)
+  },
+  datos: {
+    exportar: () => ipcRenderer.invoke(Channels.datosExportar),
+    importar: () => ipcRenderer.invoke(Channels.datosImportar)
   },
   dialog: {
     pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder),

@@ -27,6 +27,10 @@ export default function Chat(): JSX.Element {
 
   useEffect(() => {
     void refreshUsage()
+    // La conversacion sobrevive a los reinicios, asi que se recupera al abrir.
+    void window.jarvis.agent.history().then((r) => {
+      if (r.ok && r.data.length > 0) setMessages(r.data)
+    })
   }, [])
 
   const send = async (text: string): Promise<void> => {

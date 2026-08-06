@@ -63,8 +63,15 @@ export interface JarvisApi {
     pull(model: string): Promise<Result<null>>
     cancelPull(): Promise<Result<null>>
     onProgress(callback: (progress: ProgresoDescarga) => void): () => void
+    /**
+     * Lanza una peticion real con herramientas para comprobar que el modelo
+     * responde y sabe usarlas. Detectar que existe no basta.
+     */
+    probar(): Promise<Result<{ ok: boolean; detalle: string }>>
   }
   agent: {
+    /** Conversacion guardada, para pintarla al abrir el chat. */
+    history(): Promise<Result<ChatMessage[]>>
     send(text: string): Promise<Result<ChatMessage[]>>
     confirm(actionId: string, approved: boolean): Promise<Result<ChatMessage[]>>
     reset(): Promise<Result<null>>
@@ -103,6 +110,12 @@ export interface JarvisApi {
     /** Abre la ventana grande en una seccion concreta. */
     openApp(): Promise<Result<null>>
   }
+  datos: {
+    /** Guarda tareas, reglas y conversacion en un fichero. null si se cancela. */
+    exportar(): Promise<Result<{ ruta: string; ficheros: number } | null>>
+    /** Restaura desde una copia. Requiere reiniciar despues. */
+    importar(): Promise<Result<{ ficheros: number } | null>>
+  }
   dialog: {
     pickFolder(): Promise<Result<string | null>>
     /**
@@ -130,6 +143,7 @@ export const Channels = {
   tasksAdd: 'tasks:add',
   tasksUpdate: 'tasks:update',
   tasksRemove: 'tasks:remove',
+  agentHistory: 'agent:history',
   agentSend: 'agent:send',
   agentConfirm: 'agent:confirm',
   agentReset: 'agent:reset',
@@ -141,6 +155,7 @@ export const Channels = {
   ollamaCancelPull: 'ollama:cancelPull',
   /** Empujado desde main hacia el renderer. */
   ollamaProgress: 'ollama:progress',
+  ollamaProbar: 'ollama:probar',
   organizerListRules: 'organizer:listRules',
   organizerSaveRule: 'organizer:saveRule',
   organizerDeleteRule: 'organizer:deleteRule',
@@ -159,6 +174,8 @@ export const Channels = {
   hudMove: 'hud:move',
   hudExpand: 'hud:expand',
   hudOpenApp: 'hud:openApp',
+  datosExportar: 'datos:exportar',
+  datosImportar: 'datos:importar',
   dialogPickFolder: 'dialog:pickFolder',
   dialogImportGoogleJson: 'dialog:importGoogleJson',
   shellOpenExternal: 'shell:openExternal'

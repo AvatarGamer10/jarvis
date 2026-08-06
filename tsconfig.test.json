@@ -18,6 +18,7 @@
     "src/main/organizer/paths.ts",
     "src/main/organizer/planner.ts",
     "src/main/organizer/executor.ts",
-    "src/main/brief/next-occurrence.ts"
+    "src/main/brief/next-occurrence.ts",
+    "src/main/agent/tools/planificador-core.ts"
   ]
 }
