@@ -17,6 +17,8 @@ export const HUD_ABIERTO = { width: 340, height: 260 }
  */
 export class Hud {
   private ventana: BrowserWindow | null = null
+  /** Donde estaba el boton antes de crecer, para devolverlo ahi al encoger. */
+  private anclaRecogido: { x: number; y: number } | null = null
 
   constructor(private readonly settings: SettingsService) {}
 
@@ -99,19 +101,37 @@ export class Hud {
   /**
    * Crece o encoge segun necesite ensenar algo.
    *
-   * Se ancla por la esquina mas cercana al borde de la pantalla: si creciera
-   * siempre hacia la derecha, un HUD pegado al borde derecho se saldria.
+   * Al crecer se ancla por el lado contrario si no cabe: un HUD pegado al
+   * borde derecho se saldria de la pantalla si creciera siempre hacia la
+   * derecha.
+   *
+   * Al encoger vuelve exactamente a donde estaba el boton, no a la esquina del
+   * panel. Sin recordar ese punto, cada ciclo de abrir y cerrar cerca del
+   * borde derecho desplazaba el boton un poco mas a la izquierda, y acababa
+   * migrando solo por la pantalla.
    */
   ajustar(abierto: boolean): void {
     if (!this.visible() || !this.ventana) return
 
     const tamano = abierto ? HUD_ABIERTO : HUD_RECOGIDO
     const [x, y] = this.ventana.getPosition()
-    const pantalla = screen.getDisplayNearestPoint({ x, y }).workArea
 
-    const creceALaIzquierda = x + tamano.width > pantalla.x + pantalla.width
-    const anteriorAncho = this.ventana.getBounds().width
-    const nuevoX = creceALaIzquierda ? x - (tamano.width - anteriorAncho) : x
+    if (!abierto) {
+      const vuelta = this.anclaRecogido ?? { x, y }
+      this.anclaRecogido = null
+      const destino = this.dentroDePantalla(vuelta.x, vuelta.y, tamano)
+      this.ventana.setBounds({ ...tamano, x: destino.x, y: destino.y })
+      return
+    }
+
+    // Se guarda de donde salio para poder volver ahi al encogerse.
+    this.anclaRecogido = { x, y }
+
+    const pantalla = screen.getDisplayNearestPoint({ x, y }).workArea
+    const noCabeALaDerecha = x + tamano.width > pantalla.x + pantalla.width
+    const nuevoX = noCabeALaDerecha
+      ? x - (tamano.width - this.ventana.getBounds().width)
+      : x
 
     const destino = this.dentroDePantalla(nuevoX, y, tamano)
     this.ventana.setBounds({ ...tamano, x: destino.x, y: destino.y })

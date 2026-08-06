@@ -41,7 +41,10 @@ export default function Chat(): JSX.Element {
     setError(null)
     setBusy(true)
     setMessages((prev) => [
-      ...prev,
+      // Un mensaje nuevo cancela cualquier confirmacion pendiente en el
+      // proceso principal, asi que sus botones se retiran tambien de la
+      // pantalla. Dejarlos daria un boton que solo sabe dar error.
+      ...prev.map((m) => (m.pendingAction ? { ...m, pendingAction: undefined } : m)),
       { id: crypto.randomUUID(), role: 'user', text: trimmed, at: new Date().toISOString() }
     ])
 

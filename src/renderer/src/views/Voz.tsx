@@ -39,6 +39,13 @@ export default function Voz(): JSX.Element {
   const grabacion = useRef<Grabacion | null>(null)
   const animacion = useRef<number | null>(null)
   const fondo = useRef<HTMLDivElement>(null)
+  /**
+   * Abrir el microfono tarda unos milisegundos. Si se suelta la tecla en ese
+   * hueco, `terminar` no encuentra grabacion y se va sin hacer nada, dejando
+   * el microfono abierto para siempre. Esta marca recoge esa peticion para
+   * atenderla en cuanto la grabacion exista.
+   */
+  const soltadoPronto = useRef(false)
 
   useEffect(() => {
     tts.preparar()
@@ -67,19 +74,31 @@ export default function Voz(): JSX.Element {
   }
 
   const empezar = async (): Promise<void> => {
-    if (fase !== 'reposo') return
+    if (fase !== 'reposo' || grabacion.current) return
 
     setError(null)
+    soltadoPronto.current = false
     tts.callar()
 
+    let nueva: Grabacion
     try {
-      grabacion.current = await grabar()
+      nueva = await grabar()
     } catch (err) {
       setError(
         err instanceof MicrofonoNoDisponible
           ? err.message
           : `No se pudo grabar: ${(err as Error).message}`
       )
+      return
+    }
+
+    grabacion.current = nueva
+
+    // Si se solto la tecla mientras se abria el microfono, se cierra ya.
+    if (soltadoPronto.current) {
+      soltadoPronto.current = false
+      setFase('escuchando')
+      void terminar()
       return
     }
 
@@ -97,7 +116,13 @@ export default function Voz(): JSX.Element {
   }
 
   const terminar = async (): Promise<void> => {
-    if (fase !== 'escuchando' || !grabacion.current) return
+    // Se solto antes de que el microfono llegara a abrirse: se deja anotado
+    // para que `empezar` lo cierre en cuanto termine.
+    if (!grabacion.current) {
+      soltadoPronto.current = true
+      return
+    }
+    if (fase !== 'escuchando') return
 
     if (animacion.current) cancelAnimationFrame(animacion.current)
     setBarras(new Array(BANDAS).fill(0))
