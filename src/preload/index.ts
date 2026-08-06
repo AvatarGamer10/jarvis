@@ -63,7 +63,12 @@ const api: JarvisApi = {
     undoLast: () => ipcRenderer.invoke(Channels.organizerUndoLast)
   },
   brief: {
-    get: (withSummary?: boolean) => ipcRenderer.invoke(Channels.briefGet, withSummary ?? true)
+    get: (withSummary?: boolean) => ipcRenderer.invoke(Channels.briefGet, withSummary ?? true),
+    contadores: () => ipcRenderer.invoke(Channels.briefContadores)
+  },
+  plan: {
+    calcular: (dias?: number) => ipcRenderer.invoke(Channels.planCalcular, dias ?? 7),
+    aplicar: (planId: string) => ipcRenderer.invoke(Channels.planAplicar, planId)
   },
   updater: {
     get: () => ipcRenderer.invoke(Channels.updaterGet),

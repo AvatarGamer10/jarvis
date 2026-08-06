@@ -25,6 +25,7 @@ export default function Hud(): JSX.Element {
   const [respuesta, setRespuesta] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [barras, setBarras] = useState<number[]>(() => new Array(BANDAS).fill(0))
+  const [pendiente, setPendiente] = useState<{ hoy: number; atrasadas: number } | null>(null)
 
   const grabacion = useRef<Grabacion | null>(null)
   const animacion = useRef<number | null>(null)
@@ -46,6 +47,29 @@ export default function Hud(): JSX.Element {
   useEffect(() => {
     void window.jarvis.hud.expand(abierto)
   }, [abierto])
+
+  /**
+   * Cuenta lo que vence hoy y lo atrasado, para que el boton diga algo en
+   * reposo en vez de ser solo un microfono.
+   *
+   * Cada cinco minutos: las entregas no cambian por segundos, y preguntar mas
+   * a menudo solo gastaria red y bateria.
+   */
+  useEffect(() => {
+    let vivo = true
+
+    const mirar = async (): Promise<void> => {
+      const r = await window.jarvis.brief.contadores()
+      if (vivo && r.ok) setPendiente(r.data)
+    }
+
+    void mirar()
+    const id = setInterval(() => void mirar(), 5 * 60_000)
+    return () => {
+      vivo = false
+      clearInterval(id)
+    }
+  }, [])
 
   const fallar = (texto: string): void => {
     setMensaje(texto)
@@ -210,6 +234,21 @@ export default function Hud(): JSX.Element {
               <path d="M5.5 11.2a6.5 6.5 0 0 0 13 0" />
               <path d="M12 17.7v3.7" />
             </svg>
+          )}
+
+          {/* Lo atrasado manda sobre lo de hoy: si hay algo vencido, es lo
+              primero que hay que saber. */}
+          {!abierto && pendiente && pendiente.hoy + pendiente.atrasadas > 0 && (
+            <span
+              className={`hud-contador ${pendiente.atrasadas > 0 ? 'atrasado' : ''}`}
+              title={
+                pendiente.atrasadas > 0
+                  ? `${pendiente.atrasadas} atrasada(s)`
+                  : `${pendiente.hoy} para hoy`
+              }
+            >
+              {pendiente.atrasadas > 0 ? pendiente.atrasadas : pendiente.hoy}
+            </span>
           )}
         </button>
 

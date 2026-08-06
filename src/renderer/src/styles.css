@@ -1158,6 +1158,32 @@ body::before {
   transition: transform 70ms linear;
 }
 
+/* Contador de lo pendiente. Va pegado al borde del boton, fuera del circulo,
+   para que no tape el microfono. */
+.hud-contador {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 2px solid rgba(12, 21, 34, 0.95);
+  background: var(--t-soon);
+  color: var(--ink-900);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hud-contador.atrasado {
+  background: var(--t-overdue);
+  color: #fff;
+}
+
 .hud-acciones {
   display: flex;
   gap: 4px;
@@ -1686,6 +1712,20 @@ input:focus {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.buscador {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.buscador .link {
+  position: absolute;
+  right: 12px;
+  font-size: 12px;
+  color: var(--paper-faint);
 }
 
 /* Ajustes que casi nadie necesita. Plegados para que no compitan con lo que

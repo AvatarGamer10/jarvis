@@ -56,7 +56,7 @@ export function registerIpc(
 ): void {
   const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
     services
-  const { ollamaManager } = services
+  const { ollamaManager, planner } = services
 
   // --- Autenticacion ---
   handle(Channels.authStatus, () => auth.status())
@@ -123,6 +123,7 @@ export function registerIpc(
 
   // --- Resumen diario ---
   handle(Channels.briefGet, (withSummary: boolean) => brief.build(withSummary))
+  handle(Channels.briefContadores, () => brief.contadores())
 
   // --- Ollama ---
   handle(Channels.ollamaIsRunning, () => ollamaManager.estaFuncionando())
@@ -177,6 +178,19 @@ export function registerIpc(
       return { ok: false, detalle: (err as Error).message }
     }
   })
+
+  // --- Planificador de estudio ---
+  handle(Channels.planCalcular, (dias: number) => planner.calcular(dias))
+  handle(Channels.planAplicar, (planId: string) =>
+    planner.aplicar(planId, async (b) => {
+      await calendar.createEvent({
+        title: `Estudiar: ${b.tarea}`,
+        start: b.inicio.toISOString(),
+        end: b.fin.toISOString(),
+        description: b.asignatura ? `Asignatura: ${b.asignatura}` : undefined
+      })
+    })
+  )
 
   // --- Actualizaciones ---
   handle(Channels.updaterGet, () => updater.estadoActual())

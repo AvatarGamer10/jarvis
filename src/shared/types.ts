@@ -226,6 +226,22 @@ export interface DailyBrief {
   headline: string
 }
 
+// --- Planificador de estudio -----------------------------------------------
+
+export interface BloqueEstudio {
+  /** ISO 8601. */
+  inicio: string
+  fin: string
+  tarea: string
+  asignatura: string
+}
+
+export interface PlanEstudio {
+  /** Solo se puede aplicar por este id: el renderer no fabrica bloques. */
+  id: string
+  bloques: BloqueEstudio[]
+}
+
 // --- Ollama ----------------------------------------------------------------
 
 export interface ModeloRecomendado {

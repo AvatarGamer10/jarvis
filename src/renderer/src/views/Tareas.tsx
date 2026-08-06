@@ -22,6 +22,7 @@ export default function Tareas(): JSX.Element {
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState('')
   const [due, setDue] = useState('')
+  const [busqueda, setBusqueda] = useState('')
 
   const load = async (): Promise<void> => {
     setLoading(true)
@@ -87,11 +88,31 @@ export default function Tareas(): JSX.Element {
     await load()
   }
 
-  const pendingManual = manual.filter((t) => !t.done)
-  const doneManual = manual.filter((t) => t.done)
+  /**
+   * Busca sin acentos y sin mayusculas: quien escribe "fisica" espera
+   * encontrar "Física", y obligar a teclear la tilde para buscar es hostil.
+   */
+  const normalizar = (texto: string): string =>
+    texto
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+
+  const aguja = normalizar(busqueda.trim())
+  const coincide = (...campos: (string | null | undefined)[]): boolean =>
+    aguja === '' || campos.some((c) => c && normalizar(c).includes(aguja))
+
+  const pendingManual = manual.filter((t) => !t.done && coincide(t.title, t.subject))
+  const doneManual = manual.filter((t) => t.done && coincide(t.title, t.subject))
   const pendingClassroom = classroom.filter(
-    (a) => a.state === 'PENDIENTE' || a.state === 'ATRASADA'
+    (a) =>
+      (a.state === 'PENDIENTE' || a.state === 'ATRASADA') && coincide(a.title, a.courseName)
   )
+
+  const buscando = aguja !== ''
+  const totalPendientes = manual.filter((t) => !t.done).length + classroom.filter(
+    (a) => a.state === 'PENDIENTE' || a.state === 'ATRASADA'
+  ).length
 
   return (
     <>
@@ -143,13 +164,39 @@ export default function Tareas(): JSX.Element {
 
       {loading && <p className="empty">Cargando…</p>}
 
+      {/* El buscador solo aparece cuando hay bastantes tareas: con cuatro,
+          ocupa sitio sin resolver nada. */}
+      {!loading && totalPendientes + manual.filter((t) => t.done).length >= 8 && (
+        <div className="field buscador">
+          <input
+            type="text"
+            value={busqueda}
+            placeholder="Buscar por tarea o asignatura…"
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          {buscando && (
+            <button className="link" onClick={() => setBusqueda('')}>
+              Limpiar
+            </button>
+          )}
+        </div>
+      )}
+
       {!loading && (
         <>
           <div className="card">
-            <h3>Pendientes ({pendingManual.length + pendingClassroom.length})</h3>
+            <h3>
+              {buscando ? 'Resultados' : 'Pendientes'} (
+              {pendingManual.length + pendingClassroom.length}
+              {buscando && ` de ${totalPendientes}`})
+            </h3>
 
             {pendingManual.length === 0 && pendingClassroom.length === 0 ? (
-              <p className="empty">Nada pendiente. Buen momento para descansar.</p>
+              <p className="empty">
+                {buscando
+                  ? `Nada que coincida con «${busqueda.trim()}».`
+                  : 'Nada pendiente. Buen momento para descansar.'}
+              </p>
             ) : (
               <>
                 {pendingManual.map((task) => (

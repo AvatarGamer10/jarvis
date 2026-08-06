@@ -1,5 +1,6 @@
 import type { CalendarEvent } from '@shared/types'
 import BriefCard from '../components/BriefCard'
+import Planificador from '../components/Planificador'
 import { useAsync } from '../lib/useAsync'
 
 /** Devuelve el rango [hoy 00:00, hoy + dias] en ISO. */
@@ -41,6 +42,7 @@ export default function Agenda(): JSX.Element {
       <p className="page-subtitle">Los proximos 7 dias de tu calendario principal.</p>
 
       <BriefCard />
+      <Planificador />
 
       {error && (
         <div className="alert error">

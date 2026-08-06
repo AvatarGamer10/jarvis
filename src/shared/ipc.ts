@@ -10,6 +10,7 @@ import type {
   Result,
   SafeSettings,
   ModeloRecomendado,
+  PlanEstudio,
   ProgresoDescarga,
   Settings,
   UndoBatch,
@@ -91,6 +92,14 @@ export interface JarvisApi {
   brief: {
     /** `withSummary` en false evita la llamada al modelo, que es lo lento. */
     get(withSummary?: boolean): Promise<Result<DailyBrief>>
+    /** Solo los numeros, para el boton flotante. */
+    contadores(): Promise<Result<{ hoy: number; atrasadas: number }>>
+  }
+  plan: {
+    /** Calcula el reparto sin tocar el calendario. */
+    calcular(dias?: number): Promise<Result<PlanEstudio>>
+    /** Crea los eventos de un plan ya calculado. */
+    aplicar(planId: string): Promise<Result<{ creados: number; fallos: string[] }>>
   }
   updater: {
     /** Estado actual, para pintar algo nada mas abrir sin esperar eventos. */
@@ -164,6 +173,9 @@ export const Channels = {
   organizerHistory: 'organizer:history',
   organizerUndoLast: 'organizer:undoLast',
   briefGet: 'brief:get',
+  briefContadores: 'brief:contadores',
+  planCalcular: 'plan:calcular',
+  planAplicar: 'plan:aplicar',
   updaterGet: 'updater:get',
   updaterCheck: 'updater:check',
   updaterInstall: 'updater:install',

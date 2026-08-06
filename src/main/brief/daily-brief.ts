@@ -42,6 +42,30 @@ export class BriefService {
     private readonly llm: LLMProvider
   ) {}
 
+  /**
+   * Cuenta lo urgente, sin tocar el calendario ni el modelo.
+   *
+   * Lo usa el boton flotante, que pregunta cada pocos minutos: construir el
+   * resumen entero para pintar un numero seria gastar red y bateria de mas.
+   */
+  async contadores(): Promise<{ hoy: number; atrasadas: number }> {
+    const manual = this.tasks.list().filter((t) => !t.done)
+    const classroom = await this.safeClassroom()
+
+    const fechas = [...manual.map((t) => t.dueDate), ...classroom.map((t) => t.dueDate)]
+
+    let hoy = 0
+    let atrasadas = 0
+    for (const fecha of fechas) {
+      const dias = daysUntil(fecha)
+      if (dias === null) continue
+      if (dias < 0) atrasadas++
+      else if (dias === 0) hoy++
+    }
+
+    return { hoy, atrasadas }
+  }
+
   async build(withSummary = true): Promise<DailyBrief> {
     const [events, classroomTasks] = await Promise.all([
       this.safeEvents(),

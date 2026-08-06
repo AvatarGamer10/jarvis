@@ -4,6 +4,7 @@ import { GeminiProvider } from './agent/providers/gemini'
 import { OllamaProvider } from './agent/providers/ollama'
 import { ProviderRouter } from './agent/providers/router'
 import type { ToolContext } from './agent/tools'
+import { PlannerService } from './agent/tools/planner-service'
 import { UsageCounter } from './agent/usage'
 import { GoogleAuth } from './auth/google-oauth'
 import { BriefService } from './brief/daily-brief'
@@ -35,6 +36,7 @@ export interface Services {
   usage: UsageCounter
   agent: AgentService
   brief: BriefService
+  planner: PlannerService
   /** Se arranca desde main, que es quien sabe como notificar. */
   scheduler: (onFire: () => void) => BriefScheduler
 }
@@ -69,6 +71,7 @@ export function createServices(): Services {
   )
 
   const toolContext = (): ToolContext => ({ calendar, classroom, organizer, tasks })
+  const planner = new PlannerService(toolContext)
 
   return {
     secrets,
@@ -84,6 +87,7 @@ export function createServices(): Services {
     usage,
     agent: new AgentService(provider, toolContext, new ChatStore()),
     brief: new BriefService(calendar, classroom, tasks, provider),
+    planner,
     scheduler: (onFire) => new BriefScheduler(settings, onFire)
   }
 }
