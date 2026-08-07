@@ -1,5 +1,16 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+
+// Las fuentes van empaquetadas dentro de la app, no descargadas de un CDN: asi
+// se ven igual en cualquier equipo y funcionan sin conexion. Se importan antes
+// que los estilos para que las reglas @font-face existan al aplicarlos.
+//
+// De Archivo se coge la variante "standard", que trae los dos ejes (grosor y
+// anchura); el diseno usa los dos. De las otras dos basta el grosor.
+import '@fontsource-variable/archivo/standard.css'
+import '@fontsource-variable/inter/wght.css'
+import '@fontsource-variable/jetbrains-mono/wght.css'
+
 import App from './App'
 import Hud from './views/Hud'
 import './styles.css'

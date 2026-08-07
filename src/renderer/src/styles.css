@@ -39,13 +39,19 @@
   --t-far: #4b5870;
 
   /* --- Tipografia ---
-     Bahnschrift (Windows) y Avenir Next Condensed / SF Pro (macOS) dan una
-     voz tecnica y precisa, de instrumento de medida, sin caer en la ciencia
-     ficcion. Ninguna de las dos hay que descargarla: vienen con el sistema. */
-  --font-display: 'Bahnschrift', 'DIN Alternate', 'Avenir Next Condensed', 'SF Pro Display',
-    system-ui, sans-serif;
-  --font-body: 'Segoe UI Variable Text', 'SF Pro Text', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Cascadia Mono', 'SF Mono', ui-monospace, Consolas, monospace;
+     Van empaquetadas con la app, no son las del sistema: asi se ve igual en
+     Windows y en macOS, y no depende de que el equipo traiga una fuente
+     concreta.
+
+     Archivo es una grotesca con eje de anchura, que es lo que sostiene la voz
+     tecnica del diseno. Inter aguanta bien el texto denso de interfaz. Y
+     JetBrains Mono tiene cifras tabulares de verdad, que es lo que la rampa de
+     urgencia necesita para que las fechas alineen en columna.
+
+     Detras van las de sistema por si algo fallara al cargar. */
+  --font-display: 'Archivo Variable', 'Bahnschrift', 'Avenir Next Condensed', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Segoe UI Variable Text', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'Cascadia Mono', ui-monospace, Consolas, monospace;
 
   /* --- Movimiento ---
      Una sola curva para todo lo que entra. La consistencia del easing es la
@@ -254,7 +260,8 @@ body::before {
 .intro-mark {
   position: relative;
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: clamp(52px, 11vw, 96px);
   letter-spacing: 0.3em;
   /* El tracking deja un hueco a la derecha; se compensa para centrar de verdad. */
@@ -348,7 +355,8 @@ body::before {
   position: relative;
   margin: 0;
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: clamp(28px, 5vw, 40px);
   letter-spacing: 0.01em;
   animation: rise 700ms var(--ease) both;
@@ -614,7 +622,8 @@ body::before {
   display: grid;
   place-items: center;
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: 44px;
   color: var(--paper-dim);
   border: 1px solid var(--line);
@@ -643,7 +652,8 @@ body::before {
 
 .orbit-caption strong {
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: 17px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -862,7 +872,8 @@ body::before {
 
 .topbar-title {
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: 15px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -891,7 +902,8 @@ body::before {
 
 .page-title {
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: 27px;
   letter-spacing: 0.02em;
   margin: 0 0 5px;
@@ -918,7 +930,8 @@ body::before {
 
 .card h3 {
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: 14px;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -965,6 +978,145 @@ body::before {
   font-size: 12.5px;
   color: var(--paper-faint);
   line-height: 1.5;
+}
+
+/* =========================================================================
+   Paleta de comandos
+   ========================================================================= */
+
+.paleta-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  /* Arriba y no centrada: la lista crece hacia abajo, y centrarla haria que
+     todo se moviera al escribir. */
+  align-items: flex-start;
+  padding-top: 14vh;
+  background: rgba(4, 7, 12, 0.55);
+  backdrop-filter: blur(3px);
+  animation: fade var(--dur-fast) var(--ease) both;
+}
+
+.paleta {
+  width: min(560px, 90vw);
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(12, 21, 34, 0.97);
+  backdrop-filter: blur(26px);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  animation: rise var(--dur) var(--ease) both;
+}
+
+.paleta input {
+  border: none;
+  border-bottom: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: transparent;
+  padding: 16px 18px;
+  font-size: 15px;
+}
+
+.paleta input:focus {
+  outline: none;
+  border-color: var(--line-soft);
+  background: transparent;
+}
+
+.paleta-lista {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.paleta-grupo {
+  padding: 10px 12px 5px;
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-faint);
+}
+
+.paleta-fila {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+}
+
+.paleta-fila.activa {
+  background: var(--signal-soft);
+}
+
+.paleta-fila:hover:not(:disabled) {
+  background: var(--signal-soft);
+  border-color: transparent;
+}
+
+.paleta-punto {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+/* Las tareas heredan la rampa de urgencia: la paleta no inventa otro codigo
+   de color, usa el mismo que el resto de la app. */
+.paleta-punto[data-urgencia='overdue'] {
+  background: var(--t-overdue);
+}
+.paleta-punto[data-urgencia='today'] {
+  background: var(--t-today);
+}
+.paleta-punto[data-urgencia='soon'] {
+  background: var(--t-soon);
+}
+.paleta-punto[data-urgencia='week'] {
+  background: var(--t-week);
+}
+.paleta-punto[data-urgencia='far'],
+.paleta-punto[data-urgencia='none'] {
+  background: var(--t-far);
+}
+
+.paleta-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.paleta-texto strong {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.paleta-texto span {
+  font-size: 12.5px;
+  color: var(--paper-faint);
+}
+
+.paleta-pie {
+  display: flex;
+  gap: 16px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11.5px;
+  color: var(--paper-faint);
 }
 
 /* =========================================================================
@@ -1495,7 +1647,8 @@ kbd {
 .voz-titulo {
   margin: 0;
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: 22px;
   color: var(--paper);
 }
@@ -1523,7 +1676,8 @@ kbd {
 .brief-headline {
   margin: 0 0 8px;
   font-family: var(--font-display);
-  font-variation-settings: 'wght' 600, 'wdth' 87.5;
+  font-weight: 600;
+  font-stretch: 87.5%;
   font-size: 19px;
   letter-spacing: 0.01em;
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { SafeSettings } from '@shared/types'
+import Paleta from './components/Paleta'
 import UpdateBanner from './components/UpdateBanner'
 import { SECTIONS, type SectionId } from './lib/sections'
 import { sound } from './lib/sound'
@@ -27,6 +28,7 @@ export default function App(): JSX.Element {
   /** null = el menu radial. */
   const [section, setSection] = useState<SectionId | null>(null)
   const [hayLogo, setHayLogo] = useState(true)
+  const [paleta, setPaleta] = useState(false)
 
   useEffect(() => {
     void (async () => {
@@ -49,17 +51,46 @@ export default function App(): JSX.Element {
     })()
   }, [])
 
-  // Escape siempre devuelve al anillo. Es la unica tecla que hace falta
-  // aprenderse, y se anuncia en la barra de cada seccion.
+  /**
+   * Teclado.
+   *
+   * Escape vuelve al anillo, Ctrl+K abre la paleta y Ctrl+1..6 salta directo a
+   * cada seccion. El anillo sigue siendo la pantalla de inicio, pero quien ya
+   * sabe adonde va no tiene que pasar por el.
+   */
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || section === null) return
-      sound.play('nav')
-      setSection(null)
+      const enCampo =
+        (event.target as HTMLElement)?.tagName === 'INPUT' ||
+        (event.target as HTMLElement)?.tagName === 'TEXTAREA'
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaleta((abierta) => !abierta)
+        return
+      }
+
+      if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
+        const destino = SECTIONS[Number(event.key) - 1]
+        if (!destino) return
+        event.preventDefault()
+        sound.play('nav')
+        setPaleta(false)
+        setSection(destino.id)
+        return
+      }
+
+      // Escape no se captura dentro de un campo: ahi puede querer decir
+      // "descarta lo que estoy escribiendo".
+      if (event.key === 'Escape' && !enCampo && !paleta && section !== null) {
+        sound.play('nav')
+        setSection(null)
+      }
     }
+
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [section])
+  }, [section, paleta])
 
   const finishOnboarding = async (): Promise<void> => {
     const updated = await window.jarvis.settings.update({ onboardingDone: true })
@@ -80,12 +111,20 @@ export default function App(): JSX.Element {
   // flota en una esquina y no estorba a lo que estes haciendo.
   const actualizacion = <UpdateBanner />
 
+  const paletaComandos = paleta ? (
+    <Paleta
+      onIrA={(id) => setSection(id)}
+      onCerrar={() => setPaleta(false)}
+    />
+  ) : null
+
   if (!settings.onboardingDone) {
     return (
       <>
         {fondo}
         <Onboarding onDone={finishOnboarding} />
         {actualizacion}
+        {paletaComandos}
       </>
     )
   }
@@ -98,6 +137,7 @@ export default function App(): JSX.Element {
           <Hub onOpen={setSection} />
         </div>
         {actualizacion}
+        {paletaComandos}
       </>
     )
   }
@@ -119,7 +159,9 @@ export default function App(): JSX.Element {
             {current.label}
           </span>
 
-          <span className="topbar-hint">ESC</span>
+            <span className="topbar-hint">
+            <kbd>Esc</kbd> menu · <kbd>Ctrl</kbd>+<kbd>K</kbd> buscar
+          </span>
         </header>
 
         <main className="content">
@@ -130,6 +172,7 @@ export default function App(): JSX.Element {
         </main>
       </div>
       {actualizacion}
+      {paletaComandos}
     </>
   )
 }
