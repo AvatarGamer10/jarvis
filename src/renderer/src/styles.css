@@ -1019,6 +1019,268 @@ body::before {
 }
 
 /* =========================================================================
+   Rejilla de la semana
+
+   Todas las columnas —cabecera, dia completo y cuerpo— comparten el mismo
+   grid-template. Si se toca el ancho de la columna de horas hay que tocarlo
+   en las tres, o los dias dejan de alinearse con sus eventos.
+
+   El color aqui sigue la misma regla que el resto: la rampa de urgencia solo
+   marca el dia de hoy. Los bloques de estudio no se distinguen por color sino
+   por textura (rayado), para no inventarse un sexto significado cromatico.
+   ========================================================================= */
+
+.semana-barra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.semana-titulo {
+  /* Hereda de .card h3 pero sin su margen inferior: aqui va en linea. */
+  margin: 0;
+  text-transform: capitalize;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  white-space: nowrap;
+}
+
+.semana-flecha {
+  padding: 2px 10px;
+  font-size: 17px;
+  line-height: 1.2;
+  color: var(--paper-dim);
+}
+
+.semana-hoy {
+  padding: 3px 11px;
+  font-size: 12.5px;
+}
+
+.semana-modo {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.semana-modo button {
+  padding: 4px 13px;
+  font-size: 12.5px;
+}
+
+.semana {
+  --semana-horas: 44px;
+  margin: 0 -4px;
+}
+
+.semana-fila {
+  display: grid;
+  grid-template-columns: var(--semana-horas) repeat(7, minmax(0, 1fr));
+}
+
+/* La cabecera va dentro del contenedor que hace scroll, no encima: asi la
+   barra de desplazamiento estrecha las dos rejillas por igual. Si estuviera
+   fuera, los dias se irian desalineando de sus columnas hasta unos 8 px el
+   domingo. Se queda fija arriba con `sticky`. */
+.semana-fijo {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  /* Casi opaca: los eventos pasan por debajo al desplazar. */
+  background: rgba(14, 22, 34, 0.97);
+  backdrop-filter: blur(10px);
+}
+
+.semana-cabecera {
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.semana-dia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 0;
+  border-radius: var(--radius-sm);
+}
+
+.semana-dia-nombre {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--paper-faint);
+}
+
+.semana-dia-numero {
+  font-size: 15px;
+  color: var(--paper-dim);
+}
+
+/* El dia de hoy en el naranja de la rampa: es el mismo "hoy" que en tareas. */
+.semana-dia[data-hoy='true'] .semana-dia-nombre,
+.semana-dia[data-hoy='true'] .semana-dia-numero {
+  color: var(--t-today);
+}
+
+.semana-dia[data-hoy='true'] {
+  background: rgba(245, 130, 31, 0.09);
+}
+
+.semana-todoeldia {
+  align-items: start;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.semana-todoeldia-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 2px;
+  min-width: 0;
+}
+
+.semana-hueco {
+  font-size: 9.5px;
+  text-align: right;
+  padding-right: 8px;
+  color: var(--paper-faint);
+  line-height: 1.25;
+}
+
+.semana-cuerpo {
+  /* Alto acotado para que la rejilla no empuje al planificador fuera de la
+     pantalla; dentro se desplaza sola. */
+  position: relative;
+  max-height: 58vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.semana-horas {
+  position: relative;
+}
+
+.semana-hora {
+  /* Desplazada media linea hacia arriba para que la hora quede junto a su
+     raya, no en mitad del hueco. */
+  position: relative;
+  top: -7px;
+  text-align: right;
+  padding-right: 8px;
+  font-size: 10.5px;
+  color: var(--paper-faint);
+}
+
+.semana-col {
+  position: relative;
+  border-left: 1px solid var(--line-soft);
+  min-width: 0;
+}
+
+.semana-col[data-hoy='true'] {
+  background: rgba(245, 130, 31, 0.045);
+}
+
+.semana-linea {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+}
+
+.semana-evento {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  overflow: hidden;
+  padding: 3px 6px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-left: 2px solid var(--paper-faint);
+  border-radius: 5px;
+  background: rgba(26, 38, 56, 0.92);
+  color: var(--paper);
+  font-size: 11.5px;
+  line-height: 1.3;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.semana-evento:hover {
+  background: rgba(34, 49, 72, 0.96);
+  border-left-color: var(--signal);
+}
+
+.semana-evento:active:not(:disabled) {
+  background: rgba(40, 58, 84, 0.98);
+}
+
+.semana-evento-hora {
+  font-size: 9.5px;
+  color: var(--paper-faint);
+}
+
+.semana-evento-titulo {
+  /* Se corta con puntos suspensivos: un titulo largo no puede empujar al
+     evento de al lado. */
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Bloques del planificador: rayado diagonal en vez de color propio. */
+.semana-evento[data-estudio='true'] {
+  border-left-style: dashed;
+  border-left-color: var(--signal-line);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(61, 143, 214, 0.13) 0 5px,
+      transparent 5px 10px
+    ),
+    rgba(20, 31, 47, 0.92);
+}
+
+.semana-evento-dia {
+  position: static;
+  width: 100%;
+  height: auto;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* Donde esta el reloj ahora mismo. Lo unico de la rejilla que se mueve. */
+.semana-ahora {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.5px solid var(--t-today);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.semana-ahora::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3.5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--t-today);
+}
+
+/* =========================================================================
    Paleta de comandos
    ========================================================================= */
 
@@ -1809,7 +2071,9 @@ button {
     transform var(--dur-fast) var(--ease);
 }
 
-button:hover:not(:disabled) {
+/* Los eventos de la semana quedan fuera: el fondo azul taparia el rayado que
+   distingue los bloques de estudio. Tienen su propio :hover. */
+button:hover:not(:disabled):not(.semana-evento) {
   border-color: var(--signal-line);
   background: rgba(61, 143, 214, 0.09);
 }
@@ -1817,8 +2081,11 @@ button:hover:not(:disabled) {
 /* Los elementos del anillo quedan fuera: se colocan con `transform`, y este
    `scale` los mandaria al centro justo al pulsar. Al saltar de debajo del
    cursor, el mouseup cae en otro sitio y el clic no llega a generarse.
-   Tienen su propio :active mas abajo. */
-button:active:not(:disabled):not(.orbit-item) {
+   Tienen su propio :active mas abajo.
+
+   Los eventos de la semana, por lo mismo: estan posicionados en su hora, y
+   encogerlos los separaria de la linea que les corresponde. */
+button:active:not(:disabled):not(.orbit-item):not(.semana-evento) {
   transform: scale(0.975);
 }
 

@@ -32,7 +32,7 @@ export class SettingsService {
       onboardingDone: false,
       soundEnabled: true,
       glassEnabled: true,
-      fondoIntensidad: 'medio',
+      fondoIntensidad: 'marcado',
       managedRoots: defaultRoots()
     })
   }
