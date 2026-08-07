@@ -848,6 +848,26 @@ body::before {
   stroke-dashoffset: 0;
 }
 
+/* Notas: las barras crecen desde la base, escalonadas. Se anima transform y
+   no la altura para que no haya recalculo de disposicion en cada fotograma. */
+.ic-barra {
+  transform-origin: center bottom;
+  transform: scaleY(0.35);
+  transition: transform var(--dur) var(--ease);
+}
+
+.orbit-item.is-on .ic-barra {
+  transform: scaleY(1);
+}
+
+.orbit-item.is-on .ic-barra-2 {
+  transition-delay: 70ms;
+}
+
+.orbit-item.is-on .ic-barra-3 {
+  transition-delay: 140ms;
+}
+
 /* Carpetas: la tapa se levanta. */
 .ic-lid {
   transform-origin: 4px 11.4px;
@@ -1016,6 +1036,63 @@ body::before {
   font-size: 12.5px;
   color: var(--paper-faint);
   line-height: 1.5;
+}
+
+/* =========================================================================
+   Notas
+
+   Deliberadamente sin color: un suspenso NO se pinta de rojo. El rojo y el
+   naranja pertenecen a la rampa de urgencia y significan "se acaba el tiempo".
+   Si un suspenso tambien fuera rojo, el color dejaria de querer decir algo
+   concreto. La media se lee por posicion respecto a la marca del 5.
+   ========================================================================= */
+
+.nota {
+  font-size: 17px;
+  color: var(--paper);
+  min-width: 38px;
+  text-align: right;
+}
+
+.nota-fila {
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.nota-fila:last-child {
+  border-bottom: none;
+}
+
+.nota-barra {
+  position: relative;
+  height: 5px;
+  margin-top: 7px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.nota-barra-relleno {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--signal);
+  transition: width var(--dur) var(--ease);
+}
+
+/* La marca del aprobado. Que la media quede a un lado o a otro es toda la
+   informacion: no hace falta pintarla de un color distinto. */
+.nota-barra::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: var(--marca);
+  width: 1px;
+  background: var(--paper-dim);
+}
+
+.nota-necesario {
+  margin-top: 6px;
 }
 
 /* =========================================================================

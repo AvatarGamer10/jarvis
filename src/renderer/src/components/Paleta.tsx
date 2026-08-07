@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ManualTask } from '@shared/types'
+import type { Examen, ManualTask } from '@shared/types'
 import { SECTIONS, type SectionId } from '../lib/sections'
 import { sound } from '../lib/sound'
 import { dueLabel, urgencyOf } from '../lib/urgency'
@@ -11,11 +11,11 @@ interface Props {
 
 interface Comando {
   id: string
-  grupo: 'Ir a' | 'Acciones' | 'Tareas'
+  grupo: 'Ir a' | 'Acciones' | 'Tareas' | 'Examenes'
   etiqueta: string
   detalle?: string
   color?: string
-  /** Marca de urgencia, solo para tareas. */
+  /** Marca de urgencia, solo para tareas y examenes. */
   urgencia?: string
   ejecutar: () => void | Promise<void>
 }
@@ -34,6 +34,7 @@ export default function Paleta({ onIrA, onCerrar }: Props): JSX.Element {
   const [texto, setTexto] = useState('')
   const [indice, setIndice] = useState(0)
   const [tareas, setTareas] = useState<ManualTask[]>([])
+  const [examenes, setExamenes] = useState<Examen[]>([])
   const entrada = useRef<HTMLInputElement>(null)
   const lista = useRef<HTMLDivElement>(null)
 
@@ -41,6 +42,11 @@ export default function Paleta({ onIrA, onCerrar }: Props): JSX.Element {
     entrada.current?.focus()
     void window.jarvis.tasks.list().then((r) => {
       if (r.ok) setTareas(r.data.filter((t) => !t.done))
+    })
+    void window.jarvis.examenes.list().then((r) => {
+      // Solo los que quedan por hacer: buscar en la paleta es buscar algo
+      // sobre lo que actuar, y un examen ya corregido no lo es.
+      if (r.ok) setExamenes(r.data.examenes.filter((e) => e.grade === null))
     })
   }, [])
 
@@ -76,6 +82,13 @@ export default function Paleta({ onIrA, onCerrar }: Props): JSX.Element {
         ejecutar: () => onIrA('tareas')
       },
       {
+        id: 'examen',
+        grupo: 'Acciones',
+        etiqueta: 'Apuntar un examen',
+        detalle: 'Ir a Notas',
+        ejecutar: () => onIrA('notas')
+      },
+      {
         id: 'hablar',
         grupo: 'Acciones',
         etiqueta: 'Hablar con JARVIS',
@@ -102,14 +115,25 @@ export default function Paleta({ onIrA, onCerrar }: Props): JSX.Element {
       ejecutar: () => onIrA('tareas')
     }))
 
-    return [...acciones, ...irA, ...deTareas]
-  }, [tareas, onIrA])
+    const deExamenes: Comando[] = examenes.map((e) => ({
+      id: `examen-${e.id}`,
+      grupo: 'Examenes',
+      etiqueta: e.title,
+      detalle: [e.subject, dueLabel(e.date)].filter(Boolean).join(' · '),
+      urgencia: urgencyOf(e.date),
+      ejecutar: () => onIrA('notas')
+    }))
+
+    return [...acciones, ...irA, ...deExamenes, ...deTareas]
+  }, [tareas, examenes, onIrA])
 
   const aguja = normalizar(texto.trim())
   const filtrados = useMemo(() => {
     if (!aguja) {
       // Sin escribir nada se ensena lo util, no la lista entera.
-      return comandos.filter((c) => c.grupo !== 'Tareas').slice(0, 10)
+      return comandos
+        .filter((c) => c.grupo !== 'Tareas' && c.grupo !== 'Examenes')
+        .slice(0, 10)
     }
     return comandos
       .filter((c) => normalizar(`${c.etiqueta} ${c.detalle ?? ''}`).includes(aguja))

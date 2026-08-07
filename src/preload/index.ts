@@ -32,6 +32,12 @@ const api: JarvisApi = {
     update: (id, patch) => ipcRenderer.invoke(Channels.tasksUpdate, id, patch),
     remove: (id: string) => ipcRenderer.invoke(Channels.tasksRemove, id)
   },
+  examenes: {
+    list: () => ipcRenderer.invoke(Channels.examenesList),
+    add: (input) => ipcRenderer.invoke(Channels.examenesAdd, input),
+    update: (id, patch) => ipcRenderer.invoke(Channels.examenesUpdate, id, patch),
+    remove: (id: string) => ipcRenderer.invoke(Channels.examenesRemove, id)
+  },
   ollama: {
     isRunning: () => ipcRenderer.invoke(Channels.ollamaIsRunning),
     recommended: () => ipcRenderer.invoke(Channels.ollamaRecommended),

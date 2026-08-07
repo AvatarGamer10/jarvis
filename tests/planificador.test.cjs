@@ -25,7 +25,7 @@ function enDias(dias, hora = 12) {
 }
 
 /** Contexto falso: solo lo que usa el planificador. */
-function contexto({ eventos = [], tareas = [] } = {}) {
+function contexto({ eventos = [], tareas = [], examenes = [] } = {}) {
   return {
     calendar: {
       listEvents: async () => eventos,
@@ -36,6 +36,9 @@ function contexto({ eventos = [], tareas = [] } = {}) {
     },
     tasks: {
       list: () => tareas
+    },
+    examenes: {
+      list: () => examenes
     }
   }
 }
@@ -46,6 +49,18 @@ const tarea = (titulo, diasHastaEntrega) => ({
   subject: 'Fisica',
   dueDate: diasHastaEntrega === null ? null : enDias(diasHastaEntrega, 23).toISOString(),
   done: false,
+  createdAt: new Date().toISOString()
+})
+
+const examen = (titulo, diasHasta, nota = null) => ({
+  id: titulo,
+  title: titulo,
+  subject: 'Fisica',
+  // A las 9 de la manana: es cuando son los examenes, y a la vez es la hora
+  // que hace que el desempate con una entrega del mismo dia sea significativo.
+  date: enDias(diasHasta, 9).toISOString(),
+  grade: nota,
+  weight: null,
   createdAt: new Date().toISOString()
 })
 
@@ -81,6 +96,45 @@ test('nunca propone bloques en el pasado', async () => {
   const ahora = Date.now()
   for (const b of bloques) {
     assert.ok(b.fin.getTime() > ahora, `${b.fin} ya ha pasado`)
+  }
+})
+
+// --- Examenes --------------------------------------------------------------
+
+test('un examen el mismo dia que una entrega se estudia antes', async () => {
+  // Es la razon de ser de la prioridad: la entrega se remata la noche de
+  // antes, el examen no.
+  const bloques = await calcular(
+    7,
+    contexto({ tareas: [tarea('entrega', 5)], examenes: [examen('examen', 5)] })
+  )
+  assert.equal(bloques[0].tarea, 'examen')
+})
+
+test('un examen se lleva mas bloques que una tarea', async () => {
+  const conExamen = await calcular(7, contexto({ examenes: [examen('examen', 5)] }))
+  const conTarea = await calcular(7, contexto({ tareas: [tarea('entrega', 5)] }))
+  assert.ok(
+    conExamen.length > conTarea.length,
+    `examen ${conExamen.length} bloques vs tarea ${conTarea.length}`
+  )
+})
+
+test('los examenes ya corregidos no se estudian', async () => {
+  const bloques = await calcular(7, contexto({ examenes: [examen('hecho', 3, 7)] }))
+  assert.equal(bloques.length, 0)
+})
+
+test('los examenes que ya pasaron no se estudian', async () => {
+  const bloques = await calcular(7, contexto({ examenes: [examen('pasado', -2)] }))
+  assert.equal(bloques.length, 0)
+})
+
+test('no se propone estudiar despues del examen', async () => {
+  const bloques = await calcular(7, contexto({ examenes: [examen('examen', 2)] }))
+  const hora = enDias(2, 9).getTime()
+  for (const b of bloques) {
+    assert.ok(b.fin.getTime() <= hora, `${b.fin} cae despues del examen`)
   }
 })
 

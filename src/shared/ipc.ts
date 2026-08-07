@@ -4,8 +4,10 @@ import type {
   CalendarEvent,
   ChatMessage,
   DailyBrief,
+  Examen,
   FileRule,
   ManualTask,
+  ResumenAsignatura,
   MovePlan,
   Result,
   SafeSettings,
@@ -54,6 +56,22 @@ export interface JarvisApi {
       id: string,
       patch: Partial<Omit<ManualTask, 'id' | 'createdAt'>>
     ): Promise<Result<ManualTask>>
+    remove(id: string): Promise<Result<null>>
+  }
+  examenes: {
+    /** Los examenes y, ya calculadas, las medias por asignatura. */
+    list(): Promise<Result<{ examenes: Examen[]; resumen: ResumenAsignatura[] }>>
+    add(input: {
+      title: string
+      subject?: string
+      date: string
+      weight?: number | null
+      grade?: number | null
+    }): Promise<Result<Examen>>
+    update(
+      id: string,
+      patch: Partial<Omit<Examen, 'id' | 'createdAt'>>
+    ): Promise<Result<Examen>>
     remove(id: string): Promise<Result<null>>
   }
   ollama: {
@@ -152,6 +170,10 @@ export const Channels = {
   tasksAdd: 'tasks:add',
   tasksUpdate: 'tasks:update',
   tasksRemove: 'tasks:remove',
+  examenesList: 'examenes:list',
+  examenesAdd: 'examenes:add',
+  examenesUpdate: 'examenes:update',
+  examenesRemove: 'examenes:remove',
   agentHistory: 'agent:history',
   agentSend: 'agent:send',
   agentConfirm: 'agent:confirm',

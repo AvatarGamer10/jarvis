@@ -3,6 +3,7 @@ import type { PendingAction } from '@shared/types'
 import type { CalendarService } from '../../integrations/calendar'
 import type { ClassroomService } from '../../integrations/classroom'
 import type { OrganizerService } from '../../organizer'
+import type { ExamenService } from '../../tasks/examenes'
 import type { ManualTaskService } from '../../tasks/manual-tasks'
 import type { FunctionDeclaration } from '../provider'
 
@@ -12,6 +13,7 @@ export interface ToolContext {
   classroom: ClassroomService
   organizer: OrganizerService
   tasks: ManualTaskService
+  examenes: ExamenService
 }
 
 export interface ToolResult {

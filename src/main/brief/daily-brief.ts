@@ -2,6 +2,7 @@ import type { BriefTask, DailyBrief } from '@shared/types'
 import type { LLMProvider } from '../agent/provider'
 import type { CalendarService } from '../integrations/calendar'
 import type { ClassroomService } from '../integrations/classroom'
+import type { ExamenService } from '../tasks/examenes'
 import type { ManualTaskService } from '../tasks/manual-tasks'
 
 /** Cuantos dias por delante cuentan como "viene pronto". */
@@ -39,8 +40,28 @@ export class BriefService {
     private readonly calendar: CalendarService,
     private readonly classroom: ClassroomService,
     private readonly tasks: ManualTaskService,
+    private readonly examenes: ExamenService,
     private readonly llm: LLMProvider
   ) {}
+
+  /**
+   * Examenes que aun no han pasado, como entradas del resumen.
+   *
+   * Los ya corregidos quedan fuera, y los pasados sin nota tambien: un examen
+   * que ya hiciste no es algo pendiente, solo te falta apuntar el resultado.
+   */
+  private examenesPendientes(): BriefTask[] {
+    const hoy = startOfToday().getTime()
+    return this.examenes
+      .list()
+      .filter((e) => e.grade === null && Date.parse(e.date) >= hoy)
+      .map((e) => ({
+        title: `Examen: ${e.title}`,
+        subject: e.subject,
+        dueDate: e.date,
+        source: 'examen' as const
+      }))
+  }
 
   /**
    * Cuenta lo urgente, sin tocar el calendario ni el modelo.
@@ -63,6 +84,13 @@ export class BriefService {
       else if (dias === 0) hoy++
     }
 
+    // Un examen hoy es lo mas urgente que hay. Los pasados sin nota no cuentan
+    // como atrasados: ya los hiciste, solo falta apuntar el resultado, y avisar
+    // de eso cada dia convertiria el contador en ruido.
+    for (const examen of this.examenesPendientes()) {
+      if (daysUntil(examen.dueDate) === 0) hoy++
+    }
+
     return { hoy, atrasadas }
   }
 
@@ -82,7 +110,7 @@ export class BriefService {
         source: 'manual' as const
       }))
 
-    const all = [...classroomTasks, ...manual]
+    const all = [...this.examenesPendientes(), ...classroomTasks, ...manual]
 
     const overdue: BriefTask[] = []
     const dueToday: BriefTask[] = []
@@ -96,8 +124,12 @@ export class BriefService {
       else if (days <= SOON_DAYS) dueSoon.push(task)
     }
 
-    const byDate = (a: BriefTask, b: BriefTask): number =>
-      (a.dueDate ?? '').localeCompare(b.dueDate ?? '')
+    // Mismo dia: primero el examen. Es lo que no se puede posponer.
+    const byDate = (a: BriefTask, b: BriefTask): number => {
+      const fechas = (a.dueDate ?? '').localeCompare(b.dueDate ?? '')
+      if (fechas !== 0) return fechas
+      return (a.source === 'examen' ? 0 : 1) - (b.source === 'examen' ? 0 : 1)
+    }
     overdue.sort(byDate)
     dueToday.sort(byDate)
     dueSoon.sort(byDate)
@@ -109,7 +141,7 @@ export class BriefService {
       dueSoon,
       overdue,
       summary: null,
-      headline: this.headline(events.length, dueToday.length, overdue.length)
+      headline: this.headline(events.length, dueToday, overdue.length)
     }
 
     if (withSummary) brief.summary = await this.safeSummary(brief)
@@ -117,10 +149,16 @@ export class BriefService {
   }
 
   /** Frase de la notificacion. Lo urgente primero, y nada de relleno. */
-  private headline(events: number, today: number, overdue: number): string {
+  private headline(events: number, today: BriefTask[], overdue: number): string {
+    // Los examenes se cuentan aparte: llamar "entrega" a un examen le quita
+    // justo el peso que tiene que tener en una frase de una linea.
+    const examenes = today.filter((t) => t.source === 'examen').length
+    const entregas = today.length - examenes
+
     const partes: string[] = []
+    if (examenes > 0) partes.push(`${plural(examenes, 'EXAMEN hoy', 'EXAMENES hoy')}`)
     if (overdue > 0) partes.push(`${plural(overdue, 'tarea atrasada', 'tareas atrasadas')}`)
-    if (today > 0) partes.push(`${plural(today, 'entrega hoy', 'entregas hoy')}`)
+    if (entregas > 0) partes.push(`${plural(entregas, 'entrega hoy', 'entregas hoy')}`)
     if (events > 0) partes.push(`${plural(events, 'evento', 'eventos')}`)
 
     if (partes.length === 0) return 'Hoy no tienes nada pendiente.'

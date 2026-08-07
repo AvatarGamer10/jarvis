@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { Channels, type ApplyOutcomeDto } from '@shared/ipc'
-import type { FileRule, ManualTask, Result, Settings } from '@shared/types'
+import type { Examen, FileRule, ManualTask, Result, Settings } from '@shared/types'
+import { porAsignatura } from './tasks/notas-core'
 import { MODELOS_RECOMENDADOS } from './integrations/ollama-manager'
 import type { ApplyOutcome } from './organizer/executor'
 import { exportar, importar, nombreSugerido } from './store/exportar'
@@ -56,6 +57,7 @@ export function registerIpc(
 ): void {
   const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
     services
+  const { examenes } = services
   const { ollamaManager, planner } = services
 
   // --- Autenticacion ---
@@ -91,6 +93,26 @@ export function registerIpc(
   handle(Channels.tasksUpdate, (id: string, patch: Partial<ManualTask>) => tasks.update(id, patch))
   handle(Channels.tasksRemove, (id: string) => {
     tasks.remove(id)
+    return null
+  })
+
+  // --- Examenes y notas ---
+  // El resumen se calcula aqui y no en el renderer: es la misma cuenta que usa
+  // el agente, y tenerla en un solo sitio evita que las dos medias se separen.
+  handle(Channels.examenesList, () => {
+    const lista = examenes.list()
+    return { examenes: lista, resumen: porAsignatura(lista) }
+  })
+  handle(
+    Channels.examenesAdd,
+    (input: { title: string; subject?: string; date: string; weight?: number | null }) =>
+      examenes.add(input)
+  )
+  handle(Channels.examenesUpdate, (id: string, patch: Partial<Examen>) =>
+    examenes.update(id, patch)
+  )
+  handle(Channels.examenesRemove, (id: string) => {
+    examenes.remove(id)
     return null
   })
 

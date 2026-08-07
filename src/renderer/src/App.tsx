@@ -9,6 +9,7 @@ import Ajustes from './views/Ajustes'
 import Carpetas from './views/Carpetas'
 import Chat from './views/Chat'
 import Hub from './views/Hub'
+import Notas from './views/Notas'
 import Onboarding from './views/Onboarding'
 import Tareas from './views/Tareas'
 import Voz from './views/Voz'
@@ -18,6 +19,7 @@ const COMPONENTS: Record<SectionId, () => JSX.Element> = {
   voz: Voz,
   agenda: Agenda,
   tareas: Tareas,
+  notas: Notas,
   carpetas: Carpetas,
   ajustes: Ajustes
 }

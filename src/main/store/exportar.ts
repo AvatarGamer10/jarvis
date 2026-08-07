@@ -16,7 +16,13 @@ import { app } from 'electron'
  */
 
 /** Ficheros de datos del usuario. `credentials.bin` queda fuera a proposito. */
-const FICHEROS = ['tasks.json', 'organizer-rules.json', 'organizer-journal.json', 'chat.json']
+const FICHEROS = [
+  'tasks.json',
+  'examenes.json',
+  'organizer-rules.json',
+  'organizer-journal.json',
+  'chat.json'
+]
 
 const VERSION = 1
 

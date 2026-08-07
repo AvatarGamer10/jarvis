@@ -16,6 +16,7 @@ import { OllamaManager } from './integrations/ollama-manager'
 import { OrganizerService } from './organizer'
 import { SecretStore } from './store/secret-store'
 import { SettingsService } from './store/settings'
+import { ExamenService } from './tasks/examenes'
 import { ManualTaskService } from './tasks/manual-tasks'
 
 /**
@@ -31,6 +32,7 @@ export interface Services {
   classroom: ClassroomService
   organizer: OrganizerService
   tasks: ManualTaskService
+  examenes: ExamenService
   ollama: OllamaProvider
   ollamaManager: OllamaManager
   usage: UsageCounter
@@ -51,6 +53,7 @@ export function createServices(): Services {
   const classroom = new ClassroomService(api)
   const organizer = new OrganizerService(settings)
   const tasks = new ManualTaskService()
+  const examenes = new ExamenService()
   const usage = new UsageCounter()
 
   // La configuracion se lee en cada llamada, no al construir: asi cambiar la
@@ -70,7 +73,7 @@ export function createServices(): Services {
     usage
   )
 
-  const toolContext = (): ToolContext => ({ calendar, classroom, organizer, tasks })
+  const toolContext = (): ToolContext => ({ calendar, classroom, organizer, tasks, examenes })
   const planner = new PlannerService(toolContext)
 
   return {
@@ -82,11 +85,12 @@ export function createServices(): Services {
     classroom,
     organizer,
     tasks,
+    examenes,
     ollama,
     ollamaManager: new OllamaManager(settings),
     usage,
     agent: new AgentService(provider, toolContext, new ChatStore()),
-    brief: new BriefService(calendar, classroom, tasks, provider),
+    brief: new BriefService(calendar, classroom, tasks, examenes, provider),
     planner,
     scheduler: (onFire) => new BriefScheduler(settings, onFire)
   }

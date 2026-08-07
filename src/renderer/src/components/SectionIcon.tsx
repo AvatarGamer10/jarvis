@@ -84,11 +84,25 @@ function VozIcon(): JSX.Element {
   )
 }
 
+function NotasIcon(): JSX.Element {
+  return (
+    <svg {...COMMON} aria-hidden="true">
+      {/* Tres barras de altura distinta: la idea de "como voy" se lee antes en
+          un grafico que en un boligrafo o un diploma. */}
+      <path d="M3.6 20.4h16.8" />
+      <rect className="ic-barra ic-barra-1" x="5.4" y="13" width="3.6" height="5.6" rx="1.2" fill="currentColor" stroke="none" />
+      <rect className="ic-barra ic-barra-2" x="10.2" y="8.6" width="3.6" height="10" rx="1.2" fill="currentColor" stroke="none" />
+      <rect className="ic-barra ic-barra-3" x="15" y="4.4" width="3.6" height="14.2" rx="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
 const ICONS: Record<SectionId, () => JSX.Element> = {
   chat: ChatIcon,
   voz: VozIcon,
   agenda: AgendaIcon,
   tareas: TareasIcon,
+  notas: NotasIcon,
   carpetas: CarpetasIcon,
   ajustes: AjustesIcon
 }

@@ -1,4 +1,4 @@
-import type { BriefTask, CalendarEvent, ManualTask } from '@shared/types'
+import type { BriefTask, CalendarEvent, Examen, ManualTask } from '@shared/types'
 
 /**
  * Reparto de bloques de estudio. Puro y sin dependencias del resto de la app.
@@ -34,6 +34,7 @@ export interface FuentesPlanificador {
   calendar: { listEvents(desde: string, hasta: string): Promise<CalendarEvent[]> }
   classroom: { listPending(): Promise<{ title: string; courseName: string; dueDate: string | null }[]> }
   tasks: { list(): ManualTask[] }
+  examenes: { list(): Examen[] }
 }
 
 const chocan = (aIni: Date, aFin: Date, bIni: Date, bFin: Date): boolean =>
@@ -79,19 +80,46 @@ function huecosDelDia(dia: Date, eventos: CalendarEvent[]): { inicio: Date; fin:
 }
 
 /**
- * Cuantos bloques merece cada tarea.
+ * Cuantos bloques merece cada cosa.
  *
  * No se intenta adivinar el esfuerzo real: no hay dato para eso, y fingir
  * precision seria peor que repartir de forma sencilla y dejar que el usuario
  * ajuste en la confirmacion.
+ *
+ * Los examenes se llevan mas porque no se pueden hacer la noche antes: una
+ * entrega se termina de una sentada, un examen necesita repasos repartidos.
  */
 function bloquesPorTarea(tarea: BriefTask): number {
+  const examen = tarea.source === 'examen'
   if (!tarea.dueDate) return 1
+
   const dias = Math.ceil((Date.parse(tarea.dueDate) - Date.now()) / 86_400_000)
+  if (examen) return dias <= 3 ? 3 : 2
   return dias <= 3 ? 2 : 1
 }
 
-/** Tareas propias y de Classroom, mezcladas y ordenadas por urgencia. */
+/**
+ * Desempate cuando dos cosas caen el mismo dia: primero el examen.
+ *
+ * Si el viernes hay un examen y una entrega, el tiempo de estudio va antes al
+ * examen. La entrega se puede rematar el jueves por la noche; el examen no.
+ */
+const prioridad = (t: BriefTask): number => (t.source === 'examen' ? 0 : 1)
+
+/**
+ * Clave de dia en hora local.
+ *
+ * Cortar la cadena ISO daria el dia en UTC, y una entrega a la una de la
+ * madrugada caeria en el dia anterior.
+ */
+function diaLocal(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`
+}
+
+/** Todo lo que compite por tiempo de estudio, ordenado por urgencia. */
 async function pendientes(fuentes: FuentesPlanificador): Promise<BriefTask[]> {
   const propias: BriefTask[] = fuentes.tasks
     .list()
@@ -101,6 +129,20 @@ async function pendientes(fuentes: FuentesPlanificador): Promise<BriefTask[]> {
       subject: t.subject,
       dueDate: t.dueDate,
       source: 'manual' as const
+    }))
+
+  // Los ya corregidos no entran: estudiar para un examen que ya tiene nota no
+  // sirve de nada.
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const examenes: BriefTask[] = fuentes.examenes
+    .list()
+    .filter((e) => e.grade === null && Date.parse(e.date) >= hoy.getTime())
+    .map((e) => ({
+      title: e.title,
+      subject: e.subject,
+      dueDate: e.date,
+      source: 'examen' as const
     }))
 
   let deClassroom: BriefTask[] = []
@@ -115,10 +157,16 @@ async function pendientes(fuentes: FuentesPlanificador): Promise<BriefTask[]> {
     // Classroom puede estar bloqueado por el centro; no impide planificar.
   }
 
-  return [...propias, ...deClassroom].sort((a, b) => {
+  return [...examenes, ...propias, ...deClassroom].sort((a, b) => {
     if (a.dueDate === null) return 1
     if (b.dueDate === null) return -1
-    return a.dueDate.localeCompare(b.dueDate)
+
+    // Se compara el dia, no el instante: una entrega a las 23:59 y un examen a
+    // las 9:00 del mismo dia son "el mismo dia", y ahi manda el examen.
+    const diaA = diaLocal(a.dueDate)
+    const diaB = diaLocal(b.dueDate)
+    if (diaA !== diaB) return diaA.localeCompare(diaB)
+    return prioridad(a) - prioridad(b)
   })
 }
 

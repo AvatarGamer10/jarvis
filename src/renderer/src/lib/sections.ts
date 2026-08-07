@@ -8,7 +8,7 @@
  * "esto vence hoy" y las dos senales perderian su significado.
  */
 
-export type SectionId = 'chat' | 'voz' | 'agenda' | 'tareas' | 'carpetas' | 'ajustes'
+export type SectionId = 'chat' | 'voz' | 'agenda' | 'tareas' | 'notas' | 'carpetas' | 'ajustes'
 
 export interface Section {
   id: SectionId
@@ -23,6 +23,7 @@ export const SECTIONS: Section[] = [
   { id: 'voz', label: 'Voz', tagline: 'Hablame y te contesto', color: '#5ad0e0' },
   { id: 'agenda', label: 'Agenda', tagline: 'Tu semana de un vistazo', color: '#8b6cf0' },
   { id: 'tareas', label: 'Tareas', tagline: 'Lo que tienes que entregar', color: '#3fcf8e' },
+  { id: 'notas', label: 'Notas', tagline: 'Examenes y como vas', color: '#a56ef0' },
   { id: 'carpetas', label: 'Carpetas', tagline: 'Cada archivo en su sitio', color: '#e066b0' },
   { id: 'ajustes', label: 'Ajustes', tagline: 'Cuentas y apariencia', color: '#7f8ca6' }
 ]

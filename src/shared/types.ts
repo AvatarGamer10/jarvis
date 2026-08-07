@@ -120,7 +120,54 @@ export interface ManualTask {
 }
 
 /** Origen de una tarea en la vista unificada. */
-export type TaskSource = 'classroom' | 'manual'
+export type TaskSource = 'classroom' | 'manual' | 'examen'
+
+// --- Examenes y notas ------------------------------------------------------
+
+/**
+ * Un examen, antes y despues de hacerlo.
+ *
+ * Es la misma ficha en los dos momentos: primero es una fecha que se acerca, y
+ * cuando llega la nota pasa a contar para la media. Separarlos en dos tipos
+ * obligaria a copiar la asignatura y el titulo de uno a otro.
+ */
+export interface Examen {
+  id: string
+  /** Asignatura. Texto libre, igual que en las tareas. */
+  subject: string
+  /** Que entra, o como se llama el examen. */
+  title: string
+  /** ISO 8601. Un examen sin fecha no es un examen. */
+  date: string
+  /** Nota de 0 a 10, o null mientras no la hayan dado. */
+  grade: number | null
+  /** Peso dentro de la evaluacion, en porcentaje. null si no se sabe. */
+  weight: number | null
+  createdAt: string
+}
+
+/** Que hace falta en lo que queda para llegar al objetivo. */
+export type Necesario =
+  /** Ya se llega aunque se saque un cero en todo lo que queda. */
+  | { estado: 'asegurado' }
+  /** Ni con un 10 en todo lo que queda se llega. */
+  | { estado: 'imposible' }
+  | { estado: 'necesita'; nota: number }
+
+export interface ResumenAsignatura {
+  asignatura: string
+  /** Media sobre 10, o null si aun no hay ninguna nota. */
+  media: number | null
+  /** True si la media usa los pesos; false si es la media simple. */
+  ponderada: boolean
+  hechos: number
+  pendientes: number
+  /**
+   * Solo se calcula cuando todos los examenes de la asignatura llevan peso y
+   * queda alguno por hacer. Sin pesos, cualquier cifra seria inventada.
+   */
+  necesario: Necesario | null
+}
 
 // --- Organizador de carpetas ----------------------------------------------
 
