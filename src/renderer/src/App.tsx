@@ -41,6 +41,7 @@ export default function App(): JSX.Element {
         setSettings(s.data)
         sound.setEnabled(s.data.soundEnabled)
         document.documentElement.dataset.glass = s.data.glassEnabled ? 'on' : 'off'
+        document.documentElement.dataset.fondo = s.data.fondoIntensidad
       }
 
       // Sin cuenta conectada se entra directo a Ajustes: el anillo lleno de

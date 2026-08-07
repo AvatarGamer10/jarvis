@@ -109,20 +109,58 @@ body {
   z-index: 0;
   background-size: cover;
   background-position: center;
-  opacity: 0.3;
-  filter: saturate(0.62) brightness(0.42) blur(3px);
+  opacity: var(--fondo-opacidad, 0.5);
+  filter: saturate(var(--fondo-saturacion, 0.78)) brightness(var(--fondo-brillo, 0.68))
+    blur(var(--fondo-desenfoque, 2px));
+  transition:
+    opacity var(--dur-slow) var(--ease),
+    filter var(--dur-slow) var(--ease);
 }
 
-/* Cuadricula de cuaderno. Casi invisible: se nota, no se mira. */
+/**
+ * Niveles de intensidad del fondo.
+ *
+ * Antes habia un unico valor muy apagado para que los naranjas de la imagen no
+ * compitieran con la rampa de urgencia. La idea era buena pero el ajuste era
+ * excesivo: entre eso y la cuadricula, el dibujo no se veia. Ahora la legibilidad
+ * la defiende el vinyeteado y el fondo propio de las tarjetas, no aplastar la
+ * imagen entera.
+ */
+:root[data-fondo='apagado'] .app-fondo {
+  display: none;
+}
+
+:root[data-fondo='sutil'] {
+  --fondo-opacidad: 0.28;
+  --fondo-brillo: 0.5;
+  --fondo-saturacion: 0.65;
+  --fondo-desenfoque: 3px;
+}
+
+:root[data-fondo='marcado'] {
+  --fondo-opacidad: 0.72;
+  --fondo-brillo: 0.82;
+  --fondo-saturacion: 0.9;
+  --fondo-desenfoque: 1px;
+}
+
+/**
+ * Vinyeteado.
+ *
+ * Sustituye a la cuadricula de cuaderno, que tapaba el dibujo. Oscurece solo
+ * los bordes, que es donde no hay contenido, en vez de apagar la imagen entera:
+ * el centro se ve y el texto de las esquinas sigue teniendo contraste.
+ */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-  background-size: 23px 23px;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 30%,
+    rgba(4, 7, 12, 0.55) 100%
+  );
   /* Por encima del fondo, por debajo del contenido. */
   z-index: 1;
 }

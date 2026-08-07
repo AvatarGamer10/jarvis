@@ -33,14 +33,19 @@ válido y pasaría cualquier comprobación superficial.
 
 ## Sobre el fondo
 
-`fondo.png` se pinta **muy oscurecido, desaturado y con desenfoque** (opacidad
-30%, brillo 42%, saturación 62%). No es un capricho: la interfaz usa el naranja
-para señalar «esto vence hoy». Un fondo naranja a plena intensidad se comería
-esa señal y dejaría el texto ilegible.
+`fondo.png` se pinta algo atenuado y con un desenfoque leve. La razón es que la
+interfaz usa el naranja para señalar «esto vence hoy»: un fondo naranja a plena
+intensidad competiría con esa señal.
 
-Si quieres que se note más o menos, el ajuste está en `.app-fondo` dentro de
-`src/renderer/src/styles.css`. Sube `opacity` con cuidado y comprueba que las
-tareas de hoy siguen destacando.
+La legibilidad la defiende el **viñeteado** —los bordes se oscurecen, que es
+donde no hay contenido— y el fondo propio de cada tarjeta, en lugar de aplastar
+la imagen entera.
+
+**El nivel se elige desde la app**, en Ajustes → Apariencia → Imagen de fondo:
+*Sin fondo · Sutil · Medio · Marcado*. Los valores de cada nivel están en
+`styles.css`, en las reglas `:root[data-fondo='…']`.
+
+Si subes la intensidad, comprueba que las tareas de hoy siguen destacando.
 
 ## Icono de la aplicación
 

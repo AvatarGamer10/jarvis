@@ -90,6 +90,14 @@ export default function Ajustes(): JSX.Element {
     if (updated.ok) settingsState.reload()
   }
 
+  const cambiarFondo = async (nivel: SafeSettings['fondoIntensidad']): Promise<void> => {
+    // Se aplica antes de guardar para que el cambio se vea al instante.
+    document.documentElement.dataset.fondo = nivel
+    sound.play('nav')
+    const updated = await window.jarvis.settings.update({ fondoIntensidad: nivel })
+    if (updated.ok) settingsState.reload()
+  }
+
   const toggleSound = async (): Promise<void> => {
     const next = !(settings?.soundEnabled ?? true)
     sound.setEnabled(next)
@@ -448,6 +456,24 @@ export default function Ajustes(): JSX.Element {
           >
             {settings?.glassEnabled ? 'Activada' : 'Desactivada'}
           </button>
+        </div>
+
+        <div className="list-item">
+          <div>
+            <div>Imagen de fondo</div>
+            <div className="meta">Cuanto se aprecia el dibujo detras de la interfaz.</div>
+          </div>
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            {(['apagado', 'sutil', 'medio', 'marcado'] as const).map((nivel) => (
+              <button
+                key={nivel}
+                className={settings?.fondoIntensidad === nivel ? 'primary' : ''}
+                onClick={() => void cambiarFondo(nivel)}
+              >
+                {nivel === 'apagado' ? 'Sin fondo' : nivel}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="list-item">

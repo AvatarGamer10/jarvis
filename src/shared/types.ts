@@ -46,6 +46,8 @@ export interface Settings {
   soundEnabled: boolean
   /** Translucidez de la ventana. Se puede apagar si molesta al leer. */
   glassEnabled: boolean
+  /** Cuanto se aprecia la imagen de fondo. */
+  fondoIntensidad: 'apagado' | 'sutil' | 'medio' | 'marcado'
   /** Carpetas dentro de las cuales el organizador tiene permiso para mover archivos. */
   managedRoots: string[]
 }
