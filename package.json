@@ -8,6 +8,7 @@
   "private": true,
   "//transformers": "@huggingface/transformers va en devDependencies, no en dependencies: solo se usa en el renderer, que Vite empaqueta. Como dependencia arrastraria onnxruntime-node (210 MB) al instalador sin usarse nunca.",
   "//fuentes": "Las fuentes tambien van en devDependencies: Vite las empaqueta en el bundle del renderer.",
+  "//renderer": "lucide-react y thinking-orbs, por lo mismo: solo los usa el renderer. Como dependencias se copiarian ademas al instalador sin que nadie los cargue desde ahi.",
   "engines": {
     "node": ">=20"
   },
@@ -26,7 +27,6 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
-    "lucide-react": "^1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^3.23.8"
@@ -44,7 +44,9 @@
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "lucide-react": "^1.30.0",
     "tailwindcss": "^4.3.3",
+    "thinking-orbs": "^0.2.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
   }

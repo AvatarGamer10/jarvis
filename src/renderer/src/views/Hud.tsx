@@ -1,10 +1,30 @@
 import { useEffect, useRef, useState } from 'react'
+import { ThinkingOrb, type OrbState } from 'thinking-orbs'
 import type { ChatMessage } from '@shared/types'
 import { BANDAS, grabar, MicrofonoNoDisponible, type Grabacion } from '../lib/microfono'
 import { cargarModelo, modeloListo, transcribir } from '../lib/transcripcion'
 import { tts } from '../lib/tts'
 
 type Fase = 'reposo' | 'escuchando' | 'transcribiendo' | 'pensando' | 'hablando' | 'error'
+
+/**
+ * Fases que se ensenan con el orbe.
+ *
+ * Las que faltan no estan olvidadas:
+ *
+ * - `reposo` y `error` se quedan con el microfono. El boton tiene que decir
+ *   "pulsa para hablar" de un vistazo, y una animacion abstracta no lo dice.
+ * - `escuchando` conserva sus barras. El orbe trae un estado `listening`, pero
+ *   las barras se mueven con tu voz de verdad: cambiarlas por una animacion
+ *   enlatada seria mas bonito y menos util.
+ */
+const ORBE: Partial<Record<Fase, OrbState>> = {
+  // Barrido de meridiano: se lee como "esta recorriendo lo que has dicho".
+  transcribiendo: 'searching',
+  pensando: 'working',
+  // Franjas ondulando, que es lo mas parecido a una voz que hay en el juego.
+  hablando: 'composing'
+}
 
 /** Pixeles que hay que mover el raton para que cuente como arrastrar y no clic. */
 const UMBRAL_ARRASTRE = 4
@@ -219,6 +239,16 @@ export default function Hud(): JSX.Element {
                 <span key={i} style={{ transform: `scaleY(${0.15 + v * 0.85})` }} />
               ))}
             </span>
+          ) : ORBE[fase] ? (
+            // `dark` fijo y no `auto`: `auto` mira el sistema operativo, y con
+            // Windows en modo claro dibujaria en tinta oscura sobre el fondo
+            // negro del boton.
+            <ThinkingOrb
+              state={ORBE[fase]}
+              size={64}
+              theme="dark"
+              aria-label={pista || 'Trabajando'}
+            />
           ) : (
             <svg
               width="26"

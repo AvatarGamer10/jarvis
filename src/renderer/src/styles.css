@@ -1826,6 +1826,18 @@ body::before {
   height: 22px;
 }
 
+/* El orbe mide 64 px y el boton 62. Al desbordar, `place-items: center` deja
+   de centrar y alinea al inicio, asi que se queda 2 px abajo y a la derecha.
+   Se centra a mano. No se encoge el orbe: sus dos tallas son disenos aparte,
+   con su propio numero de puntos y su propia velocidad, no un factor de
+   escala. */
+.hud-boton canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .hud-barras span {
   width: 2px;
   height: 100%;
@@ -2554,8 +2566,18 @@ input:focus {
 }
 
 .bubble.thinking {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   color: var(--paper-dim);
   font-style: italic;
+}
+
+/* El orbe se dibuja en un canvas de 64 px, pero su esfera no llega al borde.
+   `flex: none` evita que el flex lo estruje y lo deforme cuando la burbuja se
+   estrecha en ventanas pequenas. */
+.bubble.thinking canvas {
+  flex: none;
 }
 
 .bubble-text {

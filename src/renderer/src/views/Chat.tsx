@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ThinkingOrb } from 'thinking-orbs'
 import type { ChatMessage } from '@shared/types'
 import { sound } from '../lib/sound'
 
@@ -151,7 +152,15 @@ export default function Chat(): JSX.Element {
           </div>
         ))}
 
-        {busy && <div className="bubble assistant thinking">Pensando…</div>}
+        {/* El tema va fijado a `dark` y no en `auto`: `auto` mira el sistema
+            operativo, y con Windows en modo claro dibujaria en tinta oscura
+            sobre el fondo negro de la app, o sea, nada. */}
+        {busy && (
+          <div className="bubble assistant thinking">
+            <ThinkingOrb state="working" size={64} theme="dark" aria-label="Pensando" />
+            <span>Pensando…</span>
+          </div>
+        )}
         {error && <div className="alert error">{error}</div>}
         <div ref={bottomRef} />
       </div>
