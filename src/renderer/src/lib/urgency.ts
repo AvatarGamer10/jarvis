@@ -1,12 +1,14 @@
 /**
- * Rampa de urgencia: de brasa a hielo.
+ * Rampa de urgencia: del blanco al negro.
  *
- * Es la idea que sostiene toda la interfaz. El color no decora, codifica
- * cuanto tiempo queda. Lo de hoy quema; lo del mes que viene casi desaparece
- * contra el fondo. Asi el ojo va solo a donde hay que ir, sin leer una fecha.
+ * Es la idea que sostiene toda la interfaz. El brillo no decora, codifica
+ * cuanto tiempo queda. Lo de hoy es lo mas claro de la pantalla; lo del mes
+ * que viene casi desaparece contra el fondo. Asi el ojo va solo a donde hay
+ * que ir, sin leer una fecha.
  *
- * Por eso el morado de los botones queda fuera de esta rampa: si "urgente" y
- * "pulsable" compartieran color, ninguno de los dos significaria nada.
+ * Por eso los botones no llegan al blanco puro: si "urgente" y "pulsable"
+ * se dijeran con el mismo brillo, ninguno de los dos significaria nada. Lo
+ * pulsable se reconoce por su borde y su relleno, no por lo claro que es.
  */
 
 export type Urgency = 'overdue' | 'today' | 'soon' | 'week' | 'far' | 'none'

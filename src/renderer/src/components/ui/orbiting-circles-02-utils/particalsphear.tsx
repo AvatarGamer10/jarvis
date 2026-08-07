@@ -49,14 +49,14 @@ function repartirEsfera(total: number): Punto[] {
   })
 }
 
-/** "#3d8fd6" a [61, 143, 214]. Devuelve el azul de la app si no se entiende. */
+/** "#c9c9c9" a [201, 201, 201]. Devuelve un gris medio si no se entiende. */
 function aRgb(color: string): [number, number, number] {
   const limpio = color.trim().replace('#', '')
   if (limpio.length === 6) {
     const n = Number.parseInt(limpio, 16)
     if (!Number.isNaN(n)) return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
   }
-  return [61, 143, 214]
+  return [201, 201, 201]
 }
 
 export default function ParticleSphereAnimation(): JSX.Element {
@@ -71,8 +71,8 @@ export default function ParticleSphereAnimation(): JSX.Element {
 
     const puntos = repartirEsfera(PUNTOS)
     const raiz = getComputedStyle(document.documentElement)
-    const [r, g, b] = aRgb(raiz.getPropertyValue('--signal') || '#3d8fd6')
-    const [rc, gc, bc] = aRgb(raiz.getPropertyValue('--signal-bright') || '#5ba6e8')
+    const [r, g, b] = aRgb(raiz.getPropertyValue('--signal') || '#c9c9c9')
+    const [rc, gc, bc] = aRgb(raiz.getPropertyValue('--signal-bright') || '#ffffff')
 
     // Quien pide menos movimiento se lleva la esfera quieta, no una pantalla en
     // blanco: la forma sigue contando lo mismo sin girar.
@@ -109,7 +109,7 @@ export default function ParticleSphereAnimation(): JSX.Element {
         const tam = radio * 0.0075 * (PROFUNDIDAD + (1 - PROFUNDIDAD) * frente)
         const alfa = 0.12 + frente * 0.62
 
-        // Los de delante tiran al azul claro; los del fondo, al azul base.
+        // Los de delante tiran a blanco; los del fondo se quedan en gris.
         const mezcla = frente * frente
         const cr = Math.round(r + (rc - r) * mezcla)
         const cg = Math.round(g + (gc - g) * mezcla)

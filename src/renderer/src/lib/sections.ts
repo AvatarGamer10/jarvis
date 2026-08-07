@@ -1,11 +1,11 @@
 /**
  * Las secciones de la app y su identidad en el anillo.
  *
- * Los colores de aqui viven SOLO en el menu radial. No entran en el contenido.
+ * Los grises de aqui viven SOLO en el menu. No entran en el contenido.
  *
- * Y todos son frios a proposito: el naranja y el rojo estan reservados a la
- * rampa de urgencia. Si una seccion se iluminara en naranja, competiria con
- * "esto vence hoy" y las dos senales perderian su significado.
+ * Ninguno llega al blanco puro a proposito: ese esta reservado a la rampa de
+ * urgencia. Si una seccion se iluminara igual que "esto vence hoy", las dos
+ * senales perderian su significado.
  */
 
 export type SectionId = 'chat' | 'voz' | 'agenda' | 'tareas' | 'notas' | 'carpetas' | 'ajustes'
@@ -18,22 +18,13 @@ export interface Section {
   color: string
 }
 
+/** El orden manda: es el que siguen Ctrl+1..7 y el reparto en los aros. */
 export const SECTIONS: Section[] = [
-  { id: 'chat', label: 'Chat', tagline: 'Pideme lo que necesites', color: '#3d8fd6' },
-  { id: 'voz', label: 'Voz', tagline: 'Hablame y te contesto', color: '#5ad0e0' },
-  { id: 'agenda', label: 'Agenda', tagline: 'Tu semana de un vistazo', color: '#8b6cf0' },
-  { id: 'tareas', label: 'Tareas', tagline: 'Lo que tienes que entregar', color: '#3fcf8e' },
-  { id: 'notas', label: 'Notas', tagline: 'Examenes y como vas', color: '#a56ef0' },
-  { id: 'carpetas', label: 'Carpetas', tagline: 'Cada archivo en su sitio', color: '#e066b0' },
-  { id: 'ajustes', label: 'Ajustes', tagline: 'Cuentas y apariencia', color: '#7f8ca6' }
+  { id: 'chat', label: 'Chat', tagline: 'Pideme lo que necesites', color: '#e4e4e4' },
+  { id: 'voz', label: 'Voz', tagline: 'Hablame y te contesto', color: '#d2d2d2' },
+  { id: 'agenda', label: 'Agenda', tagline: 'Tu semana de un vistazo', color: '#c0c0c0' },
+  { id: 'tareas', label: 'Tareas', tagline: 'Lo que tienes que entregar', color: '#aeaeae' },
+  { id: 'notas', label: 'Notas', tagline: 'Examenes y como vas', color: '#9c9c9c' },
+  { id: 'carpetas', label: 'Carpetas', tagline: 'Cada archivo en su sitio', color: '#8a8a8a' },
+  { id: 'ajustes', label: 'Ajustes', tagline: 'Cuentas y apariencia', color: '#787878' }
 ]
-
-/**
- * Angulo de cada seccion en el circulo, empezando arriba.
- *
- * El CSS lo usa para colocar el elemento, y el centro para inclinarse hacia lo
- * que se esta apuntando.
- */
-export function orbitAngle(index: number, total: number): number {
-  return -90 + (360 / total) * index
-}
