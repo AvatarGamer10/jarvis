@@ -57,6 +57,16 @@ export interface JarvisApi {
       patch: Partial<Omit<ManualTask, 'id' | 'createdAt'>>
     ): Promise<Result<ManualTask>>
     remove(id: string): Promise<Result<null>>
+    /**
+     * Convierte texto pegado de Classroom en tareas propuestas.
+     * No crea nada: el renderer las ensena y solo se guardan si se confirman.
+     */
+    interpretarPegado(texto: string): Promise<
+      Result<{
+        tareas: { titulo: string; asignatura: string; entrega: string | null }[]
+        fuente: 'modelo' | 'texto'
+      }>
+    >
   }
   examenes: {
     /** Los examenes y, ya calculadas, las medias por asignatura. */
@@ -170,6 +180,7 @@ export const Channels = {
   tasksAdd: 'tasks:add',
   tasksUpdate: 'tasks:update',
   tasksRemove: 'tasks:remove',
+  tasksInterpretarPegado: 'tasks:interpretarPegado',
   examenesList: 'examenes:list',
   examenesAdd: 'examenes:add',
   examenesUpdate: 'examenes:update',

@@ -57,7 +57,7 @@ export function registerIpc(
 ): void {
   const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
     services
-  const { examenes } = services
+  const { examenes, pegar } = services
   const { ollamaManager, planner } = services
 
   // --- Autenticacion ---
@@ -95,6 +95,8 @@ export function registerIpc(
     tasks.remove(id)
     return null
   })
+  // Solo propone: las tareas se crean con tasks:add cuando el usuario confirma.
+  handle(Channels.tasksInterpretarPegado, (texto: string) => pegar.interpretar(texto))
 
   // --- Examenes y notas ---
   // El resumen se calcula aqui y no en el renderer: es la misma cuenta que usa

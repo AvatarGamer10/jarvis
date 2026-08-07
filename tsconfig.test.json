@@ -21,6 +21,7 @@
     "src/main/brief/next-occurrence.ts",
     "src/main/agent/tools/planificador-core.ts",
     "src/main/tasks/notas-core.ts",
+    "src/main/tasks/pegar-core.ts",
     "src/renderer/src/lib/fechas.ts",
     "src/renderer/src/lib/semana.ts"
   ]

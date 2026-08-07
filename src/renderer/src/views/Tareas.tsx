@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Assignment, ManualTask, SubmissionState } from '@shared/types'
+import PegarClassroom from '../components/PegarClassroom'
 import Vacio from '../components/Vacio'
 import { avisos } from '../lib/avisos'
 import { atajosFecha, paraInput } from '../lib/fechas'
@@ -248,6 +249,8 @@ export default function Tareas(): JSX.Element {
         </div>
       </div>
 
+      <PegarClassroom onCreadas={load} />
+
       {loading && <p className="empty">Cargando…</p>}
 
       {/* El buscador solo aparece cuando hay bastantes tareas: con cuatro,
@@ -355,8 +358,9 @@ export default function Tareas(): JSX.Element {
                 </p>
                 <p className="hint">
                   Si el mensaje habla del administrador de tu centro, es que el colegio aun no ha
-                  aprobado la aplicacion. Mientras tanto puedes apuntar tus tareas aqui arriba: en
-                  cuanto la aprueben, las de Classroom apareceran solas junto a las tuyas.
+                  aprobado la aplicacion. Mientras tanto, con «Pegar desde Classroom» copias la
+                  lista de la web y te la convierto en tareas. En cuanto la aprueben, las de
+                  Classroom apareceran solas junto a las tuyas.
                 </p>
                 <button onClick={load} style={{ marginTop: 10 }}>
                   Reintentar

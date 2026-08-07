@@ -18,6 +18,7 @@ import { SecretStore } from './store/secret-store'
 import { SettingsService } from './store/settings'
 import { ExamenService } from './tasks/examenes'
 import { ManualTaskService } from './tasks/manual-tasks'
+import { PegarService } from './tasks/pegar'
 
 /**
  * Contenedor de servicios. Se crea una sola vez cuando la app esta lista
@@ -33,6 +34,7 @@ export interface Services {
   organizer: OrganizerService
   tasks: ManualTaskService
   examenes: ExamenService
+  pegar: PegarService
   ollama: OllamaProvider
   ollamaManager: OllamaManager
   usage: UsageCounter
@@ -86,6 +88,7 @@ export function createServices(): Services {
     organizer,
     tasks,
     examenes,
+    pegar: new PegarService(provider),
     ollama,
     ollamaManager: new OllamaManager(settings),
     usage,

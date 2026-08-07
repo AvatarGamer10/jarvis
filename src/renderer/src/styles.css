@@ -1039,6 +1039,71 @@ body::before {
 }
 
 /* =========================================================================
+   Pegar desde Classroom
+   ========================================================================= */
+
+.pegar-lanzador {
+  /* Sube a pegarse a la tarjeta de apuntar: es la alternativa a teclear una a
+     una, no una funcion aparte. */
+  margin: -6px 0 16px;
+}
+
+.pegar-area {
+  width: 100%;
+  min-height: 170px;
+  margin-top: 12px;
+  padding: 12px 13px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(7, 12, 20, 0.55);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.pegar-area:focus {
+  outline: none;
+  border-color: var(--signal-line);
+}
+
+.pegar-fila {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.pegar-fila:last-of-type {
+  border-bottom: none;
+}
+
+/* Desmarcada se atenua pero sigue siendo legible y editable: es una decision
+   reversible, no una tarea descartada. */
+.pegar-fila[data-fuera='true'] .pegar-campos {
+  opacity: 0.42;
+}
+
+.pegar-fila input[type='checkbox'] {
+  margin-top: 9px;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  accent-color: var(--signal);
+}
+
+.pegar-campos {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* =========================================================================
    Avisos flotantes
 
    Abajo a la izquierda. La derecha ya es de los avisos de actualizacion y del

@@ -30,7 +30,9 @@ const api: JarvisApi = {
     list: () => ipcRenderer.invoke(Channels.tasksList),
     add: (input) => ipcRenderer.invoke(Channels.tasksAdd, input),
     update: (id, patch) => ipcRenderer.invoke(Channels.tasksUpdate, id, patch),
-    remove: (id: string) => ipcRenderer.invoke(Channels.tasksRemove, id)
+    remove: (id: string) => ipcRenderer.invoke(Channels.tasksRemove, id),
+    interpretarPegado: (texto: string) =>
+      ipcRenderer.invoke(Channels.tasksInterpretarPegado, texto)
   },
   examenes: {
     list: () => ipcRenderer.invoke(Channels.examenesList),
