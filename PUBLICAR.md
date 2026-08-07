@@ -38,13 +38,27 @@ para funciones nuevas, `1.0.0` cuando la consideres terminada.
 
 ### 2. Escribe las notas del parche
 
-Van en el cuerpo del release de GitHub y son **lo que el usuario lee en la app**.
+Van en **dos sitios**, y los dos hacen falta porque se leen en momentos
+distintos:
+
+| Dónde | Cuándo lo lee el usuario |
+|---|---|
+| Cuerpo del release de GitHub | Cuando el aviso le dice que hay una versión nueva descargándose |
+| [`src/main/novedades.ts`](src/main/novedades.ts) | Al abrir la app **después** de que se haya instalado |
+
+Las del release cuentan lo que va a llegar; las de `novedades.ts` cuentan lo
+que ya está. Van dentro de la app a propósito: se ven sin conexión y sin pedirle
+a GitHub las notas de una versión que ya tienes instalada.
+
 Escríbelas para quien la usa, no para quien la programa:
 
 > **Bien:** «Ahora puedes marcar tareas como hechas desde el chat.»
 > **Mal:** «Refactor de ManualTaskService con búsqueda aproximada.»
 
-Cuatro o cinco líneas como mucho. La app corta a 1.200 caracteres.
+Cuatro o cinco líneas como mucho. La app corta el release a 1.200 caracteres.
+
+Hay una prueba que falla si publicas una versión sin su entrada en
+`novedades.ts`, así que `npm test` te avisa antes de compilar.
 
 ### 3. Publica
 

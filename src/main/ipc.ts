@@ -1,8 +1,9 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { Channels, type ApplyOutcomeDto } from '@shared/ipc'
 import type { Examen, FileRule, ManualTask, Result, Settings } from '@shared/types'
 import { porAsignatura } from './tasks/notas-core'
 import { MODELOS_RECOMENDADOS } from './integrations/ollama-manager'
+import { novedadesPendientes } from './novedades'
 import type { ApplyOutcome } from './organizer/executor'
 import { exportar, importar, nombreSugerido } from './store/exportar'
 import type { Services } from './services'
@@ -97,6 +98,20 @@ export function registerIpc(
   })
   // Solo propone: las tareas se crean con tasks:add cuando el usuario confirma.
   handle(Channels.tasksInterpretarPegado, (texto: string) => pegar.interpretar(texto))
+
+  // --- Novedades tras actualizar ---
+  handle(Channels.novedadesPendientes, () => {
+    const actuales = settings.all()
+    return novedadesPendientes(
+      app.getVersion(),
+      actuales.lastSeenVersion,
+      actuales.onboardingDone
+    )
+  })
+  handle(Channels.novedadesMarcarVistas, () => {
+    settings.update({ lastSeenVersion: app.getVersion() })
+    return null
+  })
 
   // --- Examenes y notas ---
   // El resumen se calcula aqui y no en el renderer: es la misma cuenta que usa

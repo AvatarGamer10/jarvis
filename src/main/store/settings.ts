@@ -30,6 +30,7 @@ export class SettingsService {
       hudX: null,
       hudY: null,
       onboardingDone: false,
+      lastSeenVersion: '',
       soundEnabled: true,
       glassEnabled: true,
       fondoIntensidad: 'marcado',

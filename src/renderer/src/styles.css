@@ -1039,6 +1039,99 @@ body::before {
 }
 
 /* =========================================================================
+   Novedades tras actualizar
+
+   Es de las pocas cosas de la app que tapan la pantalla entera. Se lo permite
+   porque sale una vez por version y porque, si no, un dia abres JARVIS y hay
+   una seccion que ayer no estaba sin que nadie te lo haya contado.
+   ========================================================================= */
+
+.novedades-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 7, 12, 0.72);
+  backdrop-filter: blur(6px);
+  animation: fade var(--dur) var(--ease) both;
+}
+
+.novedades {
+  width: min(560px, 100%);
+  max-height: min(660px, 88vh);
+  display: flex;
+  flex-direction: column;
+  padding: 26px 28px 24px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(12, 21, 34, 0.98);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.62);
+  animation: rise var(--dur-slow) var(--ease) both;
+}
+
+.novedades-etiqueta {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--signal-line);
+  background: var(--signal-soft);
+  color: var(--signal-bright);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.novedades-cabecera h2 {
+  margin: 11px 0 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-stretch: 87.5%;
+  font-size: 26px;
+  letter-spacing: 0.02em;
+}
+
+.novedades-cuerpo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 18px 0 20px;
+}
+
+.novedades-version {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--paper-faint);
+}
+
+.novedades-cuerpo ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.novedades-cuerpo li {
+  position: relative;
+  padding: 0 0 0 20px;
+  margin-bottom: 13px;
+  line-height: 1.6;
+  color: var(--paper-dim);
+}
+
+.novedades-cuerpo li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 9px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+/* =========================================================================
    Pegar desde Classroom
    ========================================================================= */
 

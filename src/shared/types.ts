@@ -42,6 +42,8 @@ export interface Settings {
   lastBriefDate: string | null
   /** Se pone a true al terminar la pantalla de bienvenida. */
   onboardingDone: boolean
+  /** Ultima version cuyas novedades ya ha visto el usuario. */
+  lastSeenVersion: string
   /** Sonidos de interfaz. Se sintetizan, no hay ficheros de audio. */
   soundEnabled: boolean
   /** Translucidez de la ventana. Se puede apagar si molesta al leer. */

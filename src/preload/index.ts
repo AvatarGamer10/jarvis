@@ -78,6 +78,10 @@ const api: JarvisApi = {
     calcular: (dias?: number) => ipcRenderer.invoke(Channels.planCalcular, dias ?? 7),
     aplicar: (planId: string) => ipcRenderer.invoke(Channels.planAplicar, planId)
   },
+  novedades: {
+    pendientes: () => ipcRenderer.invoke(Channels.novedadesPendientes),
+    marcarVistas: () => ipcRenderer.invoke(Channels.novedadesMarcarVistas)
+  },
   updater: {
     get: () => ipcRenderer.invoke(Channels.updaterGet),
     check: () => ipcRenderer.invoke(Channels.updaterCheck),

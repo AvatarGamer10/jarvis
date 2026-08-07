@@ -129,6 +129,12 @@ export interface JarvisApi {
     /** Crea los eventos de un plan ya calculado. */
     aplicar(planId: string): Promise<Result<{ creados: number; fallos: string[] }>>
   }
+  novedades: {
+    /** Que ensenar tras actualizar. Vacio si no hay nada nuevo que contar. */
+    pendientes(): Promise<Result<{ version: string; titulo: string; puntos: string[] }[]>>
+    /** Marca la version actual como vista para que no vuelva a salir. */
+    marcarVistas(): Promise<Result<null>>
+  }
   updater: {
     /** Estado actual, para pintar algo nada mas abrir sin esperar eventos. */
     get(): Promise<Result<UpdateState>>
@@ -209,6 +215,8 @@ export const Channels = {
   briefContadores: 'brief:contadores',
   planCalcular: 'plan:calcular',
   planAplicar: 'plan:aplicar',
+  novedadesPendientes: 'novedades:pendientes',
+  novedadesMarcarVistas: 'novedades:marcarVistas',
   updaterGet: 'updater:get',
   updaterCheck: 'updater:check',
   updaterInstall: 'updater:install',

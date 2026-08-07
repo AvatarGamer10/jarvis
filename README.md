@@ -1,11 +1,26 @@
 # JARVIS
 
 Asistente escolar de escritorio para Windows 11 y macOS 26. Entiende peticiones en lenguaje
-natural y actúa sobre tu calendario, tus tareas de Google Classroom y tus carpetas locales.
+natural y actúa sobre tu calendario, tus tareas, tus exámenes y tus carpetas locales.
 
 - **Stack:** Electron + React + TypeScript
-- **Cerebro:** Gemini (detrás de una interfaz intercambiable)
-- **Sin SDKs pesados:** las APIs de Google y Gemini se llaman por REST con `fetch`
+- **Cerebro:** Ollama en tu propio equipo por defecto, o Gemini si prefieres la nube. Los dos
+  detrás de la misma interfaz, intercambiables sin reiniciar
+- **Sin SDKs pesados:** las APIs de Google y del modelo se llaman por REST con `fetch`
+
+## Qué hace
+
+| | |
+|---|---|
+| **Agenda** | Tu semana en una rejilla, con los eventos de Google Calendar colocados por hora |
+| **Tareas** | Las que apuntas a mano y las de Classroom, juntas. Con «Pegar desde Classroom» conviertes la lista de la web en tareas |
+| **Notas** | Exámenes, medias por asignatura y qué necesitas sacar en lo que queda para aprobar |
+| **Planificador** | Reparte lo pendiente por los huecos libres del calendario. Los exámenes van antes que las entregas |
+| **Chat y voz** | Le hablas o le escribes; lo que modifica algo lo confirmas tú en pantalla |
+| **Carpetas** | Ordena archivos con reglas tuyas, siempre con simulacro previo y deshacer |
+| **Resumen diario** | Notificación por la mañana con lo que vence hoy y lo atrasado |
+
+Se actualiza sola desde GitHub y te cuenta qué ha cambiado la primera vez que la abres después.
 
 ---
 
@@ -79,7 +94,7 @@ Otros comandos:
 
 | Comando | Qué hace |
 |---|---|
-| `npm test` | Pruebas del organizador y del programador del resumen |
+| `npm test` | Pruebas de toda la lógica pura (137 ahora mismo) |
 | `npm run typecheck` | Comprueba tipos de main, preload y renderer |
 | `npm run build` | Compila a `out/` |
 | `npm run recursos` | Dibuja los iconos e imágenes del instalador |
@@ -220,8 +235,9 @@ src/
   preload/        Puente seguro entre main y renderer
   renderer/       Interfaz React
   shared/         Tipos compartidos por ambos lados
-scripts/          Spike de la Fase 0
-tests/            Pruebas del organizador
+scripts/          Spike de la Fase 0 y generación de iconos e instalador
+tests/            Pruebas de la lógica pura: organizador, planificador,
+                  medias, fechas y análisis del texto de Classroom
 ```
 
 Todo lo sensible (tokens, claves, acceso a disco) vive **solo en el proceso main**. El renderer
@@ -242,3 +258,8 @@ Es el único módulo que puede hacer daño real, así que va con varias capas:
 
 Todo esto está cubierto por `npm test`, incluido el caso de un plan manipulado que intenta
 escribir en `C:\Windows`.
+
+## Licencia
+
+MIT — ver [LICENSE](LICENSE). Úsalo, cámbialo y compártelo; lo único que se pide es
+conservar el aviso de copyright.

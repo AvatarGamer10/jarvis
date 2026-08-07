@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SafeSettings } from '@shared/types'
 import Avisos from './components/Avisos'
+import Novedades from './components/Novedades'
 import Paleta from './components/Paleta'
 import UpdateBanner from './components/UpdateBanner'
 import { SECTIONS, type SectionId } from './lib/sections'
@@ -133,6 +134,8 @@ export default function App(): JSX.Element {
     <>
       <UpdateBanner />
       <Avisos />
+      {/* Solo sale cuando la version ha cambiado, y una unica vez. */}
+      {settings.onboardingDone && <Novedades />}
     </>
   )
 

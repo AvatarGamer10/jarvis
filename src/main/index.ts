@@ -194,6 +194,14 @@ if (!app.requestSingleInstanceLock()) {
 
     const services = createServices()
 
+    // Instalacion nueva: se da por vista la version actual. La bienvenida ya
+    // cuenta lo que hay, y ademas asi la primera actualizacion que reciba si
+    // podra ensenarle exactamente lo que ha cambiado desde esta.
+    const ajustesIniciales = services.settings.all()
+    if (!ajustesIniciales.lastSeenVersion && !ajustesIniciales.onboardingDone) {
+      services.settings.update({ lastSeenVersion: app.getVersion() })
+    }
+
     /**
      * Lanza el resumen del dia como notificacion del sistema.
      *
