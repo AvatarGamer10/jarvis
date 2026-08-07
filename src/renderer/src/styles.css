@@ -1039,6 +1039,204 @@ body::before {
 }
 
 /* =========================================================================
+   Avisos flotantes
+
+   Abajo a la izquierda. La derecha ya es de los avisos de actualizacion y del
+   boton flotante: dos cosas que aparecen solas en la misma esquina acabarian
+   tapandose la una a la otra.
+   ========================================================================= */
+
+.avisos {
+  position: fixed;
+  left: 18px;
+  bottom: 18px;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 36px));
+}
+
+.aviso {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px 11px 15px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--signal);
+  background: rgba(12, 21, 34, 0.97);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  animation: aviso-entra var(--dur) var(--ease) both;
+}
+
+.aviso[data-tipo='error'] {
+  border-left-color: var(--t-overdue);
+}
+
+.aviso-texto {
+  flex: 1;
+  min-width: 0;
+  /* Una ruta larga de exportacion no puede estirar el aviso a lo ancho de la
+     pantalla, pero tampoco conviene cortarla: se parte en varias lineas. */
+  overflow-wrap: anywhere;
+}
+
+.aviso-cerrar {
+  padding: 1px 6px;
+  border-color: transparent;
+  background: none;
+  color: var(--paper-faint);
+  font-size: 11px;
+}
+
+@keyframes aviso-entra {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* =========================================================================
+   Estados vacios
+   ========================================================================= */
+
+.vacio {
+  padding: 34px 20px;
+  text-align: center;
+}
+
+.vacio-icono {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--paper-faint);
+  opacity: 0.75;
+}
+
+.vacio-icono svg {
+  width: 24px;
+  height: 24px;
+}
+
+.vacio-titulo {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-stretch: 87.5%;
+  font-size: 16px;
+  color: var(--paper-dim);
+}
+
+.vacio-pista {
+  margin: 7px auto 0;
+  max-width: 44ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--paper-faint);
+}
+
+/* =========================================================================
+   Fechas rapidas, pestanas y edicion en el sitio
+   ========================================================================= */
+
+.atajos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.atajos button {
+  padding: 3px 11px;
+  font-size: 12.5px;
+}
+
+.pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.pestanas button {
+  padding: 5px 14px;
+  border-color: transparent;
+  background: none;
+  color: var(--paper-dim);
+  font-size: 13px;
+}
+
+.pestanas button.is-on {
+  background: rgba(61, 143, 214, 0.13);
+  border-color: var(--signal-line);
+  color: var(--paper);
+}
+
+/* Solo aparece cuando hay algo sin guardar, asi que se pega abajo para no
+   depender de que el usuario baje hasta el final de la pestana. */
+.guardar-barra {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--signal-line);
+  background: rgba(12, 21, 34, 0.96);
+  backdrop-filter: blur(20px);
+  animation: rise var(--dur) var(--ease) both;
+}
+
+.list-item.editando {
+  align-items: stretch;
+}
+
+.list-item.editando input {
+  margin: 0;
+}
+
+/* Tachado al completar.
+   La tarea se queda en su sitio mientras se traza la linea; solo despues se
+   recarga la lista y cambia de grupo. Si se reordenara al instante, saltaria a
+   otro sitio y no habria manera de ver que ha pasado con ella. */
+.tachable {
+  position: relative;
+  display: inline-block;
+}
+
+.tachable::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0;
+  height: 1.5px;
+  background: var(--paper-dim);
+  transition: width 300ms var(--ease-inout);
+}
+
+.list-item[data-tachando='true'] .tachable::after {
+  width: 100%;
+}
+
+.list-item[data-tachando='true'] {
+  opacity: 0.5;
+  transition: opacity 340ms var(--ease) 90ms;
+}
+
+/* =========================================================================
    Notas
 
    Deliberadamente sin color: un suspenso NO se pinta de rojo. El rojo y el

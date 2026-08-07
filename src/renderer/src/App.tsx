@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { SafeSettings } from '@shared/types'
+import Avisos from './components/Avisos'
 import Paleta from './components/Paleta'
 import UpdateBanner from './components/UpdateBanner'
 import { SECTIONS, type SectionId } from './lib/sections'
@@ -13,6 +14,14 @@ import Notas from './views/Notas'
 import Onboarding from './views/Onboarding'
 import Tareas from './views/Tareas'
 import Voz from './views/Voz'
+
+/** Donde estabas la ultima vez. Se guarda el anillo tambien, como "ninguna". */
+const CLAVE_SECCION = 'jarvis.seccion'
+
+function seccionGuardada(): SectionId | null {
+  const guardada = localStorage.getItem(CLAVE_SECCION)
+  return SECTIONS.some((s) => s.id === guardada) ? (guardada as SectionId) : null
+}
 
 const COMPONENTS: Record<SectionId, () => JSX.Element> = {
   chat: Chat,
@@ -49,15 +58,23 @@ export default function App(): JSX.Element {
       // Sin cuenta conectada se entra directo a Ajustes: el anillo lleno de
       // secciones que aun no funcionan no ayuda a nadie.
       const connected = auth.ok && auth.data.connected
-      setSection(connected ? null : 'ajustes')
+      // Se retoma donde lo dejaste. Quien cierra desde el anillo se lo vuelve a
+      // encontrar, asi que no le quitamos la pantalla de inicio a nadie.
+      setSection(connected ? seccionGuardada() : 'ajustes')
       setReady(true)
     })()
   }, [])
 
+  useEffect(() => {
+    if (!ready) return
+    if (section === null) localStorage.removeItem(CLAVE_SECCION)
+    else localStorage.setItem(CLAVE_SECCION, section)
+  }, [section, ready])
+
   /**
    * Teclado.
    *
-   * Escape vuelve al anillo, Ctrl+K abre la paleta y Ctrl+1..6 salta directo a
+   * Escape vuelve al anillo, Ctrl+K abre la paleta y Ctrl+1..7 salta directo a
    * cada seccion. El anillo sigue siendo la pantalla de inicio, pero quien ya
    * sabe adonde va no tiene que pasar por el.
    */
@@ -110,9 +127,14 @@ export default function App(): JSX.Element {
   // Si el fichero no existe, el navegador no pinta nada y no se rompe nada.
   const fondo = <div className="app-fondo" style={{ backgroundImage: "url('./fondo.png')" }} />
 
-  // El aviso de actualizacion va por encima de todo, incluida la bienvenida:
-  // flota en una esquina y no estorba a lo que estes haciendo.
-  const actualizacion = <UpdateBanner />
+  // Lo que flota por encima de todo, incluida la bienvenida: cada uno en una
+  // esquina, sin estorbar a lo que estes haciendo ni desplazar el contenido.
+  const flotantes = (
+    <>
+      <UpdateBanner />
+      <Avisos />
+    </>
+  )
 
   const paletaComandos = paleta ? (
     <Paleta
@@ -126,7 +148,7 @@ export default function App(): JSX.Element {
       <>
         {fondo}
         <Onboarding onDone={finishOnboarding} />
-        {actualizacion}
+        {flotantes}
         {paletaComandos}
       </>
     )
@@ -139,7 +161,7 @@ export default function App(): JSX.Element {
         <div className="app">
           <Hub onOpen={setSection} />
         </div>
-        {actualizacion}
+        {flotantes}
         {paletaComandos}
       </>
     )
@@ -174,7 +196,7 @@ export default function App(): JSX.Element {
           </div>
         </main>
       </div>
-      {actualizacion}
+      {flotantes}
       {paletaComandos}
     </>
   )

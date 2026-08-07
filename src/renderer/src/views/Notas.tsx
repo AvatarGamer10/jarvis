@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Examen, Necesario, ResumenAsignatura } from '@shared/types'
+import Vacio from '../components/Vacio'
+import { avisos } from '../lib/avisos'
+import { atajosFecha } from '../lib/fechas'
 import { sound } from '../lib/sound'
 import { dueLabel, urgencyOf } from '../lib/urgency'
 
@@ -28,7 +31,6 @@ export default function Notas(): JSX.Element {
   const [examenes, setExamenes] = useState<Examen[]>([])
   const [resumen, setResumen] = useState<ResumenAsignatura[]>([])
   const [cargando, setCargando] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [guardando, setGuardando] = useState(false)
 
   const [titulo, setTitulo] = useState('')
@@ -36,14 +38,15 @@ export default function Notas(): JSX.Element {
   const [fecha, setFecha] = useState('')
   const [peso, setPeso] = useState('')
 
+  const atajos = useMemo(() => atajosFecha(), [])
+
   const cargar = async (): Promise<void> => {
     const r = await window.jarvis.examenes.list()
     if (r.ok) {
       setExamenes(r.data.examenes)
       setResumen(r.data.resumen)
-      setError(null)
     } else {
-      setError(r.error)
+      avisos.error(r.error)
     }
     setCargando(false)
   }
@@ -55,7 +58,6 @@ export default function Notas(): JSX.Element {
   const apuntar = async (): Promise<void> => {
     if (!titulo.trim() || !fecha) return
     setGuardando(true)
-    setError(null)
 
     const r = await window.jarvis.examenes.add({
       title: titulo,
@@ -74,7 +76,7 @@ export default function Notas(): JSX.Element {
       setPeso('')
       await cargar()
     } else {
-      setError(r.error)
+      avisos.error(r.error)
     }
     setGuardando(false)
   }
@@ -85,14 +87,42 @@ export default function Notas(): JSX.Element {
       if (nota !== null) sound.play('done')
       await cargar()
     } else {
-      setError(r.error)
+      avisos.error(r.error)
     }
   }
 
-  const borrar = async (id: string): Promise<void> => {
+  /**
+   * Borrar con vuelta atras.
+   *
+   * Aqui importa mas que en las tareas: borrar un examen ya corregido cambia la
+   * media de la asignatura, y sin deshacer habria que recordar la nota exacta
+   * para recuperarla.
+   */
+  const borrar = async (examen: Examen): Promise<void> => {
     sound.play('cancel')
-    await window.jarvis.examenes.remove(id)
+    const r = await window.jarvis.examenes.remove(examen.id)
+    if (!r.ok) {
+      avisos.error(r.error)
+      return
+    }
     await cargar()
+
+    avisos.mostrar(`Borrado «${examen.title}»`, {
+      accion: {
+        etiqueta: 'Deshacer',
+        ejecutar: async () => {
+          const vuelta = await window.jarvis.examenes.add({
+            title: examen.title,
+            subject: examen.subject,
+            date: examen.date,
+            weight: examen.weight,
+            grade: examen.grade
+          })
+          if (!vuelta.ok) avisos.error(vuelta.error)
+          await cargar()
+        }
+      }
+    })
   }
 
   const pendientesDeNota = examenes.filter((e) => e.grade === null && yaPaso(e))
@@ -102,8 +132,6 @@ export default function Notas(): JSX.Element {
   return (
     <>
       <p className="page-subtitle">Cuando tienes cada examen y como llevas cada asignatura.</p>
-
-      {error && <div className="alert error">{error}</div>}
 
       <div className="card">
         <h3>Apuntar un examen</h3>
@@ -161,6 +189,18 @@ export default function Notas(): JSX.Element {
             Apuntar
           </button>
         </div>
+        <div className="atajos">
+          {atajos.map((a) => (
+            <button
+              key={a.id}
+              className={fecha === a.valor ? 'primary' : ''}
+              onClick={() => setFecha(fecha === a.valor ? '' : a.valor)}
+            >
+              {a.etiqueta}
+            </button>
+          ))}
+        </div>
+
         <p className="hint">
           El peso es opcional, pero es lo que permite decirte que necesitas sacar en lo que queda.
         </p>
@@ -191,7 +231,11 @@ export default function Notas(): JSX.Element {
           <div className="card">
             <h3>Proximos ({proximos.length})</h3>
             {proximos.length === 0 ? (
-              <p className="empty">Ningun examen a la vista. Disfrutalo.</p>
+              <Vacio
+                seccion="notas"
+                titulo="Ningun examen a la vista"
+                pista="Cuando os pongan fecha, apuntalo y el planificador le hara sitio antes que a las entregas."
+              />
             ) : (
               proximos.map((e) => (
                 <div className="list-item" key={e.id} data-urgency={urgencyOf(e.date)}>
@@ -205,7 +249,7 @@ export default function Notas(): JSX.Element {
                       {e.weight !== null && <span className="badge dim">{e.weight}%</span>}
                     </div>
                   </div>
-                  <button onClick={() => void borrar(e.id)}>Borrar</button>
+                  <button onClick={() => void borrar(e)}>Borrar</button>
                 </div>
               ))
             )}
@@ -236,7 +280,7 @@ export default function Notas(): JSX.Element {
                   <div className="row" style={{ flexWrap: 'nowrap', alignItems: 'center' }}>
                     <span className="nota mono">{numero.format(e.grade as number)}</span>
                     <button onClick={() => void ponerNota(e.id, null)}>Quitar nota</button>
-                    <button onClick={() => void borrar(e.id)}>Borrar</button>
+                    <button onClick={() => void borrar(e)}>Borrar</button>
                   </div>
                 </div>
               ))}

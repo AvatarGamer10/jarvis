@@ -3,6 +3,7 @@ import type { CalendarEvent } from '@shared/types'
 import BriefCard from '../components/BriefCard'
 import Planificador from '../components/Planificador'
 import SemanaGrid from '../components/SemanaGrid'
+import Vacio from '../components/Vacio'
 import { lunesDe, tituloSemana } from '../lib/semana'
 import { useAsync } from '../lib/useAsync'
 
@@ -121,7 +122,11 @@ export default function Agenda(): JSX.Element {
             {modo === 'semana' && <SemanaGrid eventos={data} lunes={lunes} />}
 
             {modo === 'lista' && data.length === 0 && (
-              <p className="empty">No tienes nada en el calendario esta semana.</p>
+              <Vacio
+                seccion="agenda"
+                titulo="Nada en el calendario"
+                pista="Si tienes la cuenta conectada, aqui saldra lo de Google Calendar y los bloques de estudio que crees."
+              />
             )}
 
             {modo === 'lista' &&
