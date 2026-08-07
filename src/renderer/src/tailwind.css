@@ -1,0 +1,48 @@
+/* =========================================================================
+   Tailwind, acotado
+
+   JARVIS tiene su propio sistema de diseño escrito a mano en styles.css. Esto
+   NO lo sustituye: se añade para poder usar componentes de shadcn tal cual
+   vienen, sin reescribirlos.
+
+   Dos decisiones importantes:
+
+   1. SIN PREFLIGHT. El reset de Tailwind pisaría los estilos base de la app
+      (botones, campos, tipografía) y habría que rehacer medio styles.css. Por
+      eso se importan solo `theme` y `utilities`, que es la forma que documenta
+      Tailwind v4 para esto. El `box-sizing` global que aporta el preflight ya
+      lo tiene styles.css por su cuenta.
+
+   2. LOS COLORES SON LOS DE JARVIS. `bg-background` y `border-border` son los
+      nombres que usan los componentes de shadcn; aquí se apuntan a las
+      variables que ya existen. Así un componente pegado de fuera sale con la
+      paleta de la app en vez de traerse una segunda paleta.
+   ========================================================================= */
+
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/* Dónde buscar clases. Explícito para que no dependa de la deteccion
+   automatica, que parte de la ubicacion de este fichero. */
+@source '../src';
+@source './';
+
+@theme {
+  /* Equivalencias con los tokens que esperan los componentes de shadcn. */
+  --color-background: var(--ink-800);
+  --color-foreground: var(--paper);
+  --color-border: var(--line);
+  --color-muted: var(--ink-700);
+  --color-muted-foreground: var(--paper-dim);
+  --color-primary: var(--signal);
+  --color-primary-foreground: var(--paper);
+  --color-accent: var(--signal-soft);
+  --color-ring: var(--signal-line);
+
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+
+  --radius: 12px;
+}

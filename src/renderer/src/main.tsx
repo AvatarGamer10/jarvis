@@ -13,6 +13,9 @@ import '@fontsource-variable/jetbrains-mono/wght.css'
 
 import App from './App'
 import Hud from './views/Hud'
+// Tailwind primero: sus utilidades van en capas, y styles.css va sin capa, asi
+// que el sistema propio de la app gana siempre que los dos toquen lo mismo.
+import './tailwind.css'
 import './styles.css'
 
 /**
