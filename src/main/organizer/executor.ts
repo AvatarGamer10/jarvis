@@ -9,8 +9,8 @@ export interface ApplyOutcome {
 }
 
 /**
- * Mueve un archivo. `rename` falla con EXDEV si origen y destino estan en
- * discos distintos (muy comun: Descargas en C: y los apuntes en D:), asi que
+ * Moves a file. `rename` fails with EXDEV when source and destination are on
+ * different disks — very common: Downloads on C: and notes on D: — so
  * en ese caso se copia y se borra el original.
  */
 function moveFile(from: string, to: string): void {
@@ -25,11 +25,11 @@ function moveFile(from: string, to: string): void {
 }
 
 /**
- * Ejecuta un plan ya aprobado por el usuario.
+ * Runs a plan the user has already approved.
  *
- * Cada movimiento se vuelve a validar contra las carpetas autorizadas: entre
- * que se calculo el plan y que el usuario le dio a confirmar puede haber
- * cambiado la configuracion, y el plan viene de fuera de esta funcion.
+ * Every move is validated against the authorised folders again: the settings
+ * may have changed between the plan being calculated and the user pressing
+ * confirm, and the plan comes from outside this function.
  */
 export function applyPlan(plan: MovePlan, allowedRoots: string[]): ApplyOutcome {
   const moved: PlannedMove[] = []
@@ -41,11 +41,11 @@ export function applyPlan(plan: MovePlan, allowedRoots: string[]): ApplyOutcome 
       assertAllowed(allowedRoots, move.to)
 
       if (!fs.existsSync(move.from)) {
-        throw new Error('El archivo ya no esta donde estaba.')
+        throw new Error('That file is no longer where it was.')
       }
 
-      // El nombre libre se recalcula ahora: entre el plan y la ejecucion
-      // puede haber aparecido un archivo con ese nombre.
+      // The free name is recalculated now: a file with that name may have
+      // appeared between the plan and its execution.
       const directory = path.dirname(move.to)
       fs.mkdirSync(directory, { recursive: true })
       const finalName = availableName(directory, path.basename(move.to))
@@ -61,20 +61,20 @@ export function applyPlan(plan: MovePlan, allowedRoots: string[]): ApplyOutcome 
   return { moved, failed }
 }
 
-/** Devuelve cada archivo a donde estaba. */
+/** Puts every file back where it was. */
 export function undoBatch(batch: UndoBatch, allowedRoots: string[]): ApplyOutcome {
   const moved: PlannedMove[] = []
   const failed: ApplyOutcome['failed'] = []
 
   for (const move of batch.moves) {
-    // Al deshacer, origen y destino intercambian papeles.
+    // Al deshacer, from y to intercambian papeles.
     const reverse: PlannedMove = { from: move.to, to: move.from, rule: move.rule }
     try {
       assertAllowed(allowedRoots, reverse.from)
       assertAllowed(allowedRoots, reverse.to)
 
       if (!fs.existsSync(reverse.from)) {
-        throw new Error('El archivo ya no esta en el destino: puede que lo hayas movido tu.')
+        throw new Error('That file is no longer at the destination — you may have moved it yourself.')
       }
 
       const directory = path.dirname(reverse.to)

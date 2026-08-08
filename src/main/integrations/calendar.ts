@@ -18,14 +18,14 @@ interface GoogleEvent {
   end: GoogleEventTime
 }
 
-/** Zona horaria del equipo. Google la necesita para colocar bien los eventos. */
+/** The machine's time zone. Google needs it to place events correctly. */
 const localTimeZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone
 
 function toEvent(raw: GoogleEvent): CalendarEvent {
   const allDay = !raw.start.dateTime
   return {
     id: raw.id,
-    title: raw.summary ?? '(sin titulo)',
+    title: raw.summary ?? '(untitled)',
     start: raw.start.dateTime ?? raw.start.date ?? '',
     end: raw.end.dateTime ?? raw.end.date ?? '',
     allDay,
@@ -41,8 +41,8 @@ export class CalendarService {
     const url = new URL(BASE)
     url.searchParams.set('timeMin', timeMinIso)
     url.searchParams.set('timeMax', timeMaxIso)
-    // singleEvents expande las series repetidas en instancias sueltas, que es
-    // lo que quiere ver el usuario; sin esto sale el evento madre una sola vez.
+    // singleEvents expands repeating series into individual instances, which
+    // is what the user wants to see; without it the parent event appears once.
     url.searchParams.set('singleEvents', 'true')
     url.searchParams.set('orderBy', 'startTime')
     url.searchParams.set('maxResults', '250')

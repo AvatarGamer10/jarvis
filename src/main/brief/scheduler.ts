@@ -2,16 +2,16 @@ import type { SettingsService } from '../store/settings'
 import { nextOccurrence } from './next-occurrence'
 
 /**
- * Dispara el resumen diario a la hora configurada.
+ * Fires the morning brief at the configured time.
  *
- * No usa una libreria de cron a proposito: es un unico disparo al dia y
- * `setTimeout` basta. Lo importante es recalcular la hora objetivo en cada
- * rearme en vez de sumar 24 horas, para que un cambio de horario de verano o
- * una suspension del portatil no lo vayan desplazando.
+ * Deliberately not a cron library: it is one shot a day and `setTimeout` is
+ * enough. What matters is recalculating the target time on every rearm rather
+ * than adding 24 hours, so that a daylight-saving change or the laptop being
+ * suspended does not drift it.
  */
 export class BriefScheduler {
   private timer: NodeJS.Timeout | null = null
-  /** Fecha (YYYY-MM-DD) del ultimo disparo, para no repetirlo. */
+  /** Date (YYYY-MM-DD) of the last firing, so it is not repeated. */
   private lastFired: string | null = null
 
   constructor(
@@ -25,31 +25,31 @@ export class BriefScheduler {
   }
 
   /**
-   * Lanza el resumen si hoy tocaba y no llego a salir.
+   * Fires the brief if it was due today and never went out.
    *
-   * Sin esto, un dia que la app no estuviera abierta a las 7:30 se saltaba el
-   * aviso sin que nadie se enterase de que faltaba. Y el resumen de un dia
-   * escolar sirve durante todo ese dia, no solo a su hora exacta.
+   * Without this, a day on which the app was not open at 7:30 skipped the
+   * notification and nobody noticed it was missing. A school day's brief is
+   * useful all day, not only at its exact hour.
    */
   private recuperarPerdido(): void {
     const { dailyBriefEnabled, dailyBriefTime, lastBriefDate } = this.settings.all()
     if (!dailyBriefEnabled) return
 
-    const hoy = new Date().toISOString().slice(0, 10)
-    if (lastBriefDate === hoy) return
+    const today = new Date().toISOString().slice(0, 10)
+    if (lastBriefDate === today) return
 
-    // Solo si la hora de hoy ya paso; si aun no ha llegado, ya saltara sola.
+    // Solo si la hora de today ya paso; si aun no ha llegado, ya saltara sola.
     const objetivo = nextOccurrence(dailyBriefTime)
-    const yaPaso = objetivo.toISOString().slice(0, 10) !== hoy
+    const yaPaso = objetivo.toISOString().slice(0, 10) !== today
 
     if (!yaPaso) return
 
-    this.lastFired = hoy
-    this.settings.update({ lastBriefDate: hoy })
+    this.lastFired = today
+    this.settings.update({ lastBriefDate: today })
     try {
       this.onFire()
     } catch (err) {
-      console.error('[brief] fallo al recuperar el resumen del dia:', err)
+      console.error('[brief] failed to catch up on the day\u2019s brief:', err)
     }
   }
 
@@ -58,7 +58,7 @@ export class BriefScheduler {
     this.timer = null
   }
 
-  /** Se llama al guardar ajustes: la hora puede haber cambiado. */
+  /** Called when settings are saved: the time may have changed. */
   reschedule(): void {
     this.stop()
     this.arm()
@@ -73,15 +73,15 @@ export class BriefScheduler {
 
     this.timer = setTimeout(() => {
       const today = next.toISOString().slice(0, 10)
-      // Si el equipo estuvo suspendido, el temporizador puede despertar tarde y
-      // varias veces; la marca del dia evita repetir el aviso.
+      // If the machine was asleep the timer can wake late and more than once;
+      // the day marker stops the notification repeating.
       if (this.lastFired !== today) {
         this.lastFired = today
         this.settings.update({ lastBriefDate: today })
         try {
           this.onFire()
         } catch (err) {
-          console.error('[brief] fallo al disparar el resumen:', err)
+          console.error('[brief] failed to fire the brief:', err)
         }
       }
       this.arm()

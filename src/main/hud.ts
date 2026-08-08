@@ -2,45 +2,46 @@ import { join } from 'node:path'
 import { BrowserWindow, screen } from 'electron'
 import type { SettingsService } from './store/settings'
 
-/** Tamano del boton recogido y del panel cuando muestra una respuesta. */
-export const HUD_RECOGIDO = { width: 86, height: 86 }
-export const HUD_ABIERTO = { width: 340, height: 260 }
+/** Size of the collapsed button, and of the panel when it has an answer. */
+export const HUD_COLLAPSED = { width: 86, height: 86 }
+export const HUD_OPEN = { width: 340, height: 260 }
 
 /**
- * Ventana flotante siempre encima.
+ * The always-on-top floating window.
  *
- * Existe para el caso de estar en el navegador —mirando Classroom, por
- * ejemplo— y querer apuntar algo sin cambiar de ventana. Por eso es un boton y
- * no un panel: si ocupara sitio de verdad, acabaria estorbando y cerrandose.
+ * It exists for the case of being in the browser — looking at Classroom, say —
+ * and wanting to note something down without changing window. That is why it
+ * is a button and not a panel: if it took up real space it would end up in the
+ * way, and then closed.
  *
- * Solo crece mientras tiene algo que ensenar, y vuelve a encogerse despues.
+ * It only grows while it has something to show, and shrinks again afterwards.
  */
 export class Hud {
-  private ventana: BrowserWindow | null = null
-  /** Donde estaba el boton antes de crecer, para devolverlo ahi al encoger. */
-  private anclaRecogido: { x: number; y: number } | null = null
+  private window: BrowserWindow | null = null
+  /** Where the button was before it grew, so it can go back there. */
+  private collapsedAnchor: { x: number; y: number } | null = null
 
   constructor(private readonly settings: SettingsService) {}
 
   visible(): boolean {
-    return this.ventana !== null && !this.ventana.isDestroyed()
+    return this.window !== null && !this.window.isDestroyed()
   }
 
-  alternar(): void {
-    if (this.visible()) this.cerrar()
-    else this.abrir()
+  toggle(): void {
+    if (this.visible()) this.close()
+    else this.open()
   }
 
-  abrir(): void {
+  open(): void {
     if (this.visible()) {
-      this.ventana?.focus()
+      this.window?.focus()
       return
     }
 
-    const { x, y } = this.posicionInicial()
+    const { x, y } = this.startingPosition()
 
-    this.ventana = new BrowserWindow({
-      ...HUD_RECOGIDO,
+    this.window = new BrowserWindow({
+      ...HUD_COLLAPSED,
       x,
       y,
       frame: false,
@@ -50,7 +51,7 @@ export class Hud {
       maximizable: false,
       minimizable: false,
       fullscreenable: false,
-      // Fuera de la barra de tareas y del alt-tab: es un accesorio, no una app.
+      // Out of the taskbar and out of alt-tab: it is an accessory, not an app.
       skipTaskbar: true,
       alwaysOnTop: true,
       webPreferences: {
@@ -60,111 +61,105 @@ export class Hud {
       }
     })
 
-    // "floating" lo mantiene sobre ventanas normales sin taparlo todo, que es
-    // lo que pasa con niveles mas altos como screen-saver.
-    this.ventana.setAlwaysOnTop(true, 'floating')
-    // Que siga visible al cambiar de escritorio virtual.
-    this.ventana.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    // "floating" keeps it above ordinary windows without covering everything,
+    // which is what higher levels like screen-saver do.
+    this.window.setAlwaysOnTop(true, 'floating')
+    // Stays visible when switching virtual desktops.
+    this.window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
 
-    const parametro = 'vista=hud'
+    const query = 'view=hud'
     if (process.env.ELECTRON_RENDERER_URL) {
-      void this.ventana.loadURL(`${process.env.ELECTRON_RENDERER_URL}?${parametro}`)
+      void this.window.loadURL(`${process.env.ELECTRON_RENDERER_URL}?${query}`)
     } else {
-      void this.ventana.loadFile(join(__dirname, '../renderer/index.html'), {
-        search: parametro
-      })
+      // Same origin as the main window, so it shares its cache and storage.
+      // See model-proxy.ts.
+      void this.window.loadURL(`vilo://app/index.html?${query}`)
     }
 
-    this.ventana.on('closed', () => {
-      this.ventana = null
+    this.window.on('closed', () => {
+      this.window = null
     })
 
     this.settings.update({ hudVisible: true })
   }
 
-  cerrar(): void {
-    this.ventana?.close()
-    this.ventana = null
+  close(): void {
+    this.window?.close()
+    this.window = null
     this.settings.update({ hudVisible: false })
   }
 
-  /** Mueve la ventana en incrementos, que es como llega el arrastre. */
-  mover(dx: number, dy: number): void {
-    if (!this.visible() || !this.ventana) return
+  /** Moves the window in increments, which is how a drag arrives. */
+  move(dx: number, dy: number): void {
+    if (!this.visible() || !this.window) return
 
-    const [x, y] = this.ventana.getPosition()
-    const destino = this.dentroDePantalla(Math.round(x + dx), Math.round(y + dy))
-    this.ventana.setPosition(destino.x, destino.y)
-    this.settings.update({ hudX: destino.x, hudY: destino.y })
+    const [x, y] = this.window.getPosition()
+    const target = this.ontoScreen(Math.round(x + dx), Math.round(y + dy))
+    this.window.setPosition(target.x, target.y)
+    this.settings.update({ hudX: target.x, hudY: target.y })
   }
 
   /**
-   * Crece o encoge segun necesite ensenar algo.
+   * Grows or shrinks depending on whether it has something to show.
    *
-   * Al crecer se ancla por el lado contrario si no cabe: un HUD pegado al
-   * borde derecho se saldria de la pantalla si creciera siempre hacia la
-   * derecha.
+   * When growing it anchors to the opposite side if it does not fit: a HUD
+   * pinned to the right edge would run off the screen if it always grew to the
+   * right.
    *
-   * Al encoger vuelve exactamente a donde estaba el boton, no a la esquina del
-   * panel. Sin recordar ese punto, cada ciclo de abrir y cerrar cerca del
-   * borde derecho desplazaba el boton un poco mas a la izquierda, y acababa
-   * migrando solo por la pantalla.
+   * When shrinking it returns exactly to where the button was, not to the
+   * corner of the panel. Without remembering that point, every open-and-close
+   * cycle near the right edge nudged the button a little further left, and it
+   * would slowly migrate across the screen on its own.
    */
-  ajustar(abierto: boolean): void {
-    if (!this.visible() || !this.ventana) return
+  resize(open: boolean): void {
+    if (!this.visible() || !this.window) return
 
-    const tamano = abierto ? HUD_ABIERTO : HUD_RECOGIDO
-    const [x, y] = this.ventana.getPosition()
+    const size = open ? HUD_OPEN : HUD_COLLAPSED
+    const [x, y] = this.window.getPosition()
 
-    if (!abierto) {
-      const vuelta = this.anclaRecogido ?? { x, y }
-      this.anclaRecogido = null
-      const destino = this.dentroDePantalla(vuelta.x, vuelta.y, tamano)
-      this.ventana.setBounds({ ...tamano, x: destino.x, y: destino.y })
+    if (!open) {
+      const back = this.collapsedAnchor ?? { x, y }
+      this.collapsedAnchor = null
+      const target = this.ontoScreen(back.x, back.y, size)
+      this.window.setBounds({ ...size, x: target.x, y: target.y })
       return
     }
 
-    // Se guarda de donde salio para poder volver ahi al encogerse.
-    this.anclaRecogido = { x, y }
+    // Remember where it came from, so it can return there when it shrinks.
+    this.collapsedAnchor = { x, y }
 
-    const pantalla = screen.getDisplayNearestPoint({ x, y }).workArea
-    const noCabeALaDerecha = x + tamano.width > pantalla.x + pantalla.width
-    const nuevoX = noCabeALaDerecha
-      ? x - (tamano.width - this.ventana.getBounds().width)
-      : x
+    const display = screen.getDisplayNearestPoint({ x, y }).workArea
+    const overflowsRight = x + size.width > display.x + display.width
+    const nextX = overflowsRight ? x - (size.width - this.window.getBounds().width) : x
 
-    const destino = this.dentroDePantalla(nuevoX, y, tamano)
-    this.ventana.setBounds({ ...tamano, x: destino.x, y: destino.y })
+    const target = this.ontoScreen(nextX, y, size)
+    this.window.setBounds({ ...size, x: target.x, y: target.y })
   }
 
-  private posicionInicial(): { x: number; y: number } {
+  private startingPosition(): { x: number; y: number } {
     const { hudX, hudY } = this.settings.all()
     if (hudX !== null && hudY !== null) {
-      return this.dentroDePantalla(hudX, hudY)
+      return this.ontoScreen(hudX, hudY)
     }
 
-    // Por defecto, abajo a la derecha pero sin pegarse al borde.
+    // By default, bottom right but not jammed against the edge.
     const area = screen.getPrimaryDisplay().workArea
     return {
-      x: area.x + area.width - HUD_RECOGIDO.width - 28,
-      y: area.y + area.height - HUD_RECOGIDO.height - 28
+      x: area.x + area.width - HUD_COLLAPSED.width - 28,
+      y: area.y + area.height - HUD_COLLAPSED.height - 28
     }
   }
 
   /**
-   * Evita que quede fuera de la pantalla. Pasa mas de lo que parece: al
-   * desconectar un monitor, la posicion guardada apunta a un sitio que ya no
-   * existe y la ventana se vuelve inalcanzable.
+   * Keeps it from ending up off-screen. This happens more than it sounds: on
+   * unplugging a monitor the saved position points somewhere that no longer
+   * exists, and the window becomes unreachable.
    */
-  private dentroDePantalla(
-    x: number,
-    y: number,
-    tamano = HUD_RECOGIDO
-  ): { x: number; y: number } {
+  private ontoScreen(x: number, y: number, size = HUD_COLLAPSED): { x: number; y: number } {
     const area = screen.getDisplayNearestPoint({ x, y }).workArea
     return {
-      x: Math.min(Math.max(x, area.x), area.x + area.width - tamano.width),
-      y: Math.min(Math.max(y, area.y), area.y + area.height - tamano.height)
+      x: Math.min(Math.max(x, area.x), area.x + area.width - size.width),
+      y: Math.min(Math.max(y, area.y), area.y + area.height - size.height)
     }
   }
 }

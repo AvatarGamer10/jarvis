@@ -16,11 +16,15 @@ build/*.bmp
 build/*.ico
 build/*.icns
 
+# El icono si: es el logo de Vilo trazado a mano, no una imagen generada, y sin
+# el en el repositorio no se puede empaquetar en un equipo recien clonado.
+!build/icon.png
+
 # Originales guardados antes de recortarles el fondo.
 .copias/
 
 # Credenciales y tokens del spike de Fase 0 - NUNCA subir esto
-.jarvis-spike-tokens.json
+.vilo-spike-tokens.json
 
 .DS_Store
 Thumbs.db

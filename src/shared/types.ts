@@ -1,75 +1,120 @@
 /**
- * Contrato entre el proceso main y el renderer.
- * Ambos lados importan de aqui, asi que si cambias algo, TypeScript te avisa en los dos.
+ * The contract between the main process and the renderer.
+ * Both sides import from here, so changing anything tells you about it twice.
  */
 
-// --- Autenticacion ---------------------------------------------------------
+// --- Authentication --------------------------------------------------------
 
 export interface AuthStatus {
   connected: boolean
   email: string | null
-  /** Motivo por el que no esta conectado, si aplica. */
+  /** Why it is not connected, when that applies. */
   error?: string
 }
 
-// --- Ajustes ---------------------------------------------------------------
+// --- Settings --------------------------------------------------------------
 
-/** Que motor de IA usa el asistente. */
-export type LlmProviderId = 'gemini' | 'ollama'
+/**
+ * Which engine the assistant thinks with.
+ *
+ * `openrouter` exists because not everyone can host a model on their own
+ * machine: a laptop with no room for eight gigabytes of weights is the normal
+ * case, not the exception, and the local route cannot be the only one that
+ * works.
+ */
+export type LlmProviderId =
+  | 'openrouter'
+  | 'openai'
+  | 'anthropic'
+  | 'groq'
+  | 'mistral'
+  | 'gemini'
+  | 'ollama'
+  /** Any server speaking the OpenAI dialect: LM Studio, vLLM, a proxy. */
+  | 'custom'
 
 export interface Settings {
   googleClientId: string
   googleClientSecret: string
-  /** Cerebro activo. Se puede cambiar en caliente, sin reiniciar. */
+  /** The active brain. Can be switched live, with no restart. */
   llmProvider: LlmProviderId
   geminiApiKey: string
   geminiModel: string
-  /** Direccion del servidor local de Ollama. */
+  /** One key in front of most of the models worth using. */
+  openrouterApiKey: string
+  openrouterModel: string
+  openaiApiKey: string
+  openaiModel: string
+  anthropicApiKey: string
+  anthropicModel: string
+  groqApiKey: string
+  groqModel: string
+  mistralApiKey: string
+  mistralModel: string
+  /** Your own OpenAI-compatible server. The URL includes the /v1. */
+  customBaseUrl: string
+  customApiKey: string
+  customModel: string
+  /** Where the local Ollama server is listening. */
   ollamaHost: string
   ollamaModel: string
-  /** Hora del resumen diario en formato HH:mm. */
+  /** Time of the morning brief, as HH:mm. */
   dailyBriefTime: string
   dailyBriefEnabled: boolean
-  /** Arrancar JARVIS al iniciar sesion en el sistema. */
+  /** Start Vilo when you log in to the computer. */
   startAtLogin: boolean
-  /** Boton flotante siempre encima. */
+  /** The always-on-top floating button. */
   hudVisible: boolean
-  /** Ultima posicion del boton flotante. null = aun sin colocar. */
+  /** Last position of the floating button. null = never placed. */
   hudX: number | null
   hudY: number | null
-  /** Fecha (YYYY-MM-DD) del ultimo resumen lanzado. Sirve para recuperar el
-      aviso si la app no estaba abierta a su hora. */
+  /** Date (YYYY-MM-DD) of the last brief that fired. Used to catch up if the
+      app was not open at the time. */
   lastBriefDate: string | null
-  /** Se pone a true al terminar la pantalla de bienvenida. */
+  /** Set to true once the welcome screen is finished. */
   onboardingDone: boolean
-  /** Ultima version cuyas novedades ya ha visto el usuario. */
+  /** The last version whose release notes the user has seen. */
   lastSeenVersion: string
-  /** Sonidos de interfaz. Se sintetizan, no hay ficheros de audio. */
+  /** Interface sounds. Synthesised — there are no audio files. */
   soundEnabled: boolean
-  /** Translucidez de la ventana. Se puede apagar si molesta al leer. */
+  /** Window translucency. Can be turned off if it makes reading harder. */
   glassEnabled: boolean
-  /** Cuanto se aprecia la imagen de fondo. */
-  fondoIntensidad: 'apagado' | 'sutil' | 'medio' | 'marcado'
-  /** Carpetas dentro de las cuales el organizador tiene permiso para mover archivos. */
+  /** Folders the organiser is allowed to move files within. */
   managedRoots: string[]
 }
 
-/** Los ajustes tal como los ve el renderer: los secretos nunca viajan en claro. */
-export type SafeSettings = Omit<Settings, 'googleClientSecret' | 'geminiApiKey'> & {
+/** Settings as the renderer sees them: secrets never travel in the clear. */
+export type SafeSettings = Omit<
+  Settings,
+  | 'googleClientSecret'
+  | 'geminiApiKey'
+  | 'openrouterApiKey'
+  | 'openaiApiKey'
+  | 'anthropicApiKey'
+  | 'groqApiKey'
+  | 'mistralApiKey'
+  | 'customApiKey'
+> & {
   hasGoogleClientSecret: boolean
   hasGeminiApiKey: boolean
-  /** El usuario ha puesto su propio proyecto de Google Cloud. */
-  usaCredencialesPropias: boolean
-  /** Hay credenciales validas, propias o empaquetadas: se puede pulsar Conectar. */
-  listoParaConectar: boolean
+  hasOpenrouterApiKey: boolean
+  hasOpenaiApiKey: boolean
+  hasAnthropicApiKey: boolean
+  hasGroqApiKey: boolean
+  hasMistralApiKey: boolean
+  hasCustomApiKey: boolean
+  /** The user has supplied their own Google Cloud project. */
+  usesOwnCredentials: boolean
+  /** Valid credentials exist, ours or theirs: Connect can be pressed. */
+  canConnect: boolean
 }
 
-// --- Calendario ------------------------------------------------------------
+// --- Calendar --------------------------------------------------------------
 
 export interface CalendarEvent {
   id: string
   title: string
-  /** ISO 8601. Para eventos de dia completo, solo la fecha. */
+  /** ISO 8601. For all-day events, the date only. */
   start: string
   end: string
   allDay: boolean
@@ -92,114 +137,114 @@ export interface Assignment {
   courseName: string
   title: string
   description?: string
-  /** ISO 8601, o null si la tarea no tiene fecha de entrega. */
+  /** ISO 8601, or null if the assignment has no due date. */
   dueDate: string | null
   state: SubmissionState
-  /** Enlace a la tarea en la web de Classroom. */
+  /** Link to the assignment on the Classroom site. */
   link: string
-  /** Dias que faltan para la entrega. Negativo si ya paso. */
+  /** Days until it is due. Negative once it has passed. */
   daysLeft: number | null
 }
 
-// --- Tareas propias --------------------------------------------------------
+// --- The user's own tasks --------------------------------------------------
 
 /**
- * Tarea que apunta el usuario a mano.
+ * A task the user writes down by hand.
  *
- * Existe porque muchos centros bloquean el acceso de apps de terceros a
- * Classroom, y sin esto el modulo de tareas se quedaria vacio. Convive con las
- * de Classroom: cuando el colegio aprueba la app, se ven las dos cosas juntas.
+ * It exists because many schools block third-party access to Classroom, and
+ * without it the tasks screen would simply be empty. It lives alongside the
+ * Classroom ones: once a school approves the app, both are shown together.
  */
 export interface ManualTask {
   id: string
   title: string
-  /** Asignatura. Texto libre, no hay lista cerrada. */
+  /** Subject. Free text — there is no fixed list. */
   subject: string
-  /** ISO 8601, o null si no tiene fecha. */
+  /** ISO 8601, or null if it has no date. */
   dueDate: string | null
   done: boolean
   createdAt: string
 }
 
-/** Origen de una tarea en la vista unificada. */
-export type TaskSource = 'classroom' | 'manual' | 'examen'
+/** Where a task came from, in the combined view. */
+export type TaskSource = 'classroom' | 'manual' | 'exam'
 
-// --- Examenes y notas ------------------------------------------------------
+// --- Exams and grades ------------------------------------------------------
 
 /**
- * Un examen, antes y despues de hacerlo.
+ * An exam, before and after sitting it.
  *
- * Es la misma ficha en los dos momentos: primero es una fecha que se acerca, y
- * cuando llega la nota pasa a contar para la media. Separarlos en dos tipos
- * obligaria a copiar la asignatura y el titulo de uno a otro.
+ * It is the same record at both moments: first a date getting closer, then a
+ * grade that counts towards the average. Splitting it into two types would
+ * mean copying the subject and the title from one to the other.
  */
-export interface Examen {
+export interface Exam {
   id: string
-  /** Asignatura. Texto libre, igual que en las tareas. */
+  /** Subject. Free text, same as on tasks. */
   subject: string
-  /** Que entra, o como se llama el examen. */
+  /** What it covers, or what the exam is called. */
   title: string
-  /** ISO 8601. Un examen sin fecha no es un examen. */
+  /** ISO 8601. An exam with no date is not an exam. */
   date: string
-  /** Nota de 0 a 10, o null mientras no la hayan dado. */
+  /** Grade from 0 to 10, or null until it has been given. */
   grade: number | null
-  /** Peso dentro de la evaluacion, en porcentaje. null si no se sabe. */
+  /** Weight within the term, as a percentage. null if unknown. */
   weight: number | null
   createdAt: string
 }
 
-/** Que hace falta en lo que queda para llegar al objetivo. */
-export type Necesario =
-  /** Ya se llega aunque se saque un cero en todo lo que queda. */
-  | { estado: 'asegurado' }
-  /** Ni con un 10 en todo lo que queda se llega. */
-  | { estado: 'imposible' }
-  | { estado: 'necesita'; nota: number }
+/** What the remaining exams have to produce to reach the target. */
+export type Needed =
+  /** Already reached, even with a zero in everything that is left. */
+  | { state: 'safe' }
+  /** Not reachable, even with a ten in everything that is left. */
+  | { state: 'impossible' }
+  | { state: 'needs'; grade: number }
 
-export interface ResumenAsignatura {
-  asignatura: string
-  /** Media sobre 10, o null si aun no hay ninguna nota. */
-  media: number | null
-  /** True si la media usa los pesos; false si es la media simple. */
-  ponderada: boolean
-  hechos: number
-  pendientes: number
+export interface SubjectSummary {
+  subject: string
+  /** Average out of 10, or null while there are no grades yet. */
+  average: number | null
+  /** True if the average uses the weights; false if it is a plain mean. */
+  weighted: boolean
+  done: number
+  pending: number
   /**
-   * Solo se calcula cuando todos los examenes de la asignatura llevan peso y
-   * queda alguno por hacer. Sin pesos, cualquier cifra seria inventada.
+   * Only calculated when every exam in the subject carries a weight and some
+   * are still to come. Without weights any figure would be made up.
    */
-  necesario: Necesario | null
+  needed: Needed | null
 }
 
-// --- Organizador de carpetas ----------------------------------------------
+// --- Folder organiser ------------------------------------------------------
 
 export interface FileRule {
   id: string
   enabled: boolean
   name: string
-  /** Carpeta de origen. Debe estar dentro de managedRoots. */
+  /** Source folder. Must be inside managedRoots. */
   source: string
-  /** Carpeta de destino. Debe estar dentro de managedRoots. */
+  /** Destination folder. Must be inside managedRoots. */
   destination: string
-  /** Extensiones sin punto: ["pdf", "docx"]. Vacio = todas. */
+  /** Extensions without the dot: ["pdf", "docx"]. Empty = all of them. */
   extensions: string[]
-  /** Texto que debe aparecer en el nombre del archivo. Vacio = cualquiera. */
+  /** Text that must appear in the file name. Empty = any name. */
   nameContains: string
 }
 
 export interface PlannedMove {
   from: string
   to: string
-  /** Nombre de la regla que ha provocado el movimiento. */
+  /** Name of the rule that caused the move. */
   rule: string
-  /** Si ya existe un archivo en el destino, aqui va el nombre final con sufijo. */
+  /** If a file already exists at the destination, the final suffixed name. */
   renamedTo?: string
 }
 
 export interface MovePlan {
   id: string
   moves: PlannedMove[]
-  /** Archivos que ninguna regla ha reclamado. */
+  /** Files no rule claimed. */
   skipped: number
   createdAt: string
 }
@@ -210,14 +255,14 @@ export interface UndoBatch {
   moves: PlannedMove[]
 }
 
-// --- Agente ----------------------------------------------------------------
+// --- The agent -------------------------------------------------------------
 
 export type ChatRole = 'user' | 'assistant' | 'tool'
 
 export interface ToolCallRecord {
   name: string
   args: Record<string, unknown>
-  /** Resumen legible del resultado, para mostrarlo en el chat. */
+  /** Readable summary of the result, for showing in the chat. */
   summary: string
   ok: boolean
 }
@@ -228,109 +273,158 @@ export interface ChatMessage {
   text: string
   at: string
   toolCalls?: ToolCallRecord[]
-  /** Accion que espera confirmacion del usuario antes de ejecutarse. */
+  /** An action waiting on the user's yes before it runs. */
   pendingAction?: PendingAction
 }
 
+/** Voice bundles Vilo can install independently of each other. */
+export type ModelBundleId = 'stt-small' | 'stt-balanced' | 'tts-neural'
+
+export type ModelInstallPhase =
+  | 'checking'
+  | 'downloading'
+  | 'verifying'
+  | 'ready'
+  | 'cancelled'
+
+/** A bundle's persistent state, worked out from the files on disk. */
+export interface ModelBundleStatus {
+  bundle: ModelBundleId
+  installed: boolean
+  /** Counts resumable parts, but never more than what is expected. */
+  received: number
+  total: number
+}
+
+/** Aggregate install progress, as the main process reports it. */
+export interface ModelDownload {
+  bundle: ModelBundleId
+  phase: ModelInstallPhase
+  /** The current file, without exposing the user's path. */
+  file: string
+  received: number
+  total: number
+  fileReceived: number
+  fileTotal: number
+}
+
+/** An archived conversation, as it appears in the history list. */
+export interface ChatSummary {
+  id: string
+  /** The first question asked, trimmed. */
+  title: string
+  /** ISO timestamp of the last message. */
+  at: string
+  messages: number
+}
+
+/** A file attached to a message, already read as text. */
+export interface Attachment {
+  name: string
+  text: string
+  /** Bytes of the original file, so it can be stated on screen. */
+  bytes: number
+}
+
 /**
- * Las herramientas que escriben algo nunca se ejecutan solas: devuelven esto,
- * la interfaz lo muestra, y solo se ejecuta si el usuario lo confirma.
+ * Tools that write something never run on their own: they return this, the
+ * interface shows it, and it only runs if the user confirms.
  */
 export interface PendingAction {
   id: string
   tool: string
   args: Record<string, unknown>
-  /** Descripcion en cristiano de lo que va a pasar. */
+  /** Plain-English description of what is about to happen. */
   description: string
-  /** Detalle linea a linea (por ejemplo, la lista de movimientos de archivos). */
+  /** Line-by-line detail — the list of file moves, for instance. */
   details: string[]
 }
 
-// --- Resumen diario --------------------------------------------------------
+// --- The morning brief -----------------------------------------------------
 
 /**
- * Entrada del resumen, venga de donde venga.
+ * One line of the brief, wherever it came from.
  *
- * El resumen mezcla tareas de Classroom y tareas propias: a quien lo lee por la
- * manana le da igual de que fuente sale cada una, solo cuando vence.
+ * The brief mixes Classroom assignments and the user's own tasks: whoever
+ * reads it in the morning does not care which is which, only when it is due.
  */
 export interface BriefTask {
   title: string
-  /** Asignatura, o nombre del curso si viene de Classroom. */
+  /** Subject, or the course name when it comes from Classroom. */
   subject: string
   dueDate: string | null
   source: TaskSource
-  /** Enlace a Classroom, si aplica. */
+  /** Link to Classroom, where there is one. */
   link?: string
 }
 
 export interface DailyBrief {
-  /** Fecha del resumen en ISO. */
+  /** Date of the brief, in ISO. */
   date: string
   events: CalendarEvent[]
   dueToday: BriefTask[]
   dueSoon: BriefTask[]
   overdue: BriefTask[]
-  /** Texto redactado por el modelo, o null si no habia ninguno disponible. */
+  /** Prose written by the model, or null if none was available. */
   summary: string | null
-  /** Frase corta para la notificacion del sistema. */
+  /** Short sentence for the system notification. */
   headline: string
 }
 
-// --- Planificador de estudio -----------------------------------------------
+// --- The study planner -----------------------------------------------------
 
-export interface BloqueEstudio {
+export interface StudyBlock {
   /** ISO 8601. */
-  inicio: string
-  fin: string
-  tarea: string
-  asignatura: string
+  start: string
+  end: string
+  task: string
+  subject: string
 }
 
-export interface PlanEstudio {
-  /** Solo se puede aplicar por este id: el renderer no fabrica bloques. */
+export interface StudyPlan {
+  /** Applied by id only: the renderer never builds blocks itself. */
   id: string
-  bloques: BloqueEstudio[]
+  blocks: StudyBlock[]
 }
 
 // --- Ollama ----------------------------------------------------------------
 
-export interface ModeloRecomendado {
-  nombre: string
-  etiqueta: string
-  gigas: number
-  descripcion: string
-  memoriaMinimaGb: number
+export interface RecommendedModel {
+  name: string
+  label: string
+  gigabytes: number
+  description: string
+  minimumMemoryGb: number
 }
 
-export interface ProgresoDescarga {
-  modelo: string
-  fase: string
-  porcentaje: number
-  descargado: number
+export interface OllamaPullProgress {
+  model: string
+  phase: string
+  percent: number
+  downloaded: number
   total: number
-  terminado: boolean
+  done: boolean
   error?: string
 }
 
-// --- Actualizaciones -------------------------------------------------------
+// --- Updates ---------------------------------------------------------------
 
 /**
- * Estado del actualizador, tal y como lo ve la interfaz.
+ * The updater's state, as the interface sees it.
  *
- * Es una union discriminada en vez de un objeto con campos opcionales: asi no
- * existe el estado imposible de "descargando pero sin version", y la interfaz
- * no tiene que comprobar nulos por todas partes.
+ * A discriminated union rather than an object of optional fields: that way the
+ * impossible state of "downloading but with no version" cannot be written down,
+ * and the interface never has to check for nulls.
  */
 export type UpdateState =
   | { phase: 'idle' }
   | { phase: 'checking' }
-  /** Al dia. Se guarda la version para poder ensenarla en Ajustes. */
+  /** Up to date. The version is kept so Settings can show it. */
   | { phase: 'none'; currentVersion: string }
   | { phase: 'downloading'; version: string; percent: number; notes: string }
   | { phase: 'ready'; version: string; notes: string }
   | { phase: 'error'; message: string }
 
-// --- Resultado generico para IPC ------------------------------------------
+// --- The generic IPC result ------------------------------------------------
 
 export type Result<T> = { ok: true; data: T } | { ok: false; error: string }

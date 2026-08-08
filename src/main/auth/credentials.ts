@@ -1,19 +1,20 @@
 /**
- * Credenciales de OAuth que se empaquetan con la aplicacion.
+ * The OAuth credentials packaged with the application.
  *
- * Vienen del `.env` y las inyecta electron-vite al compilar: cualquier variable
- * con prefijo `MAIN_VITE_` acaba dentro del bundle del proceso principal. El
- * `.env` esta en .gitignore, asi que el secreto nunca entra en el repositorio,
- * pero el binario si lo lleva y el usuario solo tiene que pulsar "Conectar".
+ * They come from `.env` and electron-vite injects them at build time: any
+ * variable prefixed `MAIN_VITE_` ends up inside the main-process bundle. The
+ * `.env` is gitignored, so the secret never enters the repository, but the
+ * binary does carry it and the user only has to press Connect.
  *
- * Sobre llevar un "secreto" dentro de la app: en un cliente de escritorio no es
- * un secreto de verdad y Google lo asume. Por eso el flujo usa PKCE, donde la
- * seguridad viene del `code_verifier` que se genera en cada inicio de sesion y
- * nunca sale del equipo. Sin ese verificador, tener estas cadenas no permite
- * entrar en la cuenta de nadie.
+ * On shipping a "secret" inside the app: in a desktop client it is not really
+ * a secret, and Google assumes as much. That is why the flow uses PKCE, where
+ * the
+ * security comes from the `code_verifier` generated on each sign-in, which
+ * never leaves the machine. Without that verifier, having these strings allows
+ * nobody to get into anybody's account.
  *
- * Quien quiera usar su propio proyecto de Google Cloud puede sobreescribirlas
- * desde Ajustes; lo que se guarde ahi manda sobre esto.
+ * Anyone who wants to use their own Google Cloud project can override them
+ * from Settings; whatever is saved there wins over this.
  */
 
 const leer = (valor: unknown): string => (typeof valor === 'string' ? valor.trim() : '')
@@ -23,7 +24,7 @@ export const CREDENCIALES_EMPAQUETADAS = {
   clientSecret: leer(import.meta.env.MAIN_VITE_GOOGLE_CLIENT_SECRET)
 }
 
-/** True si la app trae credenciales y el usuario no necesita configurar nada. */
+/** True if the app ships with credentials and nothing needs configuring. */
 export const traeCredenciales = (): boolean =>
   CREDENCIALES_EMPAQUETADAS.clientId.length > 0 &&
   CREDENCIALES_EMPAQUETADAS.clientSecret.length > 0

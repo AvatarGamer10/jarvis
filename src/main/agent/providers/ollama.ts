@@ -10,18 +10,18 @@ import {
 /**
  * Proveedor local contra Ollama (https://ollama.com).
  *
- * Ventajas frente a una API en la nube: es gratis, no tiene cuota, no necesita
- * cuenta y ningun dato del usuario sale del equipo. A cambio, los modelos que
- * caben en un portatil se equivocan mas eligiendo herramientas, por eso el
- * bucle valida todo lo que devuelven antes de ejecutar nada.
+ * Advantages over a cloud API: free, no quota, no account, and none of the
+ * user's data leaves the machine. In exchange, the models that fit on a laptop
+ * get tool choices wrong more often, which is why the loop validates
+ * everything they return before running anything.
  *
- * Habla el dialecto de OpenAI, que es el que usa /api/chat.
+ * It speaks the OpenAI dialect, which is what /api/chat uses.
  */
 
 interface OllamaToolCall {
   function: {
     name: string
-    /** Ollama lo manda como objeto; algunos modelos lo mandan como texto JSON. */
+    /** Ollama lo manda como objeto; algunos modelos lo mandan como text JSON. */
     arguments: Record<string, unknown> | string
   }
 }
@@ -62,7 +62,7 @@ function toMessages(system: string, history: ConversationItem[]): OllamaMessage[
       continue
     }
 
-    // El resultado de una herramienta. Ollama espera el contenido como texto.
+    // A tool result. Ollama expects the content as text.
     messages.push({
       role: 'tool',
       content: JSON.stringify({ result: item.response })
@@ -80,14 +80,14 @@ export class OllamaProvider implements LLMProvider {
   async complete(input: CompleteInput): Promise<LlmReply> {
     const { host, model } = this.getConfig()
     if (!model) {
-      throw new LlmError('No has elegido ningun modelo de Ollama en Ajustes.', false)
+      throw new LlmError('No Ollama model is selected. Choose one in Settings.', false)
     }
 
     const body = {
       model,
       messages: toMessages(input.system, input.history),
-      // Sin streaming: el bucle necesita la respuesta completa para saber si
-      // el modelo ha pedido herramientas.
+      // No streaming: the loop needs the whole reply before it can tell si
+      // el model ha pedido herramientas.
       stream: false,
       ...(input.tools.length > 0
         ? {
@@ -112,10 +112,9 @@ export class OllamaProvider implements LLMProvider {
         body: JSON.stringify(body)
       })
     } catch {
-      // El fallo mas comun con diferencia: Ollama no esta arrancado.
+      // By far the most common failure: Ollama is not running.
       throw new LlmError(
-        `No se puede conectar con Ollama en ${host}. Comprueba que esta abierto ` +
-          `(deberia responder en el navegador) y que la direccion de Ajustes es correcta.`,
+        `Cannot reach Ollama at ${host}. Check that it is running and that the address in Settings is correct.`,
         true
       )
     }
@@ -125,18 +124,18 @@ export class OllamaProvider implements LLMProvider {
     try {
       data = text ? (JSON.parse(text) as OllamaResponse) : {}
     } catch {
-      throw new LlmError(`Ollama devolvio una respuesta que no se entiende: ${text.slice(0, 200)}`, false)
+      throw new LlmError(`Ollama returned an unreadable response: ${text.slice(0, 200)}`, false)
     }
 
     if (!res.ok) {
       const message = data.error ?? `HTTP ${res.status}`
       if (/not found|no such model|pull/i.test(message)) {
         throw new LlmError(
-          `El modelo "${model}" no esta descargado. Abre una terminal y ejecuta: ollama pull ${model}`,
+          `The model “${model}” is not installed. Download it in Settings or run: ollama pull ${model}`,
           false
         )
       }
-      throw new LlmError(`Ollama devolvio un error: ${message}`, res.status >= 500)
+      throw new LlmError(`Ollama returned an error: ${message}`, res.status >= 500)
     }
 
     const message = data.message
@@ -145,8 +144,8 @@ export class OllamaProvider implements LLMProvider {
     for (const call of message?.tool_calls ?? []) {
       let args: Record<string, unknown> = {}
       if (typeof call.function.arguments === 'string') {
-        // Algunos modelos pequenos devuelven los argumentos como texto JSON.
-        // Si viene roto, se deja vacio y zod lo rechazara con un mensaje claro.
+        // Some small models return the arguments as JSON text.
+        // If it arrives broken it is left empty and zod rejects it clearly.
         try {
           args = JSON.parse(call.function.arguments) as Record<string, unknown>
         } catch {
@@ -161,7 +160,7 @@ export class OllamaProvider implements LLMProvider {
     return { text: message?.content?.trim() || null, toolCalls }
   }
 
-  /** Lista los modelos descargados, para poder elegir en Ajustes. */
+  /** Lists the pulled models, so one can be chosen in Settings. */
   async listModels(): Promise<string[]> {
     const { host } = this.getConfig()
     try {

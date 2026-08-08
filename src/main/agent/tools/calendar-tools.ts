@@ -4,26 +4,27 @@ import type { Tool } from './types'
 
 const isoDateTime = z
   .string()
-  .refine((v) => !Number.isNaN(Date.parse(v)), { message: 'La fecha no tiene un formato valido.' })
+  .refine((v) => !Number.isNaN(Date.parse(v)), { message: 'That date is not in a valid format.' })
 
-/** Version reducida del evento para mandarle al modelo: menos tokens, menos datos personales. */
+/** Trimmed event for the model: fewer tokens, and less personal data leaving the app. */
 const summarize = (e: CalendarEvent): Record<string, unknown> => ({
   id: e.id,
-  titulo: e.title,
+  title: e.title,
   inicio: e.start,
   fin: e.end,
   todoElDia: e.allDay
 })
 
-const formatter = new Intl.DateTimeFormat('es-ES', {
+const formatter = new Intl.DateTimeFormat('en-GB', {
   weekday: 'short',
   day: 'numeric',
   month: 'short',
   hour: '2-digit',
-  minute: '2-digit'
+  minute: '2-digit',
+  hour12: false
 })
 
-// --- Listar ---------------------------------------------------------------
+// --- List ---------------------------------------------------------------
 
 const listArgs = z.object({
   desde: isoDateTime,
@@ -33,13 +34,13 @@ const listArgs = z.object({
 export const calendarList: Tool<z.infer<typeof listArgs>> = {
   name: 'calendar_list',
   description:
-    'Consulta los eventos del calendario del usuario en un rango de fechas. ' +
-    'Usala siempre antes de proponer un hueco libre, para saber que hay ocupado.',
+    "Lists events in the user's calendar over a date range. Always use it before " +
+    'proposing a free slot, so you know what is already taken.',
   parameters: {
     type: 'object',
     properties: {
-      desde: { type: 'string', description: 'Inicio del rango en ISO 8601, por ejemplo 2026-08-03T00:00:00' },
-      hasta: { type: 'string', description: 'Fin del rango en ISO 8601' }
+      desde: { type: 'string', description: 'Start of the range in ISO 8601, e.g. 2026-08-03T00:00:00' },
+      hasta: { type: 'string', description: 'End of the range in ISO 8601' }
     },
     required: ['desde', 'hasta']
   },
@@ -51,64 +52,64 @@ export const calendarList: Tool<z.infer<typeof listArgs>> = {
       new Date(args.hasta).toISOString()
     )
     return {
-      summary: `${events.length} evento(s) entre esas fechas.`,
+      summary: `${events.length} event${events.length === 1 ? '' : 's'} in that range.`,
       data: events.map(summarize)
     }
   }
 }
 
-// --- Crear ----------------------------------------------------------------
+// --- Create ----------------------------------------------------------------
 
 const createArgs = z
   .object({
-    titulo: z.string().min(1, 'El evento necesita un titulo.'),
+    title: z.string().min(1, 'An event needs a title.'),
     inicio: isoDateTime,
     fin: isoDateTime,
     descripcion: z.string().optional()
   })
   .refine((v) => Date.parse(v.fin) > Date.parse(v.inicio), {
-    message: 'El fin del evento debe ser posterior al inicio.'
+    message: 'The event must end after it starts.'
   })
 
 export const calendarCreate: Tool<z.infer<typeof createArgs>> = {
   name: 'calendar_create',
   description:
-    'Crea un evento nuevo en el calendario. Sirve tambien para bloquear tiempo de estudio. ' +
-    'El usuario tendra que confirmarlo, asi que no preguntes tu antes: llama directamente.',
+    'Creates a new calendar event. Also how you block out time to study. The user ' +
+    'confirms it, so do not ask first: just call it.',
   parameters: {
     type: 'object',
     properties: {
-      titulo: { type: 'string', description: 'Titulo del evento' },
-      inicio: { type: 'string', description: 'Inicio en ISO 8601' },
-      fin: { type: 'string', description: 'Fin en ISO 8601' },
-      descripcion: { type: 'string', description: 'Nota opcional' }
+      title: { type: 'string', description: 'Event title' },
+      inicio: { type: 'string', description: 'Start, in ISO 8601' },
+      fin: { type: 'string', description: 'End, in ISO 8601' },
+      descripcion: { type: 'string', description: 'Optional note' }
     },
-    required: ['titulo', 'inicio', 'fin']
+    required: ['title', 'inicio', 'fin']
   },
   schema: createArgs,
   requiresConfirmation: true,
   describe(args) {
     return {
-      description: `Crear el evento "${args.titulo}"`,
+      description: `Create the event “${args.title}”`,
       details: [
-        `Empieza: ${formatter.format(new Date(args.inicio))}`,
-        `Termina: ${formatter.format(new Date(args.fin))}`,
-        ...(args.descripcion ? [`Nota: ${args.descripcion}`] : [])
+        `Starts: ${formatter.format(new Date(args.inicio))}`,
+        `Ends: ${formatter.format(new Date(args.fin))}`,
+        ...(args.descripcion ? [`Note: ${args.descripcion}`] : [])
       ]
     }
   },
   async execute(args, ctx) {
     const event = await ctx.calendar.createEvent({
-      title: args.titulo,
+      title: args.title,
       start: new Date(args.inicio).toISOString(),
       end: new Date(args.fin).toISOString(),
       description: args.descripcion
     })
-    return { summary: `Evento "${event.title}" creado.`, data: summarize(event) }
+    return { summary: `Event “${event.title}” created.`, data: summarize(event) }
   }
 }
 
-// --- Mover ----------------------------------------------------------------
+// --- Move ----------------------------------------------------------------
 
 const moveArgs = z
   .object({
@@ -117,20 +118,20 @@ const moveArgs = z
     fin: isoDateTime
   })
   .refine((v) => Date.parse(v.fin) > Date.parse(v.inicio), {
-    message: 'El fin del evento debe ser posterior al inicio.'
+    message: 'The event must end after it starts.'
   })
 
 export const calendarMove: Tool<z.infer<typeof moveArgs>> = {
   name: 'calendar_move',
   description:
-    'Cambia la fecha u hora de un evento que ya existe. Necesitas su id, ' +
-    'asi que llama antes a calendar_list para localizarlo.',
+    'Changes the date or time of an event that already exists. You need its id, ' +
+    'so call calendar_list first to find it.',
   parameters: {
     type: 'object',
     properties: {
-      eventoId: { type: 'string', description: 'Id del evento devuelto por calendar_list' },
-      inicio: { type: 'string', description: 'Nuevo inicio en ISO 8601' },
-      fin: { type: 'string', description: 'Nuevo fin en ISO 8601' }
+      eventoId: { type: 'string', description: 'The event id returned by calendar_list' },
+      inicio: { type: 'string', description: 'New start, in ISO 8601' },
+      fin: { type: 'string', description: 'New end, in ISO 8601' }
     },
     required: ['eventoId', 'inicio', 'fin']
   },
@@ -138,10 +139,10 @@ export const calendarMove: Tool<z.infer<typeof moveArgs>> = {
   requiresConfirmation: true,
   describe(args) {
     return {
-      description: 'Mover un evento del calendario',
+      description: 'Move a calendar event',
       details: [
-        `Nuevo inicio: ${formatter.format(new Date(args.inicio))}`,
-        `Nuevo fin: ${formatter.format(new Date(args.fin))}`
+        `New start: ${formatter.format(new Date(args.inicio))}`,
+        `New end: ${formatter.format(new Date(args.fin))}`
       ]
     }
   },
@@ -151,6 +152,6 @@ export const calendarMove: Tool<z.infer<typeof moveArgs>> = {
       new Date(args.inicio).toISOString(),
       new Date(args.fin).toISOString()
     )
-    return { summary: `Evento "${event.title}" movido.`, data: summarize(event) }
+    return { summary: `Event “${event.title}” moved.`, data: summarize(event) }
   }
 }

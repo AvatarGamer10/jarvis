@@ -1,17 +1,18 @@
 /**
- * Sonidos de interfaz sintetizados con Web Audio.
+ * Interface sounds, synthesised with Web Audio.
  *
- * No hay ficheros de audio: cada sonido son dos o tres osciladores con su
- * envolvente. Pesa cero, no hay que empaquetar nada, y se puede afinar el
- * timbre exacto sin volver a exportar un wav.
+ * There are no audio files: each sound is two or three oscillators with an
+ * envelope. It weighs nothing, there is nothing to package, and the exact
+ * timbre can be tuned without exporting a wav again.
  *
- * El vocabulario es corto a proposito. Un sonido por intencion:
- * moverse, confirmar, cancelar, completar, empezar. Si todo suena, nada
+ * The vocabulary is short on purpose. One sound per intention: moving,
+ * confirming, cancelling, completing, starting. If everything makes a noise,
+ * nothing
  * significa nada.
  */
 
 type Voice = {
-  /** Frecuencias por las que pasa el tono, en orden. */
+  /** The frequencies the tone passes through, in order. */
   notes: number[]
   /** Duracion de cada nota en segundos. */
   step: number
@@ -21,13 +22,13 @@ type Voice = {
 }
 
 const VOICES = {
-  /** Cambiar de seccion. Casi un roce. */
+  /** Changing section. Barely a brush. */
   nav: { notes: [740, 620], step: 0.045, type: 'sine', gain: 0.025 },
-  /** Una accion se ha ejecutado. Sube: algo se ha completado hacia delante. */
+  /** An action ran. It rises: something moved forwards. */
   confirm: { notes: [587.33, 880], step: 0.07, type: 'sine', gain: 0.045 },
-  /** Cancelar. Baja y se apaga. */
+  /** Cancelling. It falls, and fades out. */
   cancel: { notes: [330, 220], step: 0.08, type: 'sine', gain: 0.035 },
-  /** Tarea marcada como hecha. Tres notas, la unica pequena celebracion. */
+  /** A task ticked off. Three notes — the one small celebration. */
   done: { notes: [659.25, 783.99, 1046.5], step: 0.065, type: 'triangle', gain: 0.04 },
   /** Entrar en la app. Mas larga y grave: se abre algo. */
   start: { notes: [261.63, 392, 523.25], step: 0.14, type: 'sine', gain: 0.05 }
@@ -40,10 +41,10 @@ let master: GainNode | null = null
 let enabled = true
 
 /**
- * El contexto se crea en la primera reproduccion, no al cargar.
+ * The context is created on the first playback, not on load.
  *
- * Los navegadores bloquean el audio hasta que hay un gesto del usuario; si lo
- * creamos antes de tiempo nace suspendido y el primer sonido se pierde.
+ * Browsers block audio until there has been a user gesture; creating it
+ * too early leaves it suspended and the first sound is lost.
  */
 function ensureContext(): { ctx: AudioContext; out: GainNode } | null {
   if (typeof window === 'undefined') return null
@@ -56,8 +57,8 @@ function ensureContext(): { ctx: AudioContext; out: GainNode } | null {
     master = context.createGain()
     master.gain.value = 1
 
-    // Un filtro suave arriba quita la aspereza de los osciladores puros y
-    // hace que suenen a interfaz y no a pitido de microondas.
+    // A gentle filter on top takes the harshness off pure oscillators and
+    // makes them sound like an interface rather than a microwave.
     const softener = context.createBiquadFilter()
     softener.type = 'lowpass'
     softener.frequency.value = 2600
@@ -98,7 +99,7 @@ export const sound = {
       osc.type = voice.type
       osc.frequency.setValueAtTime(frequency, at)
 
-      // Ataque muy corto y caida exponencial: es lo que separa un "toc"
+      // Very short attack and exponential decay: that is what separates a tap
       // agradable de un "biip" de electrodomestico.
       env.gain.setValueAtTime(0.0001, at)
       env.gain.exponentialRampToValueAtTime(voice.gain, at + 0.008)

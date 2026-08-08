@@ -1,83 +1,97 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { UpdateState } from '@shared/types'
 import { sound } from '../lib/sound'
 
 /**
- * Aviso de actualizacion.
+ * Update notice.
  *
- * Mientras descarga se queda discreto abajo a la derecha, porque no hay nada
- * que decidir. Cuando ya esta lista se abre con las notas del parche, que es
- * el unico momento en que merece la pena robar la atencion.
+ * While it downloads it stays quiet in the corner, because there is nothing to
+ * decide yet. Once it is ready it opens up with the release notes, which is
+ * the only moment worth interrupting anyone for.
  */
 export default function UpdateBanner(): JSX.Element | null {
-  const [estado, setEstado] = useState<UpdateState>({ phase: 'idle' })
-  const [descartado, setDescartado] = useState(false)
-  const [instalando, setInstalando] = useState(false)
+  const [state, setState] = useState<UpdateState>({ phase: 'idle' })
+  const [dismissed, setDismissed] = useState(false)
+  const [installing, setInstalling] = useState(false)
 
   useEffect(() => {
-    void window.jarvis.updater.get().then((r) => {
-      if (r.ok) setEstado(r.data)
+    void window.vilo.updater.get().then((result) => {
+      if (result.ok) setState(result.data)
     })
 
-    return window.jarvis.updater.onState((nuevo) => {
-      setEstado(nuevo)
-      // Una version nueva vuelve a merecer atencion aunque se descartara la anterior.
-      if (nuevo.phase === 'ready') {
-        setDescartado(false)
+    return window.vilo.updater.onState((next) => {
+      setState(next)
+      // A newer version earns attention again, even if the last one was
+      // waved away.
+      if (next.phase === 'ready') {
+        setDismissed(false)
         sound.play('confirm')
       }
     })
   }, [])
 
-  const instalar = async (): Promise<void> => {
-    setInstalando(true)
-    await window.jarvis.updater.installAndRestart()
+  const install = async (): Promise<void> => {
+    setInstalling(true)
+    await window.vilo.updater.installAndRestart()
   }
 
-  if (descartado) return null
-  if (estado.phase === 'idle' || estado.phase === 'none' || estado.phase === 'checking') return null
+  if (dismissed) return null
+  if (state.phase === 'idle' || state.phase === 'none' || state.phase === 'checking') return null
 
-  // Un fallo al comprobar no es asunto del usuario: quedarse sin internet un
-  // rato es lo normal. Se ve en Ajustes si alguien lo busca.
-  if (estado.phase === 'error') return null
+  // A failed check is not the user's problem: losing the connection for a
+  // while is ordinary. It is visible in Settings for anyone who goes looking.
+  if (state.phase === 'error') return null
 
-  if (estado.phase === 'downloading') {
-    return (
-      <div className="update-toast">
-        <div className="update-toast-text">
-          Descargando la version {estado.version}… {estado.percent}%
-        </div>
-        <div className="update-bar">
-          <div className="update-bar-fill" style={{ width: `${estado.percent}%` }} />
-        </div>
-      </div>
-    )
-  }
+  /*
+   * Nothing is shown while it downloads.
+   *
+   * There used to be a progress panel pinned to the top right corner of every
+   * screen, which is a strange place for it: it appears without being asked
+   * for, it sits over the interface, and there is nothing you can do about it
+   * until it finishes. The download happens quietly and the progress is in
+   * Settings, at the bottom, next to the version number — where you would go
+   * if you actually wanted to know.
+   *
+   * The one moment worth interrupting for is when it is ready, because that
+   * is the first point there is a decision to make.
+   */
+  if (state.phase === 'downloading') return null
 
   return (
-    <div className="update-card">
-      <div className="update-card-head">
+    <div className="floater">
+      <div className="row-between" style={{ alignItems: 'flex-start' }}>
         <div>
-          <strong>Version {estado.version} lista</strong>
-          <div className="meta">Se aplicara al reiniciar JARVIS.</div>
+          <h4>Version {state.version} is ready</h4>
+          <p>It will be applied when Vilo restarts.</p>
         </div>
-        <button onClick={() => setDescartado(true)} aria-label="Cerrar el aviso">
-          ✕
+        <button
+          className="btn ghost sm icon"
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+        >
+          <X />
         </button>
       </div>
 
-      {estado.notes && <pre className="update-notes">{estado.notes}</pre>}
+      {state.notes && (
+        <p className="mono" style={{ marginTop: 'var(--s-3)', color: 'var(--text-3)' }}>
+          {state.notes}
+        </p>
+      )}
 
-      <div className="row">
-        <button className="primary" onClick={instalar} disabled={instalando}>
-          {instalando ? 'Reiniciando…' : 'Reiniciar e instalar'}
+      <div className="floater-actions">
+        <button className="btn primary sm" onClick={install} disabled={installing}>
+          {installing ? 'Restarting…' : 'Restart and install'}
         </button>
-        <button onClick={() => setDescartado(true)} disabled={instalando}>
-          Mas tarde
+        <button className="btn sm" onClick={() => setDismissed(true)} disabled={installing}>
+          Later
         </button>
       </div>
 
-      <p className="hint">Si eliges mas tarde, se instalara sola la proxima vez que cierres.</p>
+      <p className="meta" style={{ marginTop: 'var(--s-2)' }}>
+        Choosing later installs it the next time you quit.
+      </p>
     </div>
   )
 }

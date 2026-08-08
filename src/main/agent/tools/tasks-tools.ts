@@ -2,11 +2,11 @@ import { z } from 'zod'
 import type { Tool } from './types'
 
 /**
- * Herramientas de las tareas propias del usuario.
+ * Tools for the user's own tasks.
  *
- * Son las que siempre funcionan: no dependen de que Google ni el colegio
- * autoricen nada. Classroom, cuando esta disponible, se suma con su propia
- * herramienta de solo lectura.
+ * These are the ones that always work: they do not depend on Google or the
+ * school authorising anything. Classroom, when it is available, joins in
+ * through its own read-only tool.
  */
 
 const listArgs = z.object({
@@ -16,14 +16,14 @@ const listArgs = z.object({
 export const tasksList: Tool<z.infer<typeof listArgs>> = {
   name: 'tasks_list',
   description:
-    'Consulta las tareas que el usuario tiene apuntadas a mano en JARVIS, con su ' +
-    'asignatura y fecha de entrega. Son sus tareas propias, distintas de las de Classroom.',
+    'Lists the tasks the user has written down in Vilo, with their subject and due ' +
+    'date. These are their own tasks, separate from the ones in Classroom.',
   parameters: {
     type: 'object',
     properties: {
       incluirHechas: {
         type: 'boolean',
-        description: 'Si es true, incluye tambien las ya completadas. Por defecto false.'
+        description: 'If true, also include completed ones. Defaults to false.'
       }
     },
     required: []
@@ -35,11 +35,11 @@ export const tasksList: Tool<z.infer<typeof listArgs>> = {
     const visible = args.incluirHechas ? all : all.filter((t) => !t.done)
 
     return {
-      summary: `${visible.length} tarea(s) apuntada(s).`,
+      summary: `${visible.length} task${visible.length === 1 ? '' : 's'} written down.`,
       data: visible.map((t) => ({
-        titulo: t.title,
-        asignatura: t.subject || null,
-        entrega: t.dueDate,
+        title: t.title,
+        subject: t.subject || null,
+        dueDate: t.dueDate,
         hecha: t.done
       }))
     }
@@ -47,93 +47,93 @@ export const tasksList: Tool<z.infer<typeof listArgs>> = {
 }
 
 const addArgs = z.object({
-  titulo: z.string().min(1, 'La tarea necesita un titulo.'),
-  asignatura: z.string().optional(),
-  entrega: z
+  title: z.string().min(1, 'A task needs a title.'),
+  subject: z.string().optional(),
+  dueDate: z
     .string()
     .optional()
     .refine((v) => v === undefined || !Number.isNaN(Date.parse(v)), {
-      message: 'La fecha de entrega no tiene un formato valido.'
+      message: 'That due date is not in a valid format.'
     })
 })
 
 export const tasksAdd: Tool<z.infer<typeof addArgs>> = {
   name: 'tasks_add',
   description:
-    'Apunta una tarea nueva. Usala cuando el usuario diga que tiene que entregar o hacer algo. ' +
-    'El usuario lo confirmara en pantalla, asi que no preguntes tu antes.',
+    'Writes down a new task. Use it when the user says they have to hand in or do ' +
+    'something. They confirm it on screen, so do not ask first.',
   parameters: {
     type: 'object',
     properties: {
-      titulo: { type: 'string', description: 'Que hay que hacer' },
-      asignatura: { type: 'string', description: 'Asignatura, si se sabe' },
-      entrega: { type: 'string', description: 'Fecha de entrega en ISO 8601, si se sabe' }
+      title: { type: 'string', description: 'What needs doing' },
+      subject: { type: 'string', description: 'Subject, if known' },
+      dueDate: { type: 'string', description: 'Due date in ISO 8601, if known' }
     },
-    required: ['titulo']
+    required: ['title']
   },
   schema: addArgs,
   requiresConfirmation: true,
   describe(args) {
     const details: string[] = []
-    if (args.asignatura) details.push(`Asignatura: ${args.asignatura}`)
-    if (args.entrega) {
+    if (args.subject) details.push(`Subject: ${args.subject}`)
+    if (args.dueDate) {
       details.push(
-        `Entrega: ${new Intl.DateTimeFormat('es-ES', {
+        `Due: ${new Intl.DateTimeFormat('en-GB', {
           weekday: 'long',
           day: 'numeric',
           month: 'long'
-        }).format(new Date(args.entrega))}`
+        }).format(new Date(args.dueDate))}`
       )
     } else {
-      details.push('Sin fecha de entrega')
+      details.push('No due date')
     }
-    return { description: `Apuntar la tarea "${args.titulo}"`, details }
+    return { description: `Write down the task “${args.title}”`, details }
   },
   async execute(args, ctx) {
     const task = ctx.tasks.add({
-      title: args.titulo,
-      subject: args.asignatura,
-      dueDate: args.entrega ?? null
+      title: args.title,
+      subject: args.subject,
+      dueDate: args.dueDate ?? null
     })
-    return { summary: `Tarea "${task.title}" apuntada.`, data: { titulo: task.title } }
+    return { summary: `Task “${task.title}” added.`, data: { title: task.title } }
   }
 }
 
 const completeArgs = z.object({
-  titulo: z.string().min(1, 'Dime que tarea marcar como hecha.')
+  title: z.string().min(1, 'Tell me which task to tick off.')
 })
 
 export const tasksComplete: Tool<z.infer<typeof completeArgs>> = {
   name: 'tasks_complete',
   description:
-    'Marca como hecha una tarea apuntada, buscandola por su titulo o parte de el. ' +
-    'Solo funciona con las tareas propias, no con las de Classroom.',
+    'Ticks off one of the user\'s own tasks, found by its title or part of it. ' +
+    'It does not work on Classroom assignments.',
   parameters: {
     type: 'object',
     properties: {
-      titulo: { type: 'string', description: 'Titulo de la tarea, o parte del mismo' }
+      title: { type: 'string', description: 'The task title, or part of it' }
     },
-    required: ['titulo']
+    required: ['title']
   },
   schema: completeArgs,
   requiresConfirmation: true,
   describe(args) {
     return {
-      description: `Marcar como hecha la tarea "${args.titulo}"`,
+      description: `Tick off the task “${args.title}”`,
       details: []
     }
   },
   async execute(args, ctx) {
-    const found = ctx.tasks.findByTitle(args.titulo)
+    const found = ctx.tasks.findByTitle(args.title)
     if (!found) {
-      // Se devuelve como dato, no como excepcion: asi el modelo puede
-      // decirselo al usuario y ofrecerle la lista en vez de cortarse.
+      // Returned as data rather than thrown: that way the model can say so and
+      // offer the list, instead of stopping dead.
       return {
-        summary: `No he encontrado ninguna tarea pendiente que se parezca a "${args.titulo}".`,
+        summary: `No open task looks like “${args.title}”.`,
         data: { encontrada: false }
       }
     }
     ctx.tasks.update(found.id, { done: true })
-    return { summary: `"${found.title}" marcada como hecha.`, data: { encontrada: true } }
+    return { summary: `“${found.title}” ticked off.`, data: { encontrada: true } }
   }
 }

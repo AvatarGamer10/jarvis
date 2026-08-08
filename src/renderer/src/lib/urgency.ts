@@ -1,26 +1,29 @@
+import { LOCALE, parseDate } from './dates'
+
 /**
- * Rampa de urgencia: del blanco al negro.
+ * The brightness ramp, from white down into the background.
  *
- * Es la idea que sostiene toda la interfaz. El brillo no decora, codifica
- * cuanto tiempo queda. Lo de hoy es lo mas claro de la pantalla; lo del mes
- * que viene casi desaparece contra el fondo. Asi el ojo va solo a donde hay
- * que ir, sin leer una fecha.
+ * This is the idea the whole interface rests on. Brightness does not
+ * decorate, it encodes how much time is left. What is due today is the
+ * brightest thing on screen; what is due next month has all but dissolved
+ * into the background. The eye goes where it needs to go without reading a
+ * single date.
  *
- * Por eso los botones no llegan al blanco puro: si "urgente" y "pulsable"
- * se dijeran con el mismo brillo, ninguno de los dos significaria nada. Lo
- * pulsable se reconoce por su borde y su relleno, no por lo claro que es.
+ * It is also why no button in Vilo is pure white. If "urgent" and "clickable"
+ * were said at the same brightness, neither would mean anything. Clickable is
+ * carried by the edge and the fill; urgent is carried by the light.
  */
 
 export type Urgency = 'overdue' | 'today' | 'soon' | 'week' | 'far' | 'none'
 
-/** Dias naturales que faltan. Negativo si ya paso. Null si no hay fecha. */
+/** Whole days remaining. Negative once it has passed. Null with no date. */
 export function daysUntil(iso: string | null): number | null {
   if (!iso) return null
   const parsed = Date.parse(iso)
   if (Number.isNaN(parsed)) return null
 
-  // Se comparan dias del calendario, no franjas de 24 horas: "manana a las
-  // 8:00" tiene que decir 1 dia aunque falten menos de 24.
+  // Calendar days, not 24-hour windows: "tomorrow at 08:00" has to say one
+  // day even when it is fifteen hours away.
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const due = new Date(parsed)
@@ -39,17 +42,19 @@ export function urgencyOf(iso: string | null): Urgency {
   return 'far'
 }
 
-/** Texto corto para la fecha. Se lee antes que un "12 de marzo". */
+/** Short label for a deadline. Reads faster than "12 March" ever will. */
 export function dueLabel(iso: string | null): string {
   const days = daysUntil(iso)
-  if (days === null) return 'Sin fecha'
-  if (days === 0) return 'Hoy'
-  if (days === 1) return 'Manana'
-  if (days === -1) return 'Ayer'
-  if (days < 0) return `Hace ${Math.abs(days)} dias`
-  if (days <= 7) return `En ${days} dias`
+  // `days` is only non-null when `iso` parsed, but the compiler cannot see
+  // through daysUntil, so the narrowing is spelled out.
+  if (days === null || iso === null) return 'No date'
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  if (days === -1) return 'Yesterday'
+  if (days < 0) return `${Math.abs(days)} days late`
+  if (days <= 7) return `In ${days} days`
 
-  return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(
-    new Date(iso as string)
+  return new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short' }).format(
+    parseDate(iso)
   )
 }

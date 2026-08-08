@@ -1,24 +1,24 @@
 import { JsonStore } from '../store/json-store'
 
 interface UsageData {
-  /** Fecha local en formato YYYY-MM-DD del contador actual. */
+  /** Local date, YYYY-MM-DD, of the current count. */
   day: string
   calls: number
 }
 
 const today = (): string => {
   const now = new Date()
-  // Fecha local, no UTC: el contador debe reiniciarse a medianoche del usuario.
+  // Local date, not UTC: the count has to reset at the user's midnight.
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   return `${now.getFullYear()}-${month}-${day}`
 }
 
 /**
- * Cuenta las llamadas al modelo que se hacen cada dia.
+ * Counts the model calls made each day.
  *
- * No es contabilidad exacta de cuota: es una senal para detectar que algo se ha
- * ido de madre (un bucle de herramientas descontrolado) antes de que agote el
+ * Not exact quota accounting: it is a signal that something has got out of
+ * hand — a runaway tool loop, say — before it burns through the
  * free tier.
  */
 export class UsageCounter {

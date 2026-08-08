@@ -1,6 +1,6 @@
 import type { GoogleAuth } from '../auth/google-oauth'
 
-/** Error de una API de Google con el mensaje ya traducido a algo entendible. */
+/** A Google API error whose message is already understandable. */
 export class GoogleApiError extends Error {
   constructor(
     message: string,
@@ -16,13 +16,13 @@ interface ErrorBody {
   error?: { message?: string; status?: string }
 }
 
-/** Convierte los errores crudos de Google en algo que el usuario pueda accionar. */
+/** Turns Google's raw errors into something the user can act on. */
 function humanize(status: number, body: ErrorBody, url: string): string {
   const raw = body.error?.message ?? `HTTP ${status}`
 
-  if (status === 401) return 'La sesion de Google ha caducado. Vuelve a iniciar sesion en Ajustes.'
-  if (status === 429) return 'Google esta limitando las peticiones. Prueba de nuevo en un minuto.'
-  if (status >= 500) return 'Google esta teniendo problemas ahora mismo. Intentalo mas tarde.'
+  if (status === 401) return 'Your Google session expired. Connect again in Settings.'
+  if (status === 429) return 'Google is limiting requests. Try again in a minute.'
+  if (status >= 500) return 'Google is having trouble right now. Try again later.'
 
   if (status === 403) {
     if (/has not been used|SERVICE_DISABLED|is disabled/i.test(raw)) {
@@ -31,17 +31,17 @@ function humanize(status: number, body: ErrorBody, url: string): string {
         : url.includes('calendar')
           ? 'Calendar'
           : 'Drive'
-      return `La API de ${api} no esta habilitada en tu proyecto de Google Cloud.`
+      return `The ${api} API is not enabled in your Google Cloud project.`
     }
-    return `Permiso denegado. Puede que el administrador del colegio bloquee esta app. (${raw})`
+    return `Permission denied. Your school administrator may be blocking this app. (${raw})`
   }
 
   return raw
 }
 
 /**
- * Cliente REST fino sobre las APIs de Google. Anade el token, reintenta una vez
- * si el token estaba caducado y normaliza los errores.
+ * A thin REST client over Google's APIs. Adds the token, retries once if the
+ * token had expired, and normalises the errors.
  */
 export class GoogleApi {
   constructor(private readonly auth: GoogleAuth) {}
@@ -87,9 +87,10 @@ export class GoogleApi {
     }
 
     if (!res.ok) {
-      // Un 401 aislado suele ser el token justo al caducar: forzamos una
-      // renovacion y reintentamos una sola vez para no entrar en bucle.
+      // A lone 401 is usually the token expiring right then: force a refresh
+      // and retry exactly once, so this cannot become a loop.
       if (res.status === 401 && retry) {
+        await this.auth.getAccessToken(true)
         return this.request<T>(method, url, body, false)
       }
       throw new GoogleApiError(humanize(res.status, data as ErrorBody, url), res.status, data)
@@ -99,8 +100,8 @@ export class GoogleApi {
   }
 
   /**
-   * Recorre todas las paginas de un listado. Google devuelve nextPageToken
-   * cuando hay mas resultados.
+   * Walks every page of a listing. Google returns nextPageToken
+   * when there are more results.
    */
   async listAll<T>(url: string, key: string, limit = 500): Promise<T[]> {
     const items: T[] = []

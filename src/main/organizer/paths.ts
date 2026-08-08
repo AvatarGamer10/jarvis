@@ -2,25 +2,25 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 /**
- * Guardas de rutas. Este fichero es la unica razon por la que el organizador
- * no puede hacer estropicios, asi que conviene leerlo con calma antes de
+ * Path guards. This file is the only reason the organiser cannot do damage, so
+ * it is worth reading carefully before
  * tocarlo.
  */
 
 export class PathNotAllowedError extends Error {
   constructor(target: string) {
-    super(`La ruta "${target}" esta fuera de las carpetas autorizadas.`)
+    super(`"${target}" is outside the authorised folders.`)
     this.name = 'PathNotAllowedError'
   }
 }
 
 /**
- * Resuelve una ruta a su forma canonica siguiendo enlaces simbolicos.
+ * Resolves a path to its canonical form, following symbolic links.
  *
- * Sin `realpathSync`, un enlace dentro de una carpeta autorizada que apunte a
- * C:\Windows pasaria la comprobacion: la ruta "parece" estar dentro.
- * Si el fichero aun no existe (el destino de un movimiento), resolvemos el
- * directorio padre, que si existe.
+ * Without `realpathSync`, a link inside an authorised folder pointing at
+ * C:\Windows would pass the check — the path "looks" as if it is inside.
+ * If the file does not exist yet — the destination of a move — the parent
+ * directory is resolved instead, which does.
  */
 function canonical(target: string): string {
   const absolute = path.resolve(target)
@@ -36,19 +36,19 @@ function canonical(target: string): string {
   }
 }
 
-/** True si `target` esta dentro de `root` (o es el propio root). */
+/** True if `target` is inside `root`, or is `root` itself. */
 export function isInside(root: string, target: string): boolean {
   const from = canonical(root)
   const to = canonical(target)
 
   const relative = path.relative(from, to)
   // Tres condiciones: no sale hacia arriba, no salta a otra unidad (en Windows
-  // path.relative devuelve una ruta absoluta si cambian de disco), y no es el
-  // mismo sitio con otro nombre.
+  // path.relative returns an absolute path when the disk changes), and is not
+  // the same place under another name.
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
 }
 
-/** Lanza si la ruta no cae dentro de ninguna de las carpetas autorizadas. */
+/** Throws if the path falls outside every authorised folder. */
 export function assertAllowed(roots: string[], target: string): void {
   if (roots.length === 0) {
     throw new PathNotAllowedError(target)
@@ -59,7 +59,7 @@ export function assertAllowed(roots: string[], target: string): void {
 }
 
 /**
- * Si en el destino ya hay un archivo con ese nombre, busca uno libre
+ * If a file of that name already exists at the destination, finds a free
  * anadiendo " (2)", " (3)"... Nunca sobrescribe.
  */
 export function availableName(destinationDir: string, filename: string): string {
@@ -71,8 +71,8 @@ export function availableName(destinationDir: string, filename: string): string 
   while (fs.existsSync(path.join(destinationDir, candidate))) {
     candidate = `${base} (${counter})${extension}`
     counter++
-    // Cinturon de seguridad: si algo va mal, mejor fallar que girar para siempre.
-    if (counter > 999) throw new Error(`Demasiados archivos con el nombre "${filename}".`)
+    // A seatbelt: if something goes wrong, better to fail than to spin forever.
+    if (counter > 999) throw new Error(`Too many files already named "${filename}".`)
   }
   return candidate
 }

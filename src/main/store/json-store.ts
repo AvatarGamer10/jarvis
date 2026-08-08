@@ -3,12 +3,12 @@ import path from 'node:path'
 import { app } from 'electron'
 
 /**
- * Almacen JSON minimo sobre disco. El volumen de datos aqui es de unos pocos
- * cientos de registros, asi que no compensa una base de datos ni un modulo
- * nativo que haya que recompilar para cada plataforma.
+ * A minimal JSON store on disk. The volume here is a few hundred records, so
+ * it is not worth a database, nor a native module that would have to be
+ * recompiled for every platform.
  *
- * Las escrituras son atomicas (fichero temporal + rename) para que un corte de
- * luz a media escritura no deje el fichero a medias.
+ * Writes are atomic (temp file plus rename) so that losing power mid-write
+ * cannot leave the file half-written.
  */
 export class JsonStore<T extends object> {
   private readonly file: string
@@ -23,11 +23,11 @@ export class JsonStore<T extends object> {
     try {
       if (!fs.existsSync(this.file)) return structuredClone(this.defaults)
       const parsed = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<T>
-      // Fusionamos con los defaults para que al anadir campos nuevos en una
-      // version futura los ficheros viejos no se queden sin ellos.
+      // Merged with the defaults so that adding a field in a future version
+      // does not leave older files without it.
       return { ...structuredClone(this.defaults), ...parsed }
     } catch (err) {
-      console.error(`[store] ${this.file} ilegible, se usan los valores por defecto:`, err)
+      console.error(`[store] ${this.file} is unreadable; falling back to defaults:`, err)
       return structuredClone(this.defaults)
     }
   }
@@ -42,11 +42,24 @@ export class JsonStore<T extends object> {
     return this.data
   }
 
+  /**
+   * Back to factory values.
+   *
+   * It goes through persist(), so the previous file is backed up into
+   * `backups/` like any other write: if somebody presses this by accident,
+   * yesterday's is still there.
+   */
+  reset(): T {
+    this.data = structuredClone(this.defaults)
+    this.persist()
+    return this.data
+  }
+
   private persist(): void {
     const dir = path.dirname(this.file)
     fs.mkdirSync(dir, { recursive: true })
 
-    this.respaldar()
+    this.backup()
 
     const tmp = `${this.file}.tmp`
     fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), 'utf8')
@@ -54,44 +67,44 @@ export class JsonStore<T extends object> {
   }
 
   /**
-   * Guarda una copia del fichero anterior antes de sobrescribirlo.
+   * Keeps a copy of the previous file before overwriting it.
    *
-   * Se conserva una copia por dia, no una por escritura: escribir cientos de
-   * copias identicas en una tarde no protege de nada y llena el disco. Lo que
-   * de verdad hace falta es poder volver a como estaban las cosas ayer, si hoy
-   * algo se corrompio o se borro sin querer.
+   * One copy per day, not one per write: writing hundreds of identical copies
+   * in an afternoon protects against nothing and fills the disk. What is
+   * actually needed is being able to get back to how things were yesterday, if
+   * something was corrupted or deleted by accident today.
    */
-  private respaldar(): void {
+  private backup(): void {
     if (!fs.existsSync(this.file)) return
 
-    const carpeta = path.join(path.dirname(this.file), 'copias')
-    const nombre = path.basename(this.file, '.json')
-    const hoy = new Date().toISOString().slice(0, 10)
-    const destino = path.join(carpeta, `${nombre}-${hoy}.json`)
+    const folder = path.join(path.dirname(this.file), 'backups')
+    const name = path.basename(this.file, '.json')
+    const today = new Date().toISOString().slice(0, 10)
+    const destination = path.join(folder, `${name}-${today}.json`)
 
     try {
-      if (fs.existsSync(destino)) return
-      fs.mkdirSync(carpeta, { recursive: true })
-      fs.copyFileSync(this.file, destino)
-      this.podar(carpeta, nombre)
+      if (fs.existsSync(destination)) return
+      fs.mkdirSync(folder, { recursive: true })
+      fs.copyFileSync(this.file, destination)
+      this.prune(folder, name)
     } catch (err) {
-      // Que falle el respaldo no puede impedir guardar los datos nuevos.
-      console.error('[store] no se pudo respaldar:', err)
+      // A failed backup cannot stop the new data being saved.
+      console.error('[store] could not back up:', err)
     }
   }
 
-  /** Deja solo las copias mas recientes. */
-  private podar(carpeta: string, nombre: string): void {
-    const copias = fs
-      .readdirSync(carpeta)
-      .filter((f) => f.startsWith(`${nombre}-`) && f.endsWith('.json'))
+  /** Leaves only the most recent copies. */
+  private prune(folder: string, name: string): void {
+    const copies = fs
+      .readdirSync(folder)
+      .filter((f) => f.startsWith(`${name}-`) && f.endsWith('.json'))
       .sort()
 
-    for (const vieja of copias.slice(0, Math.max(0, copias.length - JsonStore.COPIAS))) {
-      fs.rmSync(path.join(carpeta, vieja), { force: true })
+    for (const old of copies.slice(0, Math.max(0, copies.length - JsonStore.KEPT_DAYS))) {
+      fs.rmSync(path.join(folder, old), { force: true })
     }
   }
 
-  /** Dias de historial que se conservan. */
-  private static readonly COPIAS = 14
+  /** Days of history kept. */
+  private static readonly KEPT_DAYS = 14
 }

@@ -1,22 +1,21 @@
 /* =========================================================================
-   Tailwind, acotado
+   Tailwind, kept on a short leash
 
-   JARVIS tiene su propio sistema de diseño escrito a mano en styles.css. Esto
-   NO lo sustituye: se añade para poder usar componentes de shadcn tal cual
-   vienen, sin reescribirlos.
+   Vilo's design system is hand-written (see styles.css). This does not
+   replace it — it exists so a component copied from shadcn renders in Vilo's
+   palette instead of dragging a second one in behind it.
 
-   Dos decisiones importantes:
+   Two decisions worth keeping:
 
-   1. SIN PREFLIGHT. El reset de Tailwind pisaría los estilos base de la app
-      (botones, campos, tipografía) y habría que rehacer medio styles.css. Por
-      eso se importan solo `theme` y `utilities`, que es la forma que documenta
-      Tailwind v4 para esto. El `box-sizing` global que aporta el preflight ya
-      lo tiene styles.css por su cuenta.
+   1. NO PREFLIGHT. Tailwind's reset would overwrite the base styles for
+      buttons, fields and type, and half of components.css would have to be
+      rewritten to win them back. Importing only `theme` and `utilities` is
+      the documented way to opt out in Tailwind v4. The global box-sizing the
+      preflight would have given us is already in base.css.
 
-   2. LOS COLORES SON LOS DE JARVIS. `bg-background` y `border-border` son los
-      nombres que usan los componentes de shadcn; aquí se apuntan a las
-      variables que ya existen. Así un componente pegado de fuera sale con la
-      paleta de la app en vez de traerse una segunda paleta.
+   2. THE TOKENS ARE VILO'S. `bg-background`, `border-border` and friends are
+      the names shadcn components reach for; here they resolve to variables
+      that already exist, so nothing arrives with its own colours.
    ========================================================================= */
 
 @layer theme, base, components, utilities;
@@ -24,25 +23,34 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
-/* Dónde buscar clases. Explícito para que no dependa de la deteccion
-   automatica, que parte de la ubicacion de este fichero. */
+/* Where to look for class names. Explicit, so it does not depend on
+   auto-detection, which starts from this file's own location. */
 @source '../src';
 @source './';
 
 @theme {
-  /* Equivalencias con los tokens que esperan los componentes de shadcn. */
-  --color-background: var(--ink-800);
-  --color-foreground: var(--paper);
-  --color-border: var(--line);
-  --color-muted: var(--ink-700);
-  --color-muted-foreground: var(--paper-dim);
-  --color-primary: var(--signal);
-  --color-primary-foreground: var(--paper);
-  --color-accent: var(--signal-soft);
-  --color-ring: var(--signal-line);
+  --color-background: var(--g-950);
+  --color-foreground: var(--text);
+  --color-card: var(--elevated);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--elevated);
+  --color-popover-foreground: var(--text);
+  --color-border: var(--line-2);
+  --color-input: var(--line-2);
+  --color-muted: var(--g-800);
+  --color-muted-foreground: var(--text-3);
+  --color-primary: var(--g-050);
+  --color-primary-foreground: var(--g-950);
+  --color-secondary: var(--g-800);
+  --color-secondary-foreground: var(--text);
+  --color-accent: var(--g-750);
+  --color-accent-foreground: var(--text);
+  --color-destructive: var(--g-100);
+  --color-destructive-foreground: var(--g-950);
+  --color-ring: var(--line-4);
 
   --font-sans: var(--font-body);
   --font-mono: var(--font-mono);
 
-  --radius: 12px;
+  --radius: var(--r-md);
 }

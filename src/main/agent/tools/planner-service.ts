@@ -1,64 +1,64 @@
 import { randomUUID } from 'node:crypto'
-import type { PlanEstudio } from '@shared/types'
-import { calcular, type Bloque, type FuentesPlanificador } from './planificador-core'
+import type { StudyPlan } from '@shared/types'
+import { planBlocks, type Block, type PlannerSources } from './planner-core'
 
 /**
- * Planificador accesible desde la interfaz, sin pasar por el chat.
+ * The planner, reachable from the interface without going through the chat.
  *
- * La herramienta del agente solo sirve si Ollama esta funcionando y si el
- * modelo acierta a elegirla. Esto es lo mismo con un boton: funciona siempre,
- * incluso sin modelo.
+ * The agent's tool only helps if Ollama is running and the model happens to
+ * pick it. This is the same thing behind a button: it always works, even with
+ * no model at all.
  *
- * Los planes calculados se guardan aqui y solo se pueden aplicar por su id,
- * igual que en el organizador de carpetas: asi el renderer no puede fabricar
- * una lista de eventos y pedir que se creen.
+ * Calculated plans are held here and can only be applied by id, exactly as in
+ * the folder organiser: that way the renderer cannot fabricate a list of
+ * events and ask for them to be created.
  */
 export class PlannerService {
-  private readonly planes = new Map<string, Bloque[]>()
+  private readonly plans = new Map<string, Block[]>()
 
-  constructor(private readonly fuentes: () => FuentesPlanificador) {}
+  constructor(private readonly sources: () => PlannerSources) {}
 
-  async calcular(dias: number): Promise<PlanEstudio> {
-    const bloques = await calcular(dias, this.fuentes())
+  async planBlocks(dias: number): Promise<StudyPlan> {
+    const blocks = await planBlocks(dias, this.sources())
     const id = randomUUID()
-    this.planes.set(id, bloques)
+    this.plans.set(id, blocks)
 
-    // No se dejan crecer sin control en una sesion larga.
-    if (this.planes.size > 10) {
-      const antiguo = [...this.planes.keys()][0]
-      this.planes.delete(antiguo)
+    // Not allowed to grow unchecked over a long session.
+    if (this.plans.size > 10) {
+      const antiguo = [...this.plans.keys()][0]
+      this.plans.delete(antiguo)
     }
 
     return {
       id,
-      bloques: bloques.map((b) => ({
-        inicio: b.inicio.toISOString(),
-        fin: b.fin.toISOString(),
-        tarea: b.tarea,
-        asignatura: b.asignatura
+      blocks: blocks.map((b) => ({
+        start: b.start.toISOString(),
+        end: b.end.toISOString(),
+        task: b.task,
+        subject: b.subject
       }))
     }
   }
 
   async aplicar(
     planId: string,
-    crear: (bloque: Bloque) => Promise<void>
+    crear: (bloque: Block) => Promise<void>
   ): Promise<{ creados: number; fallos: string[] }> {
-    const bloques = this.planes.get(planId)
-    if (!bloques) {
-      throw new Error('Ese plan ya no existe. Vuelve a calcularlo.')
+    const blocks = this.plans.get(planId)
+    if (!blocks) {
+      throw new Error('That plan no longer exists. Work it out again.')
     }
-    this.planes.delete(planId)
+    this.plans.delete(planId)
 
     let creados = 0
     const fallos: string[] = []
 
-    for (const b of bloques) {
+    for (const b of blocks) {
       try {
         await crear(b)
         creados++
       } catch (err) {
-        // Un evento que falla no debe tumbar el resto del plan.
+        // One event failing must not bring down the rest of the plan.
         fallos.push((err as Error).message)
       }
     }

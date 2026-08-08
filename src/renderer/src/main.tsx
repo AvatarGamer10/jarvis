@@ -1,33 +1,36 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 
-// Las fuentes van empaquetadas dentro de la app, no descargadas de un CDN: asi
-// se ven igual en cualquier equipo y funcionan sin conexion. Se importan antes
-// que los estilos para que las reglas @font-face existan al aplicarlos.
+// Fonts are bundled inside the app rather than fetched from a CDN: they look
+// the same on every machine and work with no connection. Imported before the
+// styles so the @font-face rules exist by the time those are applied.
 //
-// De Archivo se coge la variante "standard", que trae los dos ejes (grosor y
-// anchura); el diseno usa los dos. De las otras dos basta el grosor.
+// Archivo comes in the "standard" variant, which carries both axes (weight and
+// width); the design uses both. For the others, weight alone is enough.
 import '@fontsource-variable/archivo/standard.css'
 import '@fontsource-variable/inter/wght.css'
-import '@fontsource-variable/jetbrains-mono/wght.css'
 
 import App from './App'
 import Hud from './views/Hud'
-// Tailwind primero: sus utilidades van en capas, y styles.css va sin capa, asi
-// que el sistema propio de la app gana siempre que los dos toquen lo mismo.
+// Tailwind first: its utilities are in layers and styles.css is not, so the
+// app's own system wins wherever the two touch the same thing.
 import './tailwind.css'
 import './styles.css'
+import { routeHubThroughProxy } from './lib/hub-fetch'
+
+// Before anything can ask for a model. See lib/hub-fetch.ts.
+routeHubThroughProxy()
 
 /**
- * Las dos ventanas comparten un unico paquete y se distinguen por la URL con
- * la que las abre el proceso principal. Compilar dos entradas separadas
- * duplicaria React y todo lo demas para ganar muy poco.
+ * Both windows share one bundle and are told apart by the URL the main process
+ * opens them with. Building two separate entry points would duplicate React
+ * and everything else for very little gain.
  */
-const esHud = new URLSearchParams(window.location.search).get('vista') === 'hud'
+const isHud = new URLSearchParams(window.location.search).get('view') === 'hud'
 
-// El HUD es una ventana transparente: el fondo lo pone su propia tarjeta.
-if (esHud) document.documentElement.dataset.ventana = 'hud'
+// The HUD is a transparent window: its own card supplies the background.
+if (isHud) document.documentElement.dataset.window = 'hud'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>{esHud ? <Hud /> : <App />}</React.StrictMode>
+  <React.StrictMode>{isHud ? <Hud /> : <App />}</React.StrictMode>
 )

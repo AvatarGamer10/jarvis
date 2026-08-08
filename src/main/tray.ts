@@ -1,47 +1,48 @@
 import { app, Menu, Tray, type BrowserWindow } from 'electron'
-import { crearIconoBandeja } from './tray-icon'
+import { createTrayIcon } from './tray-icon'
 
-interface Opciones {
-  mostrarVentana: () => void
-  mostrarResumen: () => void
-  alternarHud: () => void
-  salir: () => void
+interface TrayActions {
+  showWindow: () => void
+  showBrief: () => void
+  toggleHud: () => void
+  quit: () => void
 }
 
 /**
- * Icono de bandeja.
+ * The menu bar icon.
  *
- * No es decoracion: el resumen diario solo puede dispararse si el proceso sigue
- * vivo a la hora fijada. La bandeja es lo que hace que cerrar la ventana no
- * mate la app, y a la vez lo que deja claro que sigue ahi.
+ * Not decoration: the morning brief can only fire if the process is still
+ * alive at the time it is due. The tray is what makes closing the window stop
+ * short of killing the app, and at the same time what makes it obvious it is
+ * still there.
  */
-export function crearBandeja(opciones: Opciones): Tray {
-  const tray = new Tray(crearIconoBandeja())
-  tray.setToolTip('JARVIS')
+export function createTray(actions: TrayActions): Tray {
+  const tray = new Tray(createTrayIcon())
+  tray.setToolTip('Vilo')
 
   const menu = Menu.buildFromTemplate([
-    { label: 'Abrir JARVIS', click: opciones.mostrarVentana },
-    { label: 'Boton flotante   Ctrl+Alt+J', click: opciones.alternarHud },
-    { label: 'Resumen de hoy', click: opciones.mostrarResumen },
+    { label: 'Open Vilo', click: actions.showWindow },
+    { label: 'Floating orb   Ctrl+Alt+J', click: actions.toggleHud },
+    { label: "Today's brief", click: actions.showBrief },
     { type: 'separator' },
-    { label: 'Salir', click: opciones.salir }
+    { label: 'Quit Vilo', click: actions.quit }
   ])
 
   tray.setContextMenu(menu)
-  // En Windows se espera que el clic simple abra; en macOS, que despliegue el
-  // menu (que es lo que hace por defecto con setContextMenu).
-  if (process.platform === 'win32') tray.on('click', opciones.mostrarVentana)
+  // Windows expects a single click to open; macOS expects it to drop the menu
+  // down, which is what setContextMenu already does.
+  if (process.platform === 'win32') tray.on('click', actions.showWindow)
 
   return tray
 }
 
-/** Marca para distinguir "cerrar la ventana" de "salir de verdad". */
-export const estadoSalida = { saliendo: false }
+/** Tells "close the window" apart from "actually quit". */
+export const exitState = { quitting: false }
 
-export function prepararCierreABandeja(window: BrowserWindow): void {
+export function closeToTray(window: BrowserWindow): void {
   window.on('close', (event) => {
-    if (estadoSalida.saliendo) return
-    // Cerrar esconde en vez de matar, para que el resumen siga programado.
+    if (exitState.quitting) return
+    // Closing hides rather than kills, so the brief stays scheduled.
     event.preventDefault()
     window.hide()
     if (process.platform === 'darwin') app.dock?.hide()

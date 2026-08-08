@@ -1,19 +1,25 @@
 import type {
-  AuthStatus,
   Assignment,
+  Attachment,
+  AuthStatus,
   CalendarEvent,
   ChatMessage,
+  ChatSummary,
   DailyBrief,
-  Examen,
+  Exam,
   FileRule,
+  LlmProviderId,
   ManualTask,
-  ResumenAsignatura,
+  ModelBundleId,
+  ModelBundleStatus,
+  SubjectSummary,
+  ModelDownload,
   MovePlan,
   Result,
   SafeSettings,
-  ModeloRecomendado,
-  PlanEstudio,
-  ProgresoDescarga,
+  RecommendedModel,
+  StudyPlan,
+  OllamaPullProgress,
   Settings,
   UndoBatch,
   UpdateState
@@ -25,21 +31,50 @@ export interface ApplyOutcomeDto {
 }
 
 /**
- * Superficie que el proceso main expone al renderer.
+ * The surface the main process exposes to the renderer.
  *
- * Es deliberadamente estrecha: el renderer no puede pedir "ejecuta esto", solo
- * puede llamar a estas operaciones concretas. Cualquier cosa que toque
- * credenciales o el disco se queda al otro lado.
+ * Deliberately narrow: the renderer cannot ask it to "run this", only
+ * can call these specific operations. Anything touching credentials or the
+ * disk stays on the other side.
  */
-export interface JarvisApi {
+export interface ViloApi {
   auth: {
     status(): Promise<Result<AuthStatus>>
     signIn(): Promise<Result<AuthStatus>>
     signOut(): Promise<Result<null>>
   }
+  app: {
+    /** The app version, for the foot of Settings. */
+    version(): Promise<Result<string>>
+    /** Asks the system for the microphone once and reports its real state. */
+    microphone(): Promise<
+      Result<{
+        granted: boolean
+        status: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown'
+      }>
+    >
+  }
+  models: {
+    /** Bytes taken by the downloaded models (voice and recognition). */
+    size(): Promise<Result<number>>
+    /** Deletes them all. They download again next time they are needed. */
+    clear(): Promise<Result<null>>
+    /** Checks an installation without touching the network. */
+    status(bundle: ModelBundleId): Promise<Result<ModelBundleStatus>>
+    /** Installs or resumes a bundle, verifying every file before use. */
+    install(bundle: ModelBundleId): Promise<Result<ModelBundleStatus>>
+    /** Deletes just that bundle and installs it again from scratch. */
+    repair(bundle: ModelBundleId): Promise<Result<ModelBundleStatus>>
+    /** Stops the current request. What is already written is kept to resume. */
+    cancel(bundle: ModelBundleId): Promise<Result<null>>
+    /** Download progress, emitted from the main process. */
+    onProgress(callback: (progress: ModelDownload) => void): () => void
+  }
   settings: {
     get(): Promise<Result<SafeSettings>>
     update(patch: Partial<Settings>): Promise<Result<SafeSettings>>
+    /** Factory settings, and every stored credential deleted. */
+    reset(): Promise<Result<SafeSettings>>
   }
   calendar: {
     list(timeMin: string, timeMax: string): Promise<Result<CalendarEvent[]>>
@@ -58,55 +93,73 @@ export interface JarvisApi {
     ): Promise<Result<ManualTask>>
     remove(id: string): Promise<Result<null>>
     /**
-     * Convierte texto pegado de Classroom en tareas propuestas.
-     * No crea nada: el renderer las ensena y solo se guardan si se confirman.
+     * Turns text pasted out of Classroom into proposed tasks.
+     * Creates nothing: the renderer shows them and they are only saved on a yes.
      */
-    interpretarPegado(texto: string): Promise<
+    parsePasted(text: string): Promise<
       Result<{
-        tareas: { titulo: string; asignatura: string; entrega: string | null }[]
-        fuente: 'modelo' | 'texto'
+        tasks: { title: string; subject: string; dueDate: string | null }[]
+        source: 'model' | 'text'
       }>
     >
   }
-  examenes: {
-    /** Los examenes y, ya calculadas, las medias por asignatura. */
-    list(): Promise<Result<{ examenes: Examen[]; resumen: ResumenAsignatura[] }>>
+  exams: {
+    /** The exams, and the per-subject averages already worked out. */
+    list(): Promise<Result<{ exams: Exam[]; summary: SubjectSummary[] }>>
     add(input: {
       title: string
       subject?: string
       date: string
       weight?: number | null
       grade?: number | null
-    }): Promise<Result<Examen>>
+    }): Promise<Result<Exam>>
     update(
       id: string,
-      patch: Partial<Omit<Examen, 'id' | 'createdAt'>>
-    ): Promise<Result<Examen>>
+      patch: Partial<Omit<Exam, 'id' | 'createdAt'>>
+    ): Promise<Result<Exam>>
     remove(id: string): Promise<Result<null>>
   }
   ollama: {
-    /** True si Ollama responde. Se consulta en bucle mientras se instala. */
+    /** True if Ollama answers. Polled in a loop while it installs. */
     isRunning(): Promise<Result<boolean>>
-    recommended(): Promise<Result<ModeloRecomendado[]>>
-    /** Arranca la descarga; el progreso llega por onProgress. */
+    recommended(): Promise<Result<RecommendedModel[]>>
+    /** Starts the download; progress arrives through onProgress. */
     pull(model: string): Promise<Result<null>>
     cancelPull(): Promise<Result<null>>
-    onProgress(callback: (progress: ProgresoDescarga) => void): () => void
+    onProgress(callback: (progress: OllamaPullProgress) => void): () => void
     /**
-     * Lanza una peticion real con herramientas para comprobar que el modelo
-     * responde y sabe usarlas. Detectar que existe no basta.
+     * Sends a real request with tools, to check the model answers and knows how
+     * to use them. Detecting that it exists is not enough.
      */
-    probar(): Promise<Result<{ ok: boolean; detalle: string }>>
+    test(): Promise<Result<{ ok: boolean; detail: string }>>
   }
   agent: {
-    /** Conversacion guardada, para pintarla al abrir el chat. */
+    /** The saved conversation, for painting when the chat opens. */
     history(): Promise<Result<ChatMessage[]>>
     send(text: string): Promise<Result<ChatMessage[]>>
     confirm(actionId: string, approved: boolean): Promise<Result<ChatMessage[]>>
     reset(): Promise<Result<null>>
+    /** Earlier conversations, most recent first. */
+    conversations(): Promise<Result<ChatSummary[]>>
+    /** Files the current one away and starts a clean one. */
+    newConversation(): Promise<Result<null>>
+    /** Goes back to an earlier one, filing the current one away first. */
+    openConversation(id: string): Promise<Result<ChatMessage[]>>
+    deleteConversation(id: string): Promise<Result<null>>
     usage(): Promise<Result<{ callsToday: number }>>
-    /** Modelos ya descargados en Ollama. Vacio si Ollama no responde. */
+    /** Models already pulled in Ollama. Empty if Ollama does not answer. */
     ollamaModels(): Promise<Result<string[]>>
+    /**
+     * Models an OpenAI-compatible provider offers. Empty if the key is bad or
+     * there is no connection; the id can always be typed by hand. On OpenRouter
+     * it is filtered to the ones that support tools.
+     */
+    models(provider: LlmProviderId): Promise<Result<{ id: string; name: string; free: boolean }[]>>
+    /**
+     * A real request against the active provider. It is the only thing that
+     * proves the key, the model, the network and the credit all line up.
+     */
+    check(): Promise<Result<{ ok: boolean; detail: string }>>
   }
   organizer: {
     listRules(): Promise<Result<FileRule[]>>
@@ -118,52 +171,54 @@ export interface JarvisApi {
     undoLast(): Promise<Result<ApplyOutcomeDto>>
   }
   brief: {
-    /** `withSummary` en false evita la llamada al modelo, que es lo lento. */
+    /** `withSummary` false skips the model call, which is the slow part. */
     get(withSummary?: boolean): Promise<Result<DailyBrief>>
-    /** Solo los numeros, para el boton flotante. */
-    contadores(): Promise<Result<{ hoy: number; atrasadas: number }>>
+    /** Just the numbers, for the floating orb. */
+    counts(): Promise<Result<{ today: number; overdue: number }>>
   }
   plan: {
-    /** Calcula el reparto sin tocar el calendario. */
-    calcular(dias?: number): Promise<Result<PlanEstudio>>
-    /** Crea los eventos de un plan ya calculado. */
+    /** Works out the distribution without touching the calendar. */
+    planBlocks(dias?: number): Promise<Result<StudyPlan>>
+    /** Creates the events for a plan that has already been worked out. */
     aplicar(planId: string): Promise<Result<{ creados: number; fallos: string[] }>>
   }
-  novedades: {
-    /** Que ensenar tras actualizar. Vacio si no hay nada nuevo que contar. */
-    pendientes(): Promise<Result<{ version: string; titulo: string; puntos: string[] }[]>>
-    /** Marca la version actual como vista para que no vuelva a salir. */
-    marcarVistas(): Promise<Result<null>>
+  whatsNew: {
+    /** What to show after an update. Empty if there is nothing new to say. */
+    pending(): Promise<Result<{ version: string; title: string; points: string[] }[]>>
+    /** Marks the current version as seen so it does not appear again. */
+    markSeen(): Promise<Result<null>>
   }
   updater: {
-    /** Estado actual, para pintar algo nada mas abrir sin esperar eventos. */
+    /** Current state, so something can be painted before any event arrives. */
     get(): Promise<Result<UpdateState>>
     check(): Promise<Result<null>>
     installAndRestart(): Promise<Result<null>>
-    /** Se suscribe a los cambios. Devuelve la funcion para darse de baja. */
+    /** Subscribes to changes. Returns the function that unsubscribes. */
     onState(callback: (state: UpdateState) => void): () => void
   }
   hud: {
     toggle(): Promise<Result<boolean>>
     close(): Promise<Result<null>>
-    /** Desplazamiento en pixeles; se llama mientras se arrastra. */
+    /** Movement in pixels; called while dragging. */
     move(dx: number, dy: number): Promise<Result<null>>
-    /** Crece para ensenar una respuesta, o vuelve a encogerse. */
+    /** Grows to show an answer, or shrinks back again. */
     expand(open: boolean): Promise<Result<null>>
-    /** Abre la ventana grande en una seccion concreta. */
+    /** Opens the main window on a particular section. */
     openApp(): Promise<Result<null>>
   }
-  datos: {
-    /** Guarda tareas, reglas y conversacion en un fichero. null si se cancela. */
-    exportar(): Promise<Result<{ ruta: string; ficheros: number } | null>>
-    /** Restaura desde una copia. Requiere reiniciar despues. */
-    importar(): Promise<Result<{ ficheros: number } | null>>
+  data: {
+    /** Saves tasks, rules and the conversation to a file. null if cancelled. */
+    exportData(): Promise<Result<{ path: string; files: number } | null>>
+    /** Restores from a backup. Needs a restart afterwards. */
+    importData(): Promise<Result<{ files: number } | null>>
   }
   dialog: {
+    /** Opens a text file and returns it read, for attaching to the chat. */
+    attachFile(): Promise<Result<Attachment | null>>
     pickFolder(): Promise<Result<string | null>>
     /**
-     * Abre el client_secret_*.json que descarga Google Cloud y guarda las
-     * credenciales. Se lee y se extrae en el proceso principal: el secreto no
+     * Opens the client_secret_*.json downloaded from Google Cloud and saves the
+     * credentials. Read and extracted in the main process: the secret never
      * llega a cruzar al renderer en ningun momento.
      */
     importGoogleJson(): Promise<Result<SafeSettings | null>>
@@ -173,7 +228,7 @@ export interface JarvisApi {
   }
 }
 
-/** Nombres de canal. Se usan en los dos lados, asi que viven aqui. */
+/** Channel names. Used on both sides, so they live here. */
 export const Channels = {
   authStatus: 'auth:status',
   authSignIn: 'auth:signIn',
@@ -186,24 +241,40 @@ export const Channels = {
   tasksAdd: 'tasks:add',
   tasksUpdate: 'tasks:update',
   tasksRemove: 'tasks:remove',
-  tasksInterpretarPegado: 'tasks:interpretarPegado',
-  examenesList: 'examenes:list',
-  examenesAdd: 'examenes:add',
-  examenesUpdate: 'examenes:update',
-  examenesRemove: 'examenes:remove',
+  tasksParsePasted: 'tasks:parsePasted',
+  examsList: 'exams:list',
+  examsAdd: 'exams:add',
+  examsUpdate: 'exams:update',
+  examsRemove: 'exams:remove',
   agentHistory: 'agent:history',
   agentSend: 'agent:send',
   agentConfirm: 'agent:confirm',
   agentReset: 'agent:reset',
   agentUsage: 'agent:usage',
+  appVersion: 'app:version',
+  appMicrophone: 'app:microphone',
+  modelsSize: 'models:size',
+  modelsClear: 'models:clear',
+  modelsStatus: 'models:status',
+  modelsInstall: 'models:install',
+  modelsRepair: 'models:repair',
+  modelsCancel: 'models:cancel',
+  modelProgress: 'models:progress',
+  settingsReset: 'settings:reset',
   agentOllamaModels: 'agent:ollamaModels',
+  agentConversations: 'agent:conversations',
+  agentNewConversation: 'agent:newConversation',
+  agentOpenConversation: 'agent:openConversation',
+  agentDeleteConversation: 'agent:deleteConversation',
+  agentModels: 'agent:models',
+  agentCheck: 'agent:check',
   ollamaIsRunning: 'ollama:isRunning',
   ollamaRecommended: 'ollama:recommended',
   ollamaPull: 'ollama:pull',
   ollamaCancelPull: 'ollama:cancelPull',
-  /** Empujado desde main hacia el renderer. */
+  /** Pushed from main to the renderer. */
   ollamaProgress: 'ollama:progress',
-  ollamaProbar: 'ollama:probar',
+  ollamaTest: 'ollama:test',
   organizerListRules: 'organizer:listRules',
   organizerSaveRule: 'organizer:saveRule',
   organizerDeleteRule: 'organizer:deleteRule',
@@ -212,24 +283,25 @@ export const Channels = {
   organizerHistory: 'organizer:history',
   organizerUndoLast: 'organizer:undoLast',
   briefGet: 'brief:get',
-  briefContadores: 'brief:contadores',
-  planCalcular: 'plan:calcular',
+  briefCounts: 'brief:counts',
+  planCalcular: 'plan:planBlocks',
   planAplicar: 'plan:aplicar',
-  novedadesPendientes: 'novedades:pendientes',
-  novedadesMarcarVistas: 'novedades:marcarVistas',
+  whatsNewPending: 'whatsNew:pending',
+  whatsNewMarkSeen: 'whatsNew:markSeen',
   updaterGet: 'updater:get',
   updaterCheck: 'updater:check',
   updaterInstall: 'updater:install',
-  /** Empujado desde main hacia el renderer, al reves que el resto. */
+  /** Pushed from main to the renderer, the opposite way to everything else. */
   updaterState: 'updater:state',
   hudToggle: 'hud:toggle',
   hudClose: 'hud:close',
   hudMove: 'hud:move',
   hudExpand: 'hud:expand',
   hudOpenApp: 'hud:openApp',
-  datosExportar: 'datos:exportar',
-  datosImportar: 'datos:importar',
+  dataExport: 'data:export',
+  dataImport: 'data:import',
   dialogPickFolder: 'dialog:pickFolder',
   dialogImportGoogleJson: 'dialog:importGoogleJson',
+  dialogAttachFile: 'dialog:attachFile',
   shellOpenExternal: 'shell:openExternal'
 } as const

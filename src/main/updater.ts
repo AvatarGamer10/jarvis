@@ -2,16 +2,16 @@ import { app } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateState } from '@shared/types'
 
-/** Cada cuanto se vuelve a mirar si hay novedades con la app abierta. */
+/** How often to look for an update while the app is open. */
 const INTERVALO_MS = 6 * 60 * 60 * 1000
 
 /**
- * Las notas del parche vienen del cuerpo del release de GitHub, que puede
- * llegar como HTML o como varias entradas si se salto alguna version.
+ * The release notes come from the body of the GitHub release, which can
+ * arrive as HTML, or as several entries if a version was skipped.
  *
- * Se limpian aqui y no en la interfaz: al renderer solo le llega texto plano,
- * asi que aunque alguien escriba HTML raro en un release, no hay nada que
- * pueda inyectarse en la pantalla.
+ * Cleaned here and not in the interface: the renderer only ever receives plain
+ * text, so even if somebody writes odd HTML in a release there is nothing to
+ * could be injected into the screen.
  */
 function limpiarNotas(notas: unknown): string {
   const bruto = Array.isArray(notas)
@@ -20,7 +20,7 @@ function limpiarNotas(notas: unknown): string {
       ? notas
       : ''
 
-  const texto = bruto
+  const text = bruto
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(p|li|h\d)>/gi, '\n')
     .replace(/<li>/gi, '- ')
@@ -32,42 +32,42 @@ function limpiarNotas(notas: unknown): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
-  // Un release muy largo llenaria la pantalla; para eso esta el enlace.
-  return texto.length > 1200 ? `${texto.slice(0, 1200).trimEnd()}…` : texto
+  // A very long release would fill the screen; that is what the link is for.
+  return text.length > 1200 ? `${text.slice(0, 1200).trimEnd()}…` : text
 }
 
 /**
- * Comprueba, descarga e instala actualizaciones desde los releases de GitHub.
+ * Checks, downloads and installs updates from GitHub releases.
  *
- * La descarga es automatica y en segundo plano; lo unico que se le pide al
- * usuario es reiniciar cuando ya esta lista. Interrumpir para preguntar
- * "¿quieres descargar?" no aporta nada: la respuesta siempre es que si.
+ * The download is automatic and in the background; the only thing asked of the
+ * user is to restart once it is ready. Interrupting to ask "do you want to
+ * download this?" adds nothing: the answer is always yes.
  */
 export class UpdaterService {
-  private estado: UpdateState = { phase: 'idle' }
+  private state: UpdateState = { phase: 'idle' }
   private temporizador: NodeJS.Timeout | null = null
   private notasActuales = ''
 
   constructor(
-    private readonly emitir: (estado: UpdateState) => void,
-    /** Se llama antes de reiniciar, para que cerrar no se quede en la bandeja. */
+    private readonly emitir: (state: UpdateState) => void,
+    /** Called before restarting, so closing does not stop at the tray. */
     private readonly prepararSalida: () => void
   ) {}
 
   estadoActual(): UpdateState {
-    return this.estado
+    return this.state
   }
 
   start(): void {
     // En desarrollo no hay app-update.yml y electron-updater lanza al arrancar.
-    // No es un fallo: es que no hay nada que actualizar sin empaquetar.
+    // Not a failure: there is simply nothing to update when unpackaged.
     if (!app.isPackaged) {
       this.cambiar({ phase: 'none', currentVersion: app.getVersion() })
       return
     }
 
     autoUpdater.autoDownload = true
-    // Si el usuario no reinicia, la actualizacion se aplica al cerrar del todo.
+    // If the user does not restart, the update is applied on a full quit.
     autoUpdater.autoInstallOnAppQuit = true
     autoUpdater.logger = null
 
@@ -88,9 +88,9 @@ export class UpdaterService {
     })
 
     autoUpdater.on('download-progress', (progreso) => {
-      // Solo tiene sentido si ya sabemos que version se esta bajando.
-      if (this.estado.phase !== 'downloading') return
-      this.cambiar({ ...this.estado, percent: Math.round(progreso.percent) })
+      // Only meaningful once we know which version is coming down.
+      if (this.state.phase !== 'downloading') return
+      this.cambiar({ ...this.state, percent: Math.round(progreso.percent) })
     })
 
     autoUpdater.on('update-downloaded', (info) => {
@@ -102,7 +102,7 @@ export class UpdaterService {
     })
 
     autoUpdater.on('error', (error) => {
-      // Quedarse sin internet es lo normal, no una incidencia que reportar.
+      // Losing the connection is ordinary, not an incident worth reporting.
       console.error('[updater]', error)
       this.cambiar({ phase: 'error', message: this.explicar(error) })
     })
@@ -125,31 +125,31 @@ export class UpdaterService {
     }
   }
 
-  /** Reinicia y aplica la actualizacion ya descargada. */
+  /** Restarts and applies the update that has already been downloaded. */
   instalarYReiniciar(): void {
-    if (this.estado.phase !== 'ready') return
-    // Sin esto, el cierre a bandeja cancelaria la salida y no se instalaria.
+    if (this.state.phase !== 'ready') return
+    // Without this, close-to-tray would cancel the quit and nothing would install.
     this.prepararSalida()
     autoUpdater.quitAndInstall()
   }
 
-  private cambiar(estado: UpdateState): void {
-    this.estado = estado
-    this.emitir(estado)
+  private cambiar(state: UpdateState): void {
+    this.state = state
+    this.emitir(state)
   }
 
   private explicar(error: Error): string {
-    const mensaje = error?.message ?? String(error)
+    const message = error?.message ?? String(error)
 
-    if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|net::/i.test(mensaje)) {
-      return 'Sin conexion para comprobar actualizaciones.'
+    if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|net::/i.test(message)) {
+      return 'No connection, so updates could not be checked.'
     }
-    if (/404/.test(mensaje)) {
-      return 'No hay ninguna version publicada todavia.'
+    if (/404/.test(message)) {
+      return 'No version has been published yet.'
     }
-    if (/403|rate limit/i.test(mensaje)) {
-      return 'GitHub esta limitando las peticiones. Se reintentara mas tarde.'
+    if (/403|rate limit/i.test(message)) {
+      return 'GitHub is rate limiting us. It will try again later.'
     }
-    return `No se pudo comprobar actualizaciones: ${mensaje}`
+    return `Could not check for updates: ${message}`
   }
 }

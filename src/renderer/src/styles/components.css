@@ -1,0 +1,1242 @@
+/* =========================================================================
+   VILO — COMPONENTS
+
+   The parts every screen is assembled from. If a screen needs a new visual
+   idea, it belongs here first and gets used there second.
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   Buttons
+
+   Three weights and nothing more:
+
+     .btn            the default — a raised sheet of the same grey
+     .btn.primary    near-white, for the one action that matters
+     .btn.ghost      no surface at all, for anything repeated in a list
+
+   All three are lit the same way: a hairline of white along the top edge and
+   a dark shadow underneath, so they read as a physical thing catching the
+   light of the room rather than a rectangle that was filled in.
+   ------------------------------------------------------------------------- */
+
+/*
+ * A note on how the hover is built, because the obvious way is broken.
+ *
+ * The obvious way is to change `background` on :hover and let the transition
+ * handle it. CSS cannot interpolate a gradient into a flat colour, so the
+ * moment the pointer arrives the fill snaps and then everything else eases —
+ * which is exactly the "glitch" that made these unpleasant to use.
+ *
+ * So the fill never changes. Every button carries two overlays that are only
+ * ever faded in and out:
+ *
+ *   ::before   a flat wash that lifts the whole surface
+ *   ::after    a soft light under the pointer, positioned from --px/--py
+ *
+ * Opacity is compositor-only, so hover costs nothing and can never jump.
+ */
+
+.btn {
+  --btn-h: 34px;
+  --btn-wash: rgb(255 255 255 / 6%);
+  --btn-spec: rgb(255 255 255 / 22%);
+
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: var(--btn-h);
+  padding: 0 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: linear-gradient(180deg, rgb(255 255 255 / 7.5%), rgb(255 255 255 / 3%));
+  box-shadow: var(--lit), var(--shadow-1);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 520;
+  letter-spacing: -0.008em;
+  white-space: nowrap;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    border-color 180ms var(--ease),
+    transform 120ms var(--ease),
+    color 180ms var(--ease),
+    opacity 180ms var(--ease);
+}
+
+.btn::before,
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms var(--ease);
+}
+
+.btn::before {
+  background: var(--btn-wash);
+}
+
+/* Falls back to the centre when the pointer has never been over it — which is
+   what keyboard focus gets, and it looks deliberate rather than dark. */
+.btn::after {
+  background: radial-gradient(
+    120px circle at var(--px, 50%) var(--py, 50%),
+    var(--btn-spec),
+    transparent 62%
+  );
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--line-3);
+}
+
+.btn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+
+.btn:hover:not(:disabled)::after {
+  opacity: 1;
+}
+
+/* The press is a single pixel, and the light dips with it. More than that and
+   a desktop app starts to feel like a web page pretending to be one.
+   Crucially the shadow is not touched: swapping box-shadow on :active is what
+   made clicking Continue flicker. */
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.994);
+  transition-duration: 60ms;
+}
+
+.btn:active:not(:disabled)::after {
+  opacity: 0.45;
+  transition-duration: 60ms;
+}
+
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  opacity: 0.85;
+}
+
+/* Primary. This is the only near-white surface in the app that is not
+   urgency, and it is allowed exactly one per screen. The halo underneath is
+   light spilling off it, and it stays put on hover — a halo that vanishes
+   when you point at something is the thing looking away from you. */
+.btn.primary {
+  --btn-wash: rgb(255 255 255 / 55%);
+  --btn-spec: rgb(255 255 255 / 75%);
+
+  background: linear-gradient(180deg, var(--g-050), var(--g-200));
+  border-color: transparent;
+  color: var(--g-950);
+  font-weight: 580;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 80%),
+    inset 0 -1px 0 rgb(0 0 0 / 12%),
+    var(--shadow-1),
+    var(--halo);
+}
+
+.btn.primary:hover:not(:disabled) {
+  border-color: transparent;
+}
+
+.btn.primary svg {
+  opacity: 1;
+}
+
+.btn.ghost {
+  --btn-wash: var(--surface-2);
+  --btn-spec: rgb(255 255 255 / 8%);
+
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  border-color: transparent;
+  color: var(--text);
+}
+
+/* Destructive actions. The colour and the second press between them are what
+   make these safe; see the danger zone in views.css for the armed state. */
+.btn.danger {
+  color: var(--danger);
+  border-color: var(--danger-line);
+}
+
+.btn.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
+.btn.sm {
+  --btn-h: 27px;
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+  border-radius: var(--r-xs);
+}
+
+.btn.sm svg {
+  width: 13px;
+  height: 13px;
+}
+
+.btn.lg {
+  --btn-h: 42px;
+  padding: 0 20px;
+  font-size: var(--fs-body);
+  border-radius: var(--r-md);
+}
+
+.btn.icon {
+  width: var(--btn-h);
+  padding: 0;
+}
+
+.btn.pill {
+  border-radius: var(--r-full);
+}
+
+.btn.block {
+  width: 100%;
+}
+
+/* A plain text button. Used inside sentences and toasts, where a real button
+   would be far too loud. */
+.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line-3);
+  text-underline-offset: 3px;
+  transition: color var(--t-2) var(--ease);
+}
+
+.link:hover {
+  color: var(--text);
+  text-decoration-color: var(--line-4);
+}
+
+/* -------------------------------------------------------------------------
+   Fields
+
+   Inputs are sunk rather than raised — the inverse of a button, so the two
+   never get confused at a glance.
+   ------------------------------------------------------------------------- */
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 22%);
+  box-shadow: var(--sunk);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  user-select: text;
+  cursor: text;
+  transition:
+    border-color var(--t-2) var(--ease),
+    box-shadow var(--t-2) var(--ease),
+    background var(--t-2) var(--ease);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--text-4);
+}
+
+.input:hover,
+.textarea:hover,
+.select:hover {
+  border-color: var(--line-3);
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--line-4);
+  background: rgb(0 0 0 / 30%);
+  box-shadow:
+    var(--sunk),
+    0 0 0 3px rgb(255 255 255 / 6%);
+}
+
+.input:disabled,
+.textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.textarea {
+  min-height: 84px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.select {
+  cursor: pointer;
+  user-select: none;
+  appearance: none;
+  padding-right: 32px;
+  /* Chevron drawn in the background so the control keeps one box. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
+    linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) center,
+    calc(100% - 11px) center;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+.select option {
+  background: var(--g-850);
+  color: var(--text);
+}
+
+/* Field group: label above, hint below, and the whole thing knows its own
+   spacing so forms never need one-off margins. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field > .field-label {
+  font-size: var(--fs-xs);
+  font-weight: 520;
+  color: var(--text-2);
+  letter-spacing: -0.004em;
+}
+
+.field > .field-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* Search box with a leading icon. */
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search svg {
+  position: absolute;
+  left: 11px;
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+
+.search .input {
+  padding-left: 34px;
+}
+
+/* -------------------------------------------------------------------------
+   Toggle
+
+   A real switch, not a checkbox with a label. It is the one control in the
+   app that animates with a spring, because a switch is a physical object and
+   physical objects overshoot.
+   ------------------------------------------------------------------------- */
+
+.toggle {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: rgb(0 0 0 / 30%);
+  box-shadow: var(--sunk);
+  cursor: pointer;
+  transition:
+    background var(--t-3) var(--ease),
+    border-color var(--t-3) var(--ease);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-full);
+  background: linear-gradient(180deg, var(--g-300), var(--g-400));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 40%),
+    var(--shadow-1);
+  transition:
+    transform var(--t-3) var(--ease-spring),
+    background var(--t-3) var(--ease);
+}
+
+.toggle[aria-checked='true'] {
+  background: rgb(255 255 255 / 16%);
+  border-color: var(--line-4);
+}
+
+.toggle[aria-checked='true']::after {
+  transform: translateX(16px);
+  background: linear-gradient(180deg, #fff, var(--g-200));
+}
+
+.toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Row that pairs a switch with its explanation. */
+.switch-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-5);
+  padding: var(--s-3) 0;
+}
+
+.switch-row + .switch-row {
+  border-top: 1px solid var(--line);
+}
+
+.switch-row .switch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.switch-row .switch-text strong {
+  font-size: var(--fs-sm);
+  font-weight: 520;
+  color: var(--text);
+}
+
+.switch-row .switch-text span {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* -------------------------------------------------------------------------
+   Segmented control
+
+   The moving background is a single element that slides, not a class that
+   jumps between children. That is what makes it feel like one control
+   instead of several buttons agreeing with each other.
+   ------------------------------------------------------------------------- */
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 24%);
+  box-shadow: var(--sunk);
+}
+
+.segmented-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 13%), rgb(255 255 255 / 7%));
+  box-shadow: var(--lit-strong), var(--shadow-1);
+  transition:
+    transform var(--t-3) var(--ease),
+    width var(--t-3) var(--ease);
+  pointer-events: none;
+}
+
+.segmented button {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  background: none;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 520;
+  color: var(--text-3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--t-2) var(--ease);
+}
+
+.segmented button:hover {
+  color: var(--text-2);
+}
+
+.segmented button[aria-selected='true'] {
+  color: var(--text);
+}
+
+/* -------------------------------------------------------------------------
+   Surfaces
+   ------------------------------------------------------------------------- */
+
+.card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--lit), var(--shadow-1);
+  padding: var(--s-5);
+}
+
+/* Cards that respond to the mouse. The lift is 1px and the light gets
+   brighter — the same two things a real object does. */
+.card.interactive {
+  cursor: pointer;
+  transition:
+    background var(--t-2) var(--ease),
+    border-color var(--t-2) var(--ease),
+    box-shadow var(--t-3) var(--ease),
+    transform var(--t-3) var(--ease);
+}
+
+.card.interactive:hover {
+  background: var(--surface-2);
+  border-color: var(--line-2);
+  box-shadow: var(--lit-strong), var(--shadow-2);
+  transform: translateY(-1px);
+}
+
+.card.interactive:active {
+  transform: translateY(0);
+  transition-duration: 40ms;
+}
+
+/* -------------------------------------------------------------------------
+   Specular
+
+   Opt-in pointer light for anything bigger than a button: a wide, very faint
+   pool that follows the cursor across the surface. The coordinates come from
+   startSpecularTracking() in components/anim.tsx, which sets --px and --py at
+   most once a frame for the whole document.
+
+   Without a pointer it never appears, so it costs nothing on touch or for
+   keyboard users, and it is never the thing carrying meaning — the border and
+   the shadow still do that.
+   ------------------------------------------------------------------------- */
+
+.specular {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.specular::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    260px circle at var(--px, 50%) var(--py, 50%),
+    rgb(255 255 255 / 7%),
+    transparent 58%
+  );
+  transition: opacity 280ms var(--ease);
+}
+
+.specular:hover::after {
+  opacity: 1;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgb(0 0 0 / 16%);
+  overflow: hidden;
+}
+
+.state-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  width: min(620px, 100%);
+  margin: auto;
+  padding: var(--s-5);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--lit), var(--shadow-1);
+}
+
+.state-notice.compact {
+  width: 100%;
+  margin: 0 0 var(--s-4);
+  padding: var(--s-4);
+}
+
+.state-notice-mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.state-notice-mark svg {
+  width: 15px;
+  height: 15px;
+}
+
+.state-notice strong {
+  display: block;
+  margin: 1px 0 3px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+
+.state-notice p {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.state-notice.error .state-notice-mark {
+  color: var(--hot);
+}
+
+.state-notice.success .state-notice-mark {
+  color: var(--text);
+  background: rgb(255 255 255 / 10%);
+}
+
+.state-notice-action {
+  align-self: center;
+  flex: none;
+}
+
+/* -------------------------------------------------------------------------
+   Lists
+
+   The workhorse of Tasks, Grades and Files. Rows are separated by hairlines
+   rather than gaps: a long list of floating cards is much harder to scan
+   than a single continuous surface.
+   ------------------------------------------------------------------------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--lit);
+  overflow: hidden;
+}
+
+.list-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 11px var(--s-4);
+  min-height: 50px;
+  transition: background var(--t-2) var(--ease);
+}
+
+.list-item + .list-item {
+  box-shadow: inset 0 1px 0 var(--line);
+}
+
+.list-item:hover {
+  background: var(--surface-2);
+}
+
+/* The urgency stripe. Off the left edge, one pixel wide, brightness set by
+   how close the deadline is. It is the only ranking signal in the list and
+   it needs no legend. */
+.list-item[data-urgency]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity var(--t-3) var(--ease);
+}
+
+.list-item[data-urgency='overdue']::before {
+  opacity: 1;
+  color: var(--hot);
+}
+.list-item[data-urgency='today']::before {
+  opacity: 0.75;
+  color: var(--g-100);
+}
+.list-item[data-urgency='soon']::before {
+  opacity: 0.45;
+  color: var(--g-300);
+}
+.list-item[data-urgency='week']::before {
+  opacity: 0.22;
+  color: var(--g-400);
+}
+
+.list-item.done {
+  opacity: 0.42;
+}
+
+.list-item.done .item-title {
+  text-decoration: line-through;
+  text-decoration-color: var(--line-4);
+}
+
+.item-title {
+  font-size: var(--fs-sm);
+  font-weight: 480;
+  color: var(--text);
+  letter-spacing: -0.008em;
+}
+
+.item-sub {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+
+/* Actions that only appear on hover. They stay in the layout (opacity, not
+   display) so nothing shifts when the mouse arrives. */
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--t-2) var(--ease);
+}
+
+.list-item:hover .item-actions,
+.list-item:focus-within .item-actions {
+  opacity: 1;
+}
+
+/* -------------------------------------------------------------------------
+   Checkbox
+
+   Drawn by hand because the native one cannot be made to look like it
+   belongs next to any of this.
+   ------------------------------------------------------------------------- */
+
+.check {
+  position: relative;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-xs);
+  background: rgb(0 0 0 / 20%);
+  cursor: pointer;
+  transition:
+    background var(--t-2) var(--ease),
+    border-color var(--t-2) var(--ease),
+    transform var(--t-1) var(--ease);
+}
+
+.check:hover {
+  border-color: var(--line-4);
+  background: rgb(255 255 255 / 6%);
+}
+
+.check:active {
+  transform: scale(0.9);
+}
+
+.check[aria-checked='true'] {
+  background: var(--g-050);
+  border-color: var(--g-050);
+}
+
+.check svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 12px;
+  height: 12px;
+  color: var(--g-950);
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity var(--t-2) var(--ease),
+    transform var(--t-2) var(--ease-spring);
+}
+
+.check[aria-checked='true'] svg {
+  opacity: 1;
+  transform: none;
+}
+
+/* -------------------------------------------------------------------------
+   Badges and chips
+   ------------------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-2);
+  letter-spacing: -0.004em;
+  white-space: nowrap;
+}
+
+.badge.solid {
+  background: var(--g-100);
+  border-color: transparent;
+  color: var(--g-950);
+  font-weight: 560;
+}
+
+.badge.quiet {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--text-3);
+}
+
+.badge svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Chip: a badge you can click. Used for suggestions and filters. */
+.chip {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: linear-gradient(180deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 2.5%));
+  box-shadow: var(--lit);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  transition:
+    color 180ms var(--ease),
+    border-color 180ms var(--ease),
+    transform 120ms var(--ease);
+}
+
+/* Same overlay trick as the buttons — see the note up there. */
+.chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0;
+  background: rgb(255 255 255 / 6%);
+  transition: opacity 200ms var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--line-3);
+  color: var(--text);
+}
+
+.chip:hover::before {
+  opacity: 1;
+}
+
+.chip:active {
+  transform: scale(0.975);
+  transition-duration: 60ms;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--line-4);
+  color: var(--text);
+}
+
+.chip[aria-pressed='true']::before {
+  opacity: 1;
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--g-100);
+  border-color: transparent;
+  color: var(--g-950);
+  font-weight: 540;
+}
+
+/* -------------------------------------------------------------------------
+   Progress
+   ------------------------------------------------------------------------- */
+
+.progress {
+  position: relative;
+  height: 4px;
+  border-radius: var(--r-full);
+  background: rgb(255 255 255 / 7%);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--g-300), var(--g-050));
+  box-shadow: 0 0 14px -2px rgb(255 255 255 / 40%);
+  transition: width var(--t-4) var(--ease);
+}
+
+/* Indeterminate: a band of light sweeping across. */
+.progress.pending .progress-fill {
+  width: 34%;
+  animation: sheen 1.35s var(--ease-in-out) infinite;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--line-3);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin 620ms linear infinite;
+  flex: none;
+}
+
+/* Three dots that pulse in sequence. Used wherever the app is thinking and
+   there is no percentage to show. */
+.dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.dots span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: breathe 1.15s var(--ease-in-out) infinite;
+}
+
+.dots span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+.dots span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+.skeleton {
+  position: relative;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 5%), transparent);
+  animation: sheen 1.4s var(--ease-in-out) infinite;
+}
+
+/* -------------------------------------------------------------------------
+   Alerts
+
+   Still grey. The border on the left and the weight of the text do the
+   signalling; nothing shouts.
+   ------------------------------------------------------------------------- */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  /*
+   * One border weight all the way round.
+   *
+   * The left edge used to be 2px against 1px everywhere else. Where a thicker
+   * edge meets a thinner one inside a rounded corner, the browser draws the
+   * join as a diagonal — so each left corner grew a small wedge that looked
+   * like a rendering fault. The icon already says what kind of message this is;
+   * the border does not need to say it twice.
+   */
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.55;
+  animation: rise var(--t-3) var(--ease) both;
+}
+
+.alert svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  color: var(--text-3);
+}
+
+/* Something went wrong. Red is the signal, but the border carries it rather
+   than the text: an error message set entirely in red is harder to read than
+   the same message in white, and the reading is the point. */
+.alert.error {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--text);
+}
+
+.alert.error svg {
+  color: var(--danger);
+}
+
+/* -------------------------------------------------------------------------
+   Empty states
+
+   Every one of them gets a mark, a sentence, and a way out. An empty box
+   with the word "Empty" in it is a dead end.
+   ------------------------------------------------------------------------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  padding: var(--s-16) var(--s-6);
+  text-align: center;
+  animation: rise var(--t-4) var(--ease) both;
+}
+
+.empty-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: var(--s-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--lit);
+  color: var(--text-3);
+}
+
+.empty-mark svg {
+  width: 22px;
+  height: 22px;
+}
+
+.empty h3 {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+}
+
+.empty p {
+  max-width: 40ch;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+/* -------------------------------------------------------------------------
+   Overlay and dialog
+   ------------------------------------------------------------------------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: var(--s-8);
+  background: rgb(6 6 8 / 62%);
+  backdrop-filter: blur(16px) saturate(60%);
+  animation: fade var(--t-2) var(--ease) both;
+}
+
+.dialog {
+  width: min(520px, 100%);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xl);
+  background: var(--elevated);
+  box-shadow: var(--lit-strong), var(--shadow-4);
+  overflow: hidden;
+  animation: drop var(--t-3) var(--ease) both;
+}
+
+.dialog-head {
+  padding: var(--s-5) var(--s-6) var(--s-3);
+}
+
+.dialog-body {
+  padding: 0 var(--s-6) var(--s-5);
+  overflow-y: auto;
+}
+
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding: var(--s-4) var(--s-6);
+  border-top: 1px solid var(--line);
+  background: rgb(0 0 0 / 20%);
+}
+
+/* -------------------------------------------------------------------------
+   Toasts
+
+   Bottom-centre, floating, self-dismissing. They never push the layout
+   around: the whole reason they exist is that saving something used to move
+   the button you just clicked.
+   ------------------------------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: var(--s-6);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-2);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  max-width: min(560px, 80vw);
+  padding: 10px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: rgb(24 24 28 / 92%);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--lit-strong), var(--shadow-3);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  pointer-events: auto;
+  animation: drop var(--t-3) var(--ease) both;
+}
+
+.toast.error {
+  border-color: var(--danger-line);
+}
+
+.toast.error .toast-text::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  vertical-align: middle;
+}
+
+.toast .toast-text {
+  min-width: 0;
+}
+
+/* -------------------------------------------------------------------------
+   Tool trace
+
+   Used in Chat to show what the agent actually did. Monospace, dim, and
+   deliberately unglamorous: it is a receipt, not a feature.
+   ------------------------------------------------------------------------- */
+
+.trace {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--s-2);
+  padding-left: var(--s-3);
+  border-left: 1px solid var(--line-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.trace-line {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  animation: rise var(--t-3) var(--ease) both;
+}
+
+.trace-line svg {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  transform: translateY(1.5px);
+}
+
+.trace-line.failed {
+  color: var(--text-2);
+}
+
+.trace-name {
+  color: var(--text-2);
+}

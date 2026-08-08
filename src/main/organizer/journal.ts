@@ -5,12 +5,12 @@ interface JournalData {
   batches: UndoBatch[]
 }
 
-/** Cuantos lotes se guardan para poder deshacer. */
+/** How many batches are kept so they can be undone. */
 const MAX_BATCHES = 20
 
 /**
- * Registro de lo que se ha movido. Es lo que hace que "deshacer" sea posible,
- * y por eso el organizador nunca borra: siempre hay camino de vuelta.
+ * A record of what has been moved. It is what makes undo possible, and it is
+ * why the organiser never deletes: there is always a way back.
  */
 export class Journal {
   private readonly store: JsonStore<JournalData>

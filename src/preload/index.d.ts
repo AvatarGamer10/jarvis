@@ -1,8 +1,8 @@
-import type { JarvisApi } from '@shared/ipc'
+import type { ViloApi } from '@shared/ipc'
 
 declare global {
   interface Window {
-    jarvis: JarvisApi
+    vilo: ViloApi
   }
 }
 

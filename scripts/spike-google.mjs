@@ -1,13 +1,14 @@
 /**
- * FASE 0 - Spike de acceso (bloqueante)
+ * PHASE 0 — access spike (blocking)
  *
- * Comprueba, ANTES de construir nada, que:
- *   1. Tu cuenta del colegio deja autorizar la app (el admin de Workspace puede bloquearla).
- *   2. Puedes leer tus cursos y tareas de Google Classroom.
- *   3. Puedes leer tu Google Calendar.
- *   4. Tu clave de Gemini funciona.
+ * Checks, BEFORE building anything, that:
+ *   1. Your school account is allowed to authorise the app (a Workspace admin
+ *      can block it).
+ *   2. You can read your Google Classroom courses and assignments.
+ *   3. You can read your Google Calendar.
+ *   4. Your Gemini key works.
  *
- * Solo usa modulos nativos de Node: no hace falta `npm install`.
+ * Uses only Node's built-in modules: no `npm install` needed.
  *
  *   node scripts/spike-google.mjs
  */
@@ -20,16 +21,16 @@ import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const TOKEN_FILE = path.join(ROOT, '.jarvis-spike-tokens.json')
+const TOKEN_FILE = path.join(ROOT, '.vilo-spike-tokens.json')
 
-// Permisos que pedimos. Principio de minimo privilegio: todo lo de Classroom es
-// SOLO LECTURA, porque la API no nos deja entregar tareas de todos modos (ver README).
+// The permissions we ask for. Least privilege: everything Classroom is READ
+// ONLY, because the API will not let us submit work anyway (see the README).
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/classroom.courses.readonly',
   'https://www.googleapis.com/auth/classroom.coursework.me.readonly',
   'https://www.googleapis.com/auth/classroom.student-submissions.me.readonly',
-  // drive.file solo da acceso a los ficheros que crea la propia app, no a todo tu Drive.
+  // drive.file grants access only to files the app itself creates, not to all of your Drive.
   'https://www.googleapis.com/auth/drive.file'
 ]
 
@@ -48,12 +49,12 @@ const c = {
 }
 
 const ok = (m) => console.log(`${c.green}  OK${c.reset}  ${m}`)
-const fail = (m) => console.log(`${c.red}  FALLO${c.reset}  ${m}`)
-const warn = (m) => console.log(`${c.yellow}  AVISO${c.reset}  ${m}`)
+const fail = (m) => console.log(`${c.red}  FAIL${c.reset}  ${m}`)
+const warn = (m) => console.log(`${c.yellow}  WARN${c.reset}  ${m}`)
 const info = (m) => console.log(`${c.dim}        ${m}${c.reset}`)
 const title = (m) => console.log(`\n${c.bold}${c.cyan}${m}${c.reset}`)
 
-/** Lee .env sin dependencias externas. */
+/** Reads .env with no external dependencies. */
 function loadEnv() {
   const file = path.join(ROOT, '.env')
   if (!fs.existsSync(file)) return {}
@@ -78,7 +79,7 @@ function loadEnv() {
 
 function openBrowser(url) {
   if (process.platform === 'win32') {
-    // El "" vacio es el titulo de ventana: sin el, start trata la URL como titulo.
+    // The empty "" is the window title: without it, start treats the URL as one.
     spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' }).unref()
   } else if (process.platform === 'darwin') {
     spawn('open', [url], { detached: true, stdio: 'ignore' }).unref()
@@ -89,7 +90,7 @@ function openBrowser(url) {
 
 const base64url = (buf) => buf.toString('base64url')
 
-/** Llama a una API de Google y devuelve { ok, status, data }. */
+/** Calls a Google API and returns { ok, status, data }. */
 async function api(url, accessToken) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
   const text = await res.text()
@@ -102,28 +103,28 @@ async function api(url, accessToken) {
   return { ok: res.ok, status: res.status, data }
 }
 
-/** Explica en cristiano los errores tipicos de Google. */
+/** Explains Google's usual errors in plain English. */
 function explainGoogleError(status, data) {
   const msg = data?.error?.message ?? data?.error_description ?? JSON.stringify(data).slice(0, 300)
   const lines = [msg]
   if (status === 403 && /has not been used|is disabled|SERVICE_DISABLED/i.test(msg)) {
     lines.push(
-      'La API no esta habilitada en tu proyecto de Google Cloud. Actívala en la consola y espera 1-2 min.'
+      'That API is not enabled in your Google Cloud project. Turn it on in the console and wait a minute or two.'
     )
   } else if (status === 403 && /PERMISSION_DENIED|caller does not have/i.test(msg)) {
     lines.push(
-      'Puede ser que el admin del colegio bloquee apps de terceros, o que falte el scope correspondiente.'
+      'The school admin may be blocking third-party apps, or the matching scope may be missing.'
     )
   } else if (status === 401) {
-    lines.push('Token invalido o caducado. Borra .jarvis-spike-tokens.json y repite el login.')
+    lines.push('Token invalido o caducado. Borra .vilo-spike-tokens.json y repite el login.')
   } else if (status === 404) {
-    lines.push('No encontrado: normalmente significa que esa cuenta no tiene ese recurso.')
+    lines.push('Not found: usually means that account does not have that resource.')
   }
   return lines
 }
 
 // --------------------------------------------------------------------------
-// OAuth 2.0 con PKCE y redireccion a loopback
+// OAuth 2.0 with PKCE and a loopback redirect
 // --------------------------------------------------------------------------
 
 async function authorize(clientId, clientSecret) {
@@ -132,20 +133,20 @@ async function authorize(clientId, clientSecret) {
     : null
 
   if (cached?.refresh_token) {
-    info('Encontrado un refresh token guardado, intentando renovar...')
+    info('Found a stored refresh token; trying to renew it…')
     const refreshed = await refreshAccessToken(clientId, clientSecret, cached.refresh_token)
     if (refreshed) {
-      ok('Sesion renovada sin abrir el navegador.')
+      ok('Session renewed without opening the browser.')
       return refreshed.access_token
     }
-    warn('El refresh token ya no vale (¿han pasado mas de 7 dias en modo "Testing"?). Repetimos login.')
+    warn('The refresh token is no longer valid — more than 7 days in "Testing" mode? Signing in again.')
   }
 
   const verifier = base64url(crypto.randomBytes(48))
   const challenge = base64url(crypto.createHash('sha256').update(verifier).digest())
   const state = base64url(crypto.randomBytes(16))
 
-  // Escuchamos en 127.0.0.1 con puerto efimero: el SO nos da uno libre.
+  // Listening on 127.0.0.1 with an ephemeral port: the OS hands us a free one.
   const server = http.createServer()
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
   const port = server.address().port
@@ -162,26 +163,26 @@ async function authorize(clientId, clientSecret) {
   authUrl.searchParams.set('access_type', 'offline')
   authUrl.searchParams.set('prompt', 'consent')
 
-  console.log('\nAbriendo el navegador para que inicies sesion.')
-  console.log(`${c.dim}Si no se abre solo, copia esta URL:${c.reset}`)
+  console.log('\nOpening the browser so you can sign in.')
+  console.log(`${c.dim}If it does not open by itself, copy this URL:${c.reset}`)
   console.log(`${c.dim}${authUrl}${c.reset}\n`)
-  console.log(`${c.yellow}>> Inicia sesion con la cuenta que quieras probar.${c.reset}`)
-  console.log(`${c.dim}Si ves "Google no ha verificado esta aplicacion", pulsa Configuracion avanzada > Ir a JARVIS.${c.reset}`)
+  console.log(`${c.yellow}>> Sign in with the account you want to test.${c.reset}`)
+  console.log(`${c.dim}If you see "Google hasn\u2019t verified this app", press Advanced > Go to Vilo.${c.reset}`)
   console.log(
     `${c.dim}Si sale "Acceso bloqueado: el administrador de tu institucion debe revisar",${c.reset}`
   )
   console.log(
-    `${c.dim}esa cuenta es de un centro que no ha aprobado la app: prueba con una cuenta personal.${c.reset}`
+    `${c.dim}that account belongs to a school that has not approved the app: try a personal one.${c.reset}`
   )
 
   const code = await new Promise((resolve, reject) => {
     // 15 minutos: el flujo de Google tiene varias pantallas (elegir cuenta,
-    // aviso de app no verificada, lista de permisos) y con 5 minutos se
+    // the unverified-app warning, the permission list — and five minutes
     // quedaba corto en cuanto te distraias un momento.
     const timeout = setTimeout(
       () => {
         server.close()
-        reject(new Error('Se agoto el tiempo de espera (15 min) sin completar el login.'))
+        reject(new Error('Timed out after 15 minutes without the sign-in completing.'))
       },
       15 * 60 * 1000
     )
@@ -196,7 +197,7 @@ async function authorize(clientId, clientSecret) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(
           `<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;padding:3rem;text-align:center">
-           <h2>${msg}</h2><p>Ya puedes cerrar esta pestana y volver a la terminal.</p></body>`
+           <h2>${msg}</h2><p>You can close this tab and go back to the terminal.</p></body>`
         )
       }
 
@@ -207,11 +208,11 @@ async function authorize(clientId, clientSecret) {
         reject(new Error(`Google devolvio error=${error}`))
         return
       }
-      // Sin esta comprobacion, un enlace malicioso podria inyectarnos un code ajeno.
+      // Without this check, a malicious link could inject somebody else's code.
       if (returnedState !== state) {
         reply('Error de seguridad (state no coincide)')
         server.close()
-        reject(new Error('El parametro state no coincide: posible intento de CSRF.'))
+        reject(new Error('The state parameter does not match: possible CSRF attempt.'))
         return
       }
       reply('Listo, JARVIS ya tiene acceso')
@@ -238,7 +239,7 @@ async function authorize(clientId, clientSecret) {
   }
 
   fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2))
-  ok('Login completado y tokens guardados en .jarvis-spike-tokens.json')
+  ok('Login completado y tokens guardados en .vilo-spike-tokens.json')
   if (!tokens.refresh_token) {
     warn('Google no devolvio refresh_token. Revoca el acceso en myaccount.google.com/permissions y repite.')
   }
@@ -272,7 +273,7 @@ async function checkClassroom(accessToken, results) {
     accessToken
   )
   if (!courses.ok) {
-    fail(`No se pudieron listar los cursos (HTTP ${courses.status}).`)
+    fail(`Could not list the courses (HTTP ${courses.status}).`)
     explainGoogleError(courses.status, courses.data).forEach(info)
     results.classroom = false
     return
@@ -280,8 +281,8 @@ async function checkClassroom(accessToken, results) {
 
   const list = courses.data.courses ?? []
   if (list.length === 0) {
-    warn('La cuenta ha autorizado bien, pero no aparece ningun curso activo como alumno.')
-    info('Si es verano o los cursos estan archivados, prueba a quitar courseStates=ACTIVE.')
+    warn('The account authorised fine, but no active course shows up for this student.')
+    info('If it is the summer, or the courses are archived, try dropping courseStates=ACTIVE.')
     results.classroom = true
     return
   }
@@ -289,14 +290,14 @@ async function checkClassroom(accessToken, results) {
   ok(`${list.length} curso(s) activo(s) encontrados:`)
   for (const course of list) info(`- ${course.name}${course.section ? ` (${course.section})` : ''}`)
 
-  // Miramos las tareas del primer curso para validar tambien courseWork y submissions.
+  // The first course's work is checked too, to validate courseWork and submissions.
   const first = list[0]
   const work = await api(
     `https://classroom.googleapis.com/v1/courses/${first.id}/courseWork?pageSize=10`,
     accessToken
   )
   if (!work.ok) {
-    fail(`Cursos OK pero no se pueden leer las tareas de "${first.name}" (HTTP ${work.status}).`)
+    fail(`Courses fine, but the assignments for "${first.name}" cannot be read (HTTP ${work.status}).`)
     explainGoogleError(work.status, work.data).forEach(info)
     results.classroom = false
     return
@@ -316,8 +317,8 @@ async function checkClassroom(accessToken, results) {
       accessToken
     )
     if (subs.ok) {
-      const state = subs.data.studentSubmissions?.[0]?.state ?? 'sin entrega'
-      ok(`Lectura del estado de entrega correcta (primera tarea: ${state}).`)
+      const state = subs.data.studentSubmissions?.[0]?.state ?? 'not submitted'
+      ok(`Submission state read correctly (first assignment: ${state}).`)
     } else {
       warn(`No se pudo leer el estado de entrega (HTTP ${subs.status}).`)
       explainGoogleError(subs.status, subs.data).forEach(info)
@@ -348,7 +349,7 @@ async function checkCalendar(accessToken, results) {
   ok(`Calendario accesible (${events.length} evento(s) proximos).`)
   for (const e of events) {
     const start = e.start?.dateTime ?? e.start?.date ?? '?'
-    info(`- ${start}  ${e.summary ?? '(sin titulo)'}`)
+    info(`- ${start}  ${e.summary ?? '(untitled)'}`)
   }
   results.calendar = true
 }
@@ -368,7 +369,7 @@ async function checkGemini(apiKey, model, results) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: 'Responde unicamente con la palabra: funciona' }] }],
+        contents: [{ role: 'user', parts: [{ text: 'Reply with only the word: working' }] }],
         generationConfig: { maxOutputTokens: 20, temperature: 0 }
       })
     }
@@ -380,13 +381,13 @@ async function checkGemini(apiKey, model, results) {
     const msg = data?.error?.message ?? JSON.stringify(data).slice(0, 300)
     info(msg)
     if (res.status === 404) info(`¿Existe el modelo "${model}"? Comprueba el nombre exacto en AI Studio.`)
-    if (res.status === 429) info('Has agotado la cuota del free tier. Espera o baja el ritmo de llamadas.')
+    if (res.status === 429) info('The free tier quota is spent. Wait, or slow the call rate down.')
     results.gemini = false
     return
   }
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '(respuesta vacia)'
-  ok(`Gemini responde con el modelo "${model}": "${text}"`)
+  ok(`Gemini answers with the model "${model}": "${text}"`)
   results.gemini = true
 }
 
@@ -395,7 +396,7 @@ async function checkGemini(apiKey, model, results) {
 // --------------------------------------------------------------------------
 
 async function main() {
-  console.log(`${c.bold}\n=== JARVIS - Fase 0: spike de acceso ===${c.reset}`)
+  console.log(`${c.bold}\n=== Vilo — Phase 0: access spike ===${c.reset}`)
 
   const env = { ...loadEnv(), ...process.env }
   const clientId = env.GOOGLE_CLIENT_ID
@@ -404,13 +405,13 @@ async function main() {
 
   if (!clientId || clientId.startsWith('xxxx')) {
     fail('Falta GOOGLE_CLIENT_ID.')
-    info('Copia .env.example a .env y sigue los pasos del README (seccion "Fase 0").')
+    info('Copy .env.example to .env and follow the README (the "Phase 0" section).')
     process.exit(1)
   }
 
   const results = { auth: false, classroom: false, calendar: false, gemini: false }
 
-  title('1. Autorizacion OAuth con la cuenta del colegio')
+  title('1. OAuth authorisation with the school account')
   let accessToken
   try {
     accessToken = await authorize(clientId, clientSecret)
@@ -418,7 +419,7 @@ async function main() {
   } catch (err) {
     fail(err.message)
     info('Si viste "access_not_configured" o "Acceso bloqueado", el centro no ha aprobado la app.')
-    info('Solo un superadministrador del colegio puede arreglarlo. Ver la seccion del README.')
+    info('Only a school super-administrator can fix this. See the README section.')
     printVerdict(results)
     process.exit(1)
   }
@@ -434,22 +435,22 @@ async function main() {
 function printVerdict(r) {
   title('Veredicto')
   const row = (label, value) =>
-    console.log(`  ${value ? c.green + 'OK   ' : c.red + 'FALLO'}${c.reset}  ${label}`)
-  row('Login con la cuenta del colegio', r.auth)
+    console.log(`  ${value ? c.green + 'OK  ' : c.red + 'FAIL'}${c.reset}  ${label}`)
+  row('Sign-in with the school account', r.auth)
   row('Lectura de Google Classroom', r.classroom)
   row('Lectura de Google Calendar', r.calendar)
-  row('Conexion con Gemini', r.gemini)
+  row('Connection to Gemini', r.gemini)
 
   if (Object.values(r).every(Boolean)) {
-    console.log(`\n${c.green}${c.bold}Fase 0 superada.${c.reset} Se puede continuar con la Fase 1.\n`)
+    console.log(`\n${c.green}${c.bold}Phase 0 passed.${c.reset} Phase 1 can go ahead.\n`)
   } else {
     console.log(
-      `\n${c.yellow}${c.bold}Fase 0 no superada.${c.reset} Revisa los fallos de arriba antes de seguir construyendo.\n`
+      `\n${c.yellow}${c.bold}Phase 0 not passed.${c.reset} Look at the failures above before building further.\n`
     )
   }
 }
 
 main().catch((err) => {
-  console.error(`\n${c.red}Error inesperado:${c.reset}`, err)
+  console.error(`\n${c.red}Unexpected error:${c.reset}`, err)
   process.exit(1)
 })

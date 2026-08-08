@@ -19,11 +19,14 @@
     "src/main/organizer/planner.ts",
     "src/main/organizer/executor.ts",
     "src/main/brief/next-occurrence.ts",
-    "src/main/novedades.ts",
-    "src/main/agent/tools/planificador-core.ts",
-    "src/main/tasks/notas-core.ts",
-    "src/main/tasks/pegar-core.ts",
-    "src/renderer/src/lib/fechas.ts",
-    "src/renderer/src/lib/semana.ts"
+    "src/main/whatsNew.ts",
+    "src/main/model-catalog.ts",
+    "src/main/agent/tools/planner-core.ts",
+    "src/main/tasks/grades-core.ts",
+    "src/main/tasks/paste-core.ts",
+    "src/renderer/src/lib/dates.ts",
+    "src/renderer/src/lib/audio-speech.ts",
+    "src/renderer/src/lib/week.ts",
+    "src/renderer/src/lib/urgency.ts"
   ]
 }

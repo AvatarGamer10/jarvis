@@ -39,9 +39,9 @@ interface StudentSubmission {
 }
 
 /**
- * Google entrega la fecha de vencimiento troceada y SIEMPRE en UTC.
- * Si la juntamos ignorando eso, una tarea que vence a las 23:59 aparece al dia
- * siguiente para quien este en Espana.
+ * Google dueDate la fecha de vencimiento troceada y SIEMPRE en UTC.
+ * Joining them while ignoring that makes work due at 23:59 show up a day late
+ * for anybody in Spain.
  */
 function toDueIso(dueDate?: DueDate, dueTime?: DueTime): string | null {
   if (!dueDate) return null
@@ -79,7 +79,7 @@ function toState(submission: StudentSubmission | undefined, dueIso: string | nul
 function daysUntil(dueIso: string | null): number | null {
   if (!dueIso) return null
   const msPerDay = 24 * 60 * 60 * 1000
-  // Comparamos dias naturales, no franjas de 24h: "manana a las 8:00" debe
+  // Calendar days are compared, not 24-hour windows: "tomorrow at 08:00" has
   // decir 1 dia, no 0, aunque falten menos de 24 horas.
   const startOfToday = new Date()
   startOfToday.setHours(0, 0, 0, 0)
@@ -103,9 +103,11 @@ export class ClassroomService {
   }
 
   /**
-   * Todas las tareas del alumno, ordenadas por urgencia.
-   * Es una peticion por curso, asi que cacheamos 5 minutos: el free tier de
-   * Classroom tampoco es infinito y las tareas no cambian cada segundo.
+   * All of the student's assignments, ordered by urgency.
+   *
+   * It is one request per course, so it is cached for five minutes: the
+   * Classroom free tier is not infinite either, and assignments do not change
+   * by the second.
    */
   async listAssignments(force = false): Promise<Assignment[]> {
     if (!force && this.cache && Date.now() - this.cache.at < ClassroomService.CACHE_MS) {
@@ -119,9 +121,9 @@ export class ClassroomService {
         try {
           return await this.assignmentsForCourse(course)
         } catch (err) {
-          // Un curso que falla (por ejemplo, uno archivado a medias) no debe
-          // tumbar la lista entera.
-          console.error(`[classroom] fallo leyendo el curso "${course.name}":`, err)
+          // A course that fails — a half-archived one, say — must not
+          // tumbar la list entera.
+          console.error(`[classroom] failed reading the course "${course.name}":`, err)
           return []
         }
       })
@@ -143,8 +145,8 @@ export class ClassroomService {
     const work = await this.api.listAll<CourseWork>(workUrl.toString(), 'courseWork')
     if (work.length === 0) return []
 
-    // Un solo listado de entregas para todo el curso: pedirlas tarea a tarea
-    // multiplicaria las peticiones sin necesidad.
+    // One submissions listing for the whole course: asking assignment by
+    // assignment would multiply the requests for nothing.
     const subsUrl = new URL(`${BASE}/courses/${course.id}/courseWork/-/studentSubmissions`)
     subsUrl.searchParams.set('userId', 'me')
     subsUrl.searchParams.set('pageSize', '200')
@@ -170,7 +172,7 @@ export class ClassroomService {
     })
   }
 
-  /** Solo lo que sigue sin entregar. Es lo que interesa el 90% de las veces. */
+  /** Only what is still unsubmitted. That is what matters 90% of the time. */
   async listPending(force = false): Promise<Assignment[]> {
     const all = await this.listAssignments(force)
     return all.filter((a) => a.state === 'PENDIENTE' || a.state === 'ATRASADA')

@@ -1,282 +1,294 @@
-import { useEffect, useRef, useState } from 'react'
+import { Maximize2, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '@shared/types'
-import { BANDAS, grabar, MicrofonoNoDisponible, type Grabacion } from '../lib/microfono'
-import { cargarModelo, modeloListo, transcribir } from '../lib/transcripcion'
+import AssistantLogo, { type AssistantState } from '../components/AssistantLogo'
+import StreamingText from '../components/StreamingText'
+import { MicUnavailable, record, type Recording } from '../lib/mic'
+import { loadModel, modelReady, transcribe } from '../lib/stt'
 import { tts } from '../lib/tts'
 
-type Fase = 'reposo' | 'escuchando' | 'transcribiendo' | 'pensando' | 'hablando' | 'error'
+type Phase = 'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking' | 'error'
 
-/** Pixeles que hay que mover el raton para que cuente como arrastrar y no clic. */
-const UMBRAL_ARRASTRE = 4
+const ORB_STATE: Record<Phase, AssistantState> = {
+  idle: 'idle',
+  listening: 'listening',
+  transcribing: 'thinking',
+  thinking: 'thinking',
+  speaking: 'speaking',
+  error: 'idle'
+}
+
+/** Pixels of movement before a press counts as a drag rather than a click. */
+const DRAG_THRESHOLD = 4
 
 /**
- * Boton flotante siempre encima.
+ * The floating orb.
  *
- * Es deliberadamente pequeno: su razon de ser es estar al lado mientras usas
- * otra cosa, y un panel que ocupa sitio de verdad acaba estorbando y
- * cerrandose. Solo crece mientras tiene algo que ensenar.
+ * Deliberately small: the entire point is to sit beside whatever you are
+ * actually doing, and a panel that takes real space ends up in the way and
+ * then closed. It only grows when it has something to say.
  *
- * La conversacion ocurre aqui dentro: si abriera la ventana grande, romperia
- * justo lo que viene a evitar.
+ * The conversation happens here, in place. If it opened the main window it
+ * would break the one thing it exists to avoid.
  */
 export default function Hud(): JSX.Element {
-  const [fase, setFase] = useState<Fase>('reposo')
-  const [dicho, setDicho] = useState('')
-  const [respuesta, setRespuesta] = useState('')
-  const [mensaje, setMensaje] = useState('')
-  const [barras, setBarras] = useState<number[]>(() => new Array(BANDAS).fill(0))
-  const [pendiente, setPendiente] = useState<{ hoy: number; atrasadas: number } | null>(null)
+  const [phase, setPhase] = useState<Phase>('idle')
+  const [said, setSaid] = useState('')
+  const [answer, setAnswer] = useState('')
+  const [spokenChars, setSpokenChars] = useState<number | undefined>(undefined)
+  const [note, setNote] = useState('')
+  const [due, setDue] = useState<{ today: number; overdue: number } | null>(null)
 
-  const grabacion = useRef<Grabacion | null>(null)
-  const animacion = useRef<number | null>(null)
-  const arrastre = useRef<{ x: number; y: number; movido: boolean } | null>(null)
+  const recording = useRef<Recording | null>(null)
+  const drag = useRef<{ x: number; y: number; moved: boolean } | null>(null)
+  const phaseRef = useRef(phase)
 
-  const abierto = fase !== 'reposo'
+  const open = phase !== 'idle'
 
   useEffect(() => {
-    tts.preparar()
+    phaseRef.current = phase
+  }, [phase])
+
+  useEffect(() => {
+    tts.prepare()
     return () => {
-      grabacion.current?.cancelar()
-      tts.callar()
-      if (animacion.current) cancelAnimationFrame(animacion.current)
+      recording.current?.cancel()
+      tts.stop()
     }
   }, [])
 
-  // La ventana crece y encoge desde el proceso principal, que es quien puede
-  // cambiar su tamano real.
+  // The window grows and shrinks from the main process, which is the only
+  // side that can change its real size.
   useEffect(() => {
-    void window.jarvis.hud.expand(abierto)
-  }, [abierto])
+    void window.vilo.hud.expand(open)
+  }, [open])
 
   /**
-   * Cuenta lo que vence hoy y lo atrasado, para que el boton diga algo en
-   * reposo en vez de ser solo un microfono.
-   *
-   * Cada cinco minutos: las entregas no cambian por segundos, y preguntar mas
-   * a menudo solo gastaria red y bateria.
+   * What is due, so the button says something at rest instead of being a
+   * blank circle. Every five minutes — deadlines do not change by the second.
    */
   useEffect(() => {
-    let vivo = true
+    let alive = true
 
-    const mirar = async (): Promise<void> => {
-      const r = await window.jarvis.brief.contadores()
-      if (vivo && r.ok) setPendiente(r.data)
+    const look = async (): Promise<void> => {
+      const result = await window.vilo.brief.counts()
+      if (alive && result.ok) setDue(result.data)
     }
 
-    void mirar()
-    const id = setInterval(() => void mirar(), 5 * 60_000)
+    void look()
+    const timer = setInterval(() => void look(), 5 * 60_000)
     return () => {
-      vivo = false
-      clearInterval(id)
+      alive = false
+      clearInterval(timer)
     }
   }, [])
 
-  const fallar = (texto: string): void => {
-    setMensaje(texto)
-    setFase('error')
-    // Se recoge solo: un HUD que se queda grande con un error es peor que uno
-    // que no dice nada.
-    setTimeout(() => setFase('reposo'), 4000)
+  const getLevel = useCallback((): number => recording.current?.level() ?? 0, [])
+
+  const fail = (message: string): void => {
+    setNote(message)
+    setPhase('error')
+    // Clears itself: a HUD stuck open showing an error is worse than one that
+    // says nothing at all.
+    setTimeout(() => setPhase('idle'), 4000)
   }
 
-  const empezar = async (): Promise<void> => {
-    setDicho('')
-    setRespuesta('')
-    setMensaje('')
-    tts.callar()
+  const start = async (): Promise<void> => {
+    setSaid('')
+    setAnswer('')
+    setNote('')
+    setSpokenChars(undefined)
+    tts.stop()
 
-    if (!modeloListo()) {
-      setFase('transcribiendo')
-      setMensaje('Preparando la voz…')
+    if (!modelReady()) {
+      setPhase('transcribing')
+      setNote('Getting speech ready…')
       try {
-        await cargarModelo()
+        await loadModel()
       } catch {
-        fallar('Falta el modelo de voz. Abre JARVIS para descargarlo.')
+        fail('The speech model is missing. Open Vilo to download it.')
         return
       }
     }
 
     try {
-      grabacion.current = await grabar()
+      recording.current = await record()
     } catch (err) {
-      fallar(err instanceof MicrofonoNoDisponible ? err.message : 'No se pudo abrir el microfono.')
+      fail(err instanceof MicUnavailable ? err.message : 'Could not open the microphone.')
       return
     }
 
-    setMensaje('')
-    setFase('escuchando')
-
-    const medir = (): void => {
-      if (!grabacion.current) return
-      setBarras(grabacion.current.bandas())
-      animacion.current = requestAnimationFrame(medir)
-    }
-    medir()
+    setNote('')
+    setPhase('listening')
   }
 
-  const terminar = async (): Promise<void> => {
-    if (!grabacion.current) return
+  const finish = async (): Promise<void> => {
+    if (!recording.current) return
+    setPhase('transcribing')
 
-    if (animacion.current) cancelAnimationFrame(animacion.current)
-    setBarras(new Array(BANDAS).fill(0))
-    setFase('transcribiendo')
-
-    let texto = ''
+    let text = ''
     try {
-      const audio = await grabacion.current.detener()
-      grabacion.current = null
-      texto = await transcribir(audio)
+      const audio = await recording.current.stop()
+      recording.current = null
+      text = await transcribe(audio)
     } catch {
-      fallar('No he podido entender el audio.')
+      fail('I could not make out the audio.')
       return
     }
 
-    if (!texto) {
-      fallar('No he oido nada.')
+    if (!text) {
+      fail('I did not hear anything.')
       return
     }
 
-    setDicho(texto)
-    setFase('pensando')
+    setSaid(text)
+    setPhase('thinking')
 
-    const resultado = await window.jarvis.agent.send(texto)
-    if (!resultado.ok) {
-      fallar(resultado.error)
+    const result = await window.vilo.agent.send(text)
+    if (!result.ok) {
+      fail(result.error)
       return
     }
 
-    const contestacion = ultimaRespuesta(resultado.data)
-    setRespuesta(contestacion)
-    setFase('hablando')
-    tts.hablar(contestacion, () => setFase('reposo'))
+    const reply = lastReply(result.data)
+    setAnswer(reply)
+    setSpokenChars(0)
+    setPhase('speaking')
+
+    tts.speak(reply, {
+      onWord: setSpokenChars,
+      onEnd: () => {
+        setSpokenChars(undefined)
+        setPhase('idle')
+      }
+    })
   }
 
-  // --- Arrastrar o pulsar ---------------------------------------------------
+  // --- Drag or press --------------------------------------------------------
   //
-  // Mantener pulsado no puede ser a la vez "hablar" y "mover", asi que aqui se
-  // decide por el gesto: si el raton se desplaza, es arrastrar; si no, es un
-  // clic que activa el microfono.
+  // Holding cannot mean both "talk" and "move", so the gesture decides: if the
+  // pointer travels, it is a drag; if it does not, it is a click that starts
+  // the microphone.
 
-  const alPulsar = (e: React.MouseEvent): void => {
-    if (e.button !== 0) return
-    arrastre.current = { x: e.screenX, y: e.screenY, movido: false }
+  const onPress = (event: React.MouseEvent): void => {
+    if (event.button !== 0) return
+    drag.current = { x: event.screenX, y: event.screenY, moved: false }
 
-    const alMover = (m: MouseEvent): void => {
-      if (!arrastre.current) return
-      const dx = m.screenX - arrastre.current.x
-      const dy = m.screenY - arrastre.current.y
+    const onMove = (move: MouseEvent): void => {
+      if (!drag.current) return
+      const dx = move.screenX - drag.current.x
+      const dy = move.screenY - drag.current.y
 
-      if (!arrastre.current.movido && Math.hypot(dx, dy) < UMBRAL_ARRASTRE) return
+      if (!drag.current.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
 
-      arrastre.current.movido = true
-      arrastre.current.x = m.screenX
-      arrastre.current.y = m.screenY
-      void window.jarvis.hud.move(dx, dy)
+      drag.current.moved = true
+      drag.current.x = move.screenX
+      drag.current.y = move.screenY
+      void window.vilo.hud.move(dx, dy)
     }
 
-    const alSoltar = (): void => {
-      window.removeEventListener('mousemove', alMover)
-      window.removeEventListener('mouseup', alSoltar)
+    const onRelease = (): void => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onRelease)
 
-      const eraClic = arrastre.current?.movido === false
-      arrastre.current = null
-      if (!eraClic) return
+      const wasClick = drag.current?.moved === false
+      drag.current = null
+      if (!wasClick) return
 
-      if (fase === 'escuchando') void terminar()
-      else if (fase === 'reposo' || fase === 'error') void empezar()
-      else if (fase === 'hablando') {
-        tts.callar()
-        setFase('reposo')
+      const current = phaseRef.current
+      if (current === 'listening') void finish()
+      else if (current === 'idle' || current === 'error') void start()
+      else if (current === 'speaking') {
+        tts.stop()
+        setSpokenChars(undefined)
+        setPhase('idle')
       }
     }
 
-    window.addEventListener('mousemove', alMover)
-    window.addEventListener('mouseup', alSoltar)
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onRelease)
   }
 
-  const pista =
-    fase === 'escuchando'
-      ? 'Pulsa para terminar'
-      : fase === 'hablando'
-        ? 'Pulsa para callar'
-        : fase === 'pensando'
-          ? 'Pensando…'
-          : fase === 'transcribiendo'
-            ? mensaje || 'Entendiendo…'
-            : ''
+  const hint =
+    phase === 'listening'
+      ? 'Click to finish'
+      : phase === 'thinking'
+        ? 'Thinking'
+        : phase === 'transcribing'
+          ? note || 'Working it out'
+          : ''
+
+  const pending = (due?.today ?? 0) + (due?.overdue ?? 0)
 
   return (
-    <div className={`hud ${abierto ? 'abierto' : ''}`}>
-      <div className="hud-fila">
+    <div className="hud">
+      <div className="hud-row">
         <button
-          className={`hud-boton ${fase}`}
-          onMouseDown={alPulsar}
-          title="Pulsa para hablar. Arrastra para mover."
+          className="hud-orb"
+          onMouseDown={onPress}
+          title="Click to talk. Drag to move."
         >
-          {fase === 'escuchando' ? (
-            <span className="hud-barras" aria-hidden="true">
-              {barras.slice(0, 7).map((v, i) => (
-                <span key={i} style={{ transform: `scaleY(${0.15 + v * 0.85})` }} />
-              ))}
-            </span>
-          ) : (
-            <svg
-              width="26"
-              height="26"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <rect x="9" y="2.6" width="6" height="11" rx="3" />
-              <path d="M5.5 11.2a6.5 6.5 0 0 0 13 0" />
-              <path d="M12 17.7v3.7" />
-            </svg>
-          )}
+          {/* The same face as the main window, at a size that fits beside
+              whatever you are actually working on. Pointer tracking is off:
+              this window follows the cursor around the desktop already, and
+              having the eyes chase it as well is too much. */}
+          <AssistantLogo
+            size={54}
+            state={ORB_STATE[phase]}
+            interactive={false}
+            getActivity={getLevel}
+          />
 
-          {/* Lo atrasado manda sobre lo de hoy: si hay algo vencido, es lo
-              primero que hay que saber. */}
-          {!abierto && pendiente && pendiente.hoy + pendiente.atrasadas > 0 && (
-            <span
-              className={`hud-contador ${pendiente.atrasadas > 0 ? 'atrasado' : ''}`}
-              title={
-                pendiente.atrasadas > 0
-                  ? `${pendiente.atrasadas} atrasada(s)`
-                  : `${pendiente.hoy} para hoy`
-              }
-            >
-              {pendiente.atrasadas > 0 ? pendiente.atrasadas : pendiente.hoy}
+          {/* Late work outranks today's: if something is overdue, that is the
+              first thing you need to know. */}
+          {!open && pending > 0 && (
+            <span className={`hud-count ${due?.overdue ? 'late' : ''}`}>
+              {due?.overdue ? due.overdue : due?.today}
             </span>
           )}
         </button>
 
-        {abierto && (
-          <div className="hud-acciones">
-            <button onClick={() => void window.jarvis.hud.openApp()} title="Abrir JARVIS">
-              ⤢
+        {open && (
+          <div className="hud-actions">
+            <button onClick={() => void window.vilo.hud.openApp()} title="Open Vilo">
+              <Maximize2 />
             </button>
-            <button onClick={() => void window.jarvis.hud.close()} title="Cerrar el boton flotante">
-              ✕
+            <button onClick={() => void window.vilo.hud.close()} title="Hide the orb">
+              <X />
             </button>
           </div>
         )}
       </div>
 
-      {abierto && (
+      {open && (
         <div className="hud-panel">
-          {pista && <p className="hud-pista">{pista}</p>}
-          {fase === 'error' && <p className="hud-error">{mensaje}</p>}
-          {dicho && <p className="hud-dicho">{dicho}</p>}
-          {respuesta && <p className="hud-respuesta">{respuesta}</p>}
+          {hint && (
+            <p className="hud-status">
+              {hint}
+              <span className="dots" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+            </p>
+          )}
+          {phase === 'error' && <p className="hud-status">{note}</p>}
+          {said && <p className="hud-said">“{said}”</p>}
+          {answer && (
+            <StreamingText
+              text={answer}
+              spokenChars={spokenChars}
+              pace={tts.pace()}
+              className="hud-answer"
+            />
+          )}
         </div>
       )}
     </div>
   )
 }
 
-function ultimaRespuesta(mensajes: ChatMessage[]): string {
-  const conTexto = mensajes.filter((m) => m.role === 'assistant' && m.text.trim())
-  return conTexto.at(-1)?.text ?? 'No he sabido que responder.'
+function lastReply(messages: ChatMessage[]): string {
+  const withText = messages.filter((m) => m.role === 'assistant' && m.text.trim())
+  return withText.at(-1)?.text ?? 'I was not sure how to answer that.'
 }

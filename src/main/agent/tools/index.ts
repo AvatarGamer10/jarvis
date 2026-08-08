@@ -1,14 +1,14 @@
 import { calendarCreate, calendarList, calendarMove } from './calendar-tools'
 import { classroomList } from './classroom-tools'
-import { examsAdd, examsGrade, examsList } from './examenes-tools'
+import { examsAdd, examsGrade, examsList } from './exams-tools'
 import { filesApply, filesPlan, filesUndo } from './files-tools'
-import { planificarEstudio } from './planificador'
+import { planificarEstudio } from './planner-tools'
 import { tasksAdd, tasksComplete, tasksList } from './tasks-tools'
 import type { Tool } from './types'
 
 /**
- * Registro de herramientas. Anadir una capacidad nueva al agente es escribir un
- * fichero de herramienta y meterla en esta lista.
+ * The tool registry. Giving the agent a new capability means writing one tool
+ * file and adding it to this list.
  */
 export const TOOLS: Tool<never>[] = [
   calendarList,

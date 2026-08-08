@@ -1,60 +1,71 @@
 import { nativeImage, type NativeImage } from 'electron'
 
 /**
- * Icono de bandeja dibujado por codigo.
+ * Menu bar icon, drawn in code.
  *
- * Mismo criterio que los sonidos: sin ficheros que empaquetar, sin depender de
- * que alguien exporte un PNG al tamano correcto, y afinable al pixel. Dibuja el
- * motivo del anillo, que es la identidad de la app.
+ * Same reasoning as the sounds: nothing to package, no dependency on someone
+ * exporting a PNG at exactly the right size, and tunable to the pixel. It
+ * draws the orb — a ring with a bright core — which is the app's face
+ * everywhere else.
  *
- * `createFromBitmap` espera los pixeles en orden BGRA.
+ * `createFromBitmap` wants the pixels in BGRA order.
  */
 
 const SIZE = 32
-const CANALES = 4
-
-/** Azul de marca, el mismo que usa la interfaz para lo interactivo. */
-const AZUL = { r: 0x3d, g: 0x8f, b: 0xd6 }
+const CHANNELS = 4
 
 /**
- * Cobertura suavizada de un anillo en un punto.
+ * White, because the icon is a template image.
  *
- * Devuelve 1 dentro, 0 fuera y un valor intermedio en el borde. Sin esto el
- * icono sale con los bordes dentados, que a 32 px canta muchisimo.
+ * On macOS a template image is recoloured by the system from its alpha
+ * channel, so the menu bar gets a black glyph on a light bar and a white one
+ * on a dark bar without us doing anything. The RGB values are ignored there;
+ * on Windows they are not, and white is right against the taskbar anyway.
  */
-function coberturaAnillo(
-  distancia: number,
-  radioExterior: number,
-  radioInterior: number
+const INK = { r: 0xff, g: 0xff, b: 0xff }
+
+/**
+ * Anti-aliased ring coverage at a point.
+ *
+ * Returns 1 inside, 0 outside, and something in between at the edge. Without
+ * it the icon comes out with jagged edges, which at 32 px is very obvious.
+ */
+function ringCoverage(
+  distance: number,
+  outerRadius: number,
+  innerRadius: number
 ): number {
-  const suavizado = 1
-  const fuera = Math.min(1, Math.max(0, (radioExterior - distancia) / suavizado))
-  const dentro = Math.min(1, Math.max(0, (distancia - radioInterior) / suavizado))
-  return Math.min(fuera, dentro)
+  const feather = 1
+  const outside = Math.min(1, Math.max(0, (outerRadius - distance) / feather))
+  const inside = Math.min(1, Math.max(0, (distance - innerRadius) / feather))
+  return Math.min(outside, inside)
 }
 
-export function crearIconoBandeja(): NativeImage {
-  const buffer = Buffer.alloc(SIZE * SIZE * CANALES)
-  const centro = (SIZE - 1) / 2
+export function createTrayIcon(): NativeImage {
+  const buffer = Buffer.alloc(SIZE * SIZE * CHANNELS)
+  const centre = (SIZE - 1) / 2
 
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      const dx = x - centro
-      const dy = y - centro
-      const distancia = Math.hypot(dx, dy)
+      const dx = x - centre
+      const dy = y - centre
+      const distance = Math.hypot(dx, dy)
 
-      // Anillo exterior y punto central: el mismo motivo del menu radial.
-      const anillo = coberturaAnillo(distancia, 15, 11)
-      const nucleo = Math.min(1, Math.max(0, (5 - distancia) / 1))
-      const alfa = Math.min(1, anillo + nucleo)
+      // Ring plus core: the voice orb, at menu bar scale.
+      const ring = ringCoverage(distance, 14, 10.5)
+      const core = Math.min(1, Math.max(0, (3.6 - distance) / 1))
+      const alpha = Math.min(1, ring + core)
 
-      const i = (y * SIZE + x) * CANALES
-      buffer[i] = AZUL.b
-      buffer[i + 1] = AZUL.g
-      buffer[i + 2] = AZUL.r
-      buffer[i + 3] = Math.round(alfa * 255)
+      const i = (y * SIZE + x) * CHANNELS
+      buffer[i] = INK.b
+      buffer[i + 1] = INK.g
+      buffer[i + 2] = INK.r
+      buffer[i + 3] = Math.round(alpha * 255)
     }
   }
 
-  return nativeImage.createFromBitmap(buffer, { width: SIZE, height: SIZE })
+  const image = nativeImage.createFromBitmap(buffer, { width: SIZE, height: SIZE })
+  // Lets macOS invert it for a light menu bar. On Windows this is a no-op.
+  if (process.platform === 'darwin') image.setTemplateImage(true)
+  return image
 }

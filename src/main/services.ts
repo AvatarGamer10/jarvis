@@ -2,7 +2,13 @@ import { ChatStore } from './agent/chat-store'
 import { AgentService } from './agent/loop'
 import { GeminiProvider } from './agent/providers/gemini'
 import { OllamaProvider } from './agent/providers/ollama'
+import {
+  BRANDS,
+  OpenAiCompatibleProvider,
+  type CompatConfig
+} from './agent/providers/openai-compatible'
 import { ProviderRouter } from './agent/providers/router'
+import type { LLMProvider } from './agent/provider'
 import type { ToolContext } from './agent/tools'
 import { PlannerService } from './agent/tools/planner-service'
 import { UsageCounter } from './agent/usage'
@@ -16,13 +22,13 @@ import { OllamaManager } from './integrations/ollama-manager'
 import { OrganizerService } from './organizer'
 import { SecretStore } from './store/secret-store'
 import { SettingsService } from './store/settings'
-import { ExamenService } from './tasks/examenes'
+import { ExamenService } from './tasks/exams'
 import { ManualTaskService } from './tasks/manual-tasks'
-import { PegarService } from './tasks/pegar'
+import { PasteService } from './tasks/paste'
 
 /**
- * Contenedor de servicios. Se crea una sola vez cuando la app esta lista
- * (no antes: varias piezas necesitan `app.getPath`, que aun no existe).
+ * The service container. Built once, when the app is ready — not before:
+ * several pieces need `app.getPath`, which does not exist yet.
  */
 export interface Services {
   secrets: SecretStore
@@ -33,15 +39,18 @@ export interface Services {
   classroom: ClassroomService
   organizer: OrganizerService
   tasks: ManualTaskService
-  examenes: ExamenService
-  pegar: PegarService
+  exams: ExamenService
+  paste: PasteService
   ollama: OllamaProvider
+  gemini: GeminiProvider
+  /** The ones that speak the OpenAI dialect, by id. */
+  compat: Record<string, OpenAiCompatibleProvider>
   ollamaManager: OllamaManager
   usage: UsageCounter
   agent: AgentService
   brief: BriefService
   planner: PlannerService
-  /** Se arranca desde main, que es quien sabe como notificar. */
+  /** Started from main, which is what knows how to notify. */
   scheduler: (onFire: () => void) => BriefScheduler
 }
 
@@ -55,11 +64,12 @@ export function createServices(): Services {
   const classroom = new ClassroomService(api)
   const organizer = new OrganizerService(settings)
   const tasks = new ManualTaskService()
-  const examenes = new ExamenService()
+  const exams = new ExamenService()
   const usage = new UsageCounter()
 
-  // La configuracion se lee en cada llamada, no al construir: asi cambiar la
-  // API key o el modelo en Ajustes tiene efecto sin reiniciar la app.
+  // Configuration is read on every call rather than at construction: that way
+  // changing the API key or the model in Settings takes effect without a
+  // restart.
   const gemini = new GeminiProvider(() => {
     const current = settings.all()
     return { apiKey: current.geminiApiKey, model: current.geminiModel }
@@ -70,12 +80,62 @@ export function createServices(): Services {
     return { host: current.ollamaHost, model: current.ollamaModel }
   })
 
+  /**
+   * Every OpenAI-compatible service comes out of the same class.
+   *
+   * Each reads its own settings on every call, like the others, so switching
+   * provider in Settings takes effect without a restart.
+   */
+  const compatConfig: Record<string, () => CompatConfig> = {
+    openrouter: () => {
+      const current = settings.all()
+      return { apiKey: current.openrouterApiKey, model: current.openrouterModel }
+    },
+    openai: () => {
+      const current = settings.all()
+      return { apiKey: current.openaiApiKey, model: current.openaiModel }
+    },
+    anthropic: () => {
+      const current = settings.all()
+      return { apiKey: current.anthropicApiKey, model: current.anthropicModel }
+    },
+    groq: () => {
+      const current = settings.all()
+      return { apiKey: current.groqApiKey, model: current.groqModel }
+    },
+    mistral: () => {
+      const current = settings.all()
+      return { apiKey: current.mistralApiKey, model: current.mistralModel }
+    },
+    custom: () => {
+      const current = settings.all()
+      return {
+        apiKey: current.customApiKey,
+        model: current.customModel,
+        baseUrl: current.customBaseUrl
+      }
+    }
+  }
+
+  const compat: Record<string, OpenAiCompatibleProvider> = Object.fromEntries(
+    Object.entries(compatConfig).map(([id, read]) => [
+      id,
+      new OpenAiCompatibleProvider(BRANDS[id], read)
+    ])
+  )
+
+  const brains: Record<string, () => LLMProvider> = {
+    gemini: () => gemini,
+    ollama: () => ollama,
+    ...Object.fromEntries(Object.keys(compat).map((id) => [id, () => compat[id]]))
+  }
+
   const provider = new ProviderRouter(
-    () => (settings.all().llmProvider === 'gemini' ? gemini : ollama),
+    () => (brains[settings.all().llmProvider] ?? brains.openrouter)(),
     usage
   )
 
-  const toolContext = (): ToolContext => ({ calendar, classroom, organizer, tasks, examenes })
+  const toolContext = (): ToolContext => ({ calendar, classroom, organizer, tasks, exams })
   const planner = new PlannerService(toolContext)
 
   return {
@@ -87,13 +147,15 @@ export function createServices(): Services {
     classroom,
     organizer,
     tasks,
-    examenes,
-    pegar: new PegarService(provider),
+    exams,
+    paste: new PasteService(provider),
     ollama,
+    gemini,
+    compat,
     ollamaManager: new OllamaManager(settings),
     usage,
     agent: new AgentService(provider, toolContext, new ChatStore()),
-    brief: new BriefService(calendar, classroom, tasks, examenes, provider),
+    brief: new BriefService(calendar, classroom, tasks, exams, provider),
     planner,
     scheduler: (onFire) => new BriefScheduler(settings, onFire)
   }

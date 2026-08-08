@@ -3,12 +3,12 @@ import path from 'node:path'
 import { app, safeStorage } from 'electron'
 
 /**
- * Guarda credenciales (tokens de Google, clave de Gemini) cifradas con
- * `safeStorage`, que por debajo usa el llavero del sistema operativo:
- * DPAPI en Windows y Keychain en macOS. La clave de cifrado nunca esta en
- * nuestro codigo ni en el disco en claro.
+ * Stores credentials — Google tokens, API keys — encrypted with `safeStorage`,
+ * which underneath uses the operating system's keychain: DPAPI on Windows and
+ * Keychain on macOS. The encryption key is never in our code, nor on disk in
+ * the clear.
  *
- * Solo se instancia en el proceso main. El renderer no tiene acceso a esto.
+ * Only instantiated in the main process. The renderer has no access to it.
  */
 export class SecretStore {
   private readonly file: string
@@ -37,10 +37,10 @@ export class SecretStore {
         : encrypted.toString('utf8')
       this.cache = JSON.parse(plain) as Record<string, string>
     } catch (err) {
-      // Pasa si el usuario copia el fichero a otro equipo o cambia de cuenta del
-      // SO: el llavero de destino no puede descifrar lo del origen. No es
-      // recuperable, asi que empezamos de cero y se vuelve a iniciar sesion.
-      console.error('[secrets] no se pudo descifrar, se descarta el fichero:', err)
+      // Happens if the file is copied to another machine, or the OS account
+      // changes: the destination keychain cannot decrypt what the source wrote.
+      // It is not recoverable, so we start over and they sign in again.
+      console.error('[secrets] could not decrypt; discarding the file:', err)
       this.cache = {}
     }
     return this.cache
@@ -52,8 +52,8 @@ export class SecretStore {
     const plain = JSON.stringify(this.cache)
     if (!this.available()) {
       // Windows y macOS siempre tienen cifrado disponible; esto solo saltaria en
-      // un Linux sin llavero. Avisamos alto y claro en vez de fallar en silencio.
-      console.warn('[secrets] AVISO: el cifrado del sistema no esta disponible, se guarda en claro.')
+      // a Linux with no keyring. Say so loudly rather than failing quietly.
+      console.warn('[secrets] WARNING: system encryption is unavailable; storing in the clear.')
       fs.mkdirSync(path.dirname(this.file), { recursive: true })
       fs.writeFileSync(this.file, plain, 'utf8')
       return
@@ -91,9 +91,15 @@ export class SecretStore {
   }
 }
 
-/** Claves usadas en el almacen, en un sitio para que no se repitan literales sueltos. */
+/** The keys used in the store, in one place so no loose literals repeat. */
 export const SecretKeys = {
   googleClientSecret: 'google.client_secret',
   googleRefreshToken: 'google.refresh_token',
-  geminiApiKey: 'gemini.api_key'
+  geminiApiKey: 'gemini.api_key',
+  openrouterApiKey: 'openrouter.api_key',
+  openaiApiKey: 'openai.api_key',
+  anthropicApiKey: 'anthropic.api_key',
+  groqApiKey: 'groq.api_key',
+  mistralApiKey: 'mistral.api_key',
+  customApiKey: 'custom.api_key'
 } as const

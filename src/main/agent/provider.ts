@@ -1,10 +1,10 @@
 /**
- * Contrato del "cerebro". Todo lo que hay por encima de esta interfaz no sabe
- * que existe Gemini, asi que cambiar de modelo (Claude, un modelo local con
- * Ollama...) es escribir otra implementacion y nada mas.
+ * The "brain" contract. Nothing above this interface knows Gemini exists, so
+ * changing model — Claude, something local through Ollama — is a matter of
+ * writing another implementation and nothing else.
  */
 
-/** Declaracion de herramienta en formato OpenAPI reducido, que es lo que entienden los modelos. */
+/** A tool declaration in the cut-down OpenAPI shape models understand. */
 export interface FunctionDeclaration {
   name: string
   description: string
@@ -38,7 +38,7 @@ export interface LLMProvider {
   complete(input: CompleteInput): Promise<LlmReply>
 }
 
-/** Error del proveedor ya traducido a algo que el usuario pueda entender. */
+/** A provider error, already turned into something the user can understand. */
 export class LlmError extends Error {
   constructor(
     message: string,

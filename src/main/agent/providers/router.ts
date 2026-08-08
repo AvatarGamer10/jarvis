@@ -2,13 +2,14 @@ import type { CompleteInput, LLMProvider, LlmReply } from '../provider'
 import type { UsageCounter } from '../usage'
 
 /**
- * Elige el proveedor en cada llamada, no al arrancar.
+ * Picks the provider on every call, not at start-up.
  *
- * Asi cambiar de cerebro en Ajustes tiene efecto en el siguiente mensaje, sin
- * reiniciar la app y sin que el bucle del agente sepa que existen varios.
+ * That way switching brain in Settings takes effect on the next message, with
+ * no restart, and without the agent loop knowing there is more than one.
  *
- * El recuento vive aqui y no dentro de cada proveedor: interesa saber cuantas
- * vueltas esta dando el agente sea cual sea el motor, no solo la cuota de uno.
+ * The counting lives here rather than inside each provider: what matters is
+ * how many rounds the agent is doing whatever the engine, not one engine's
+ * quota.
  */
 export class ProviderRouter implements LLMProvider {
   readonly id = 'router'

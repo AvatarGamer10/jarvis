@@ -1,13 +1,13 @@
 /**
- * Variables de entorno que electron-vite inyecta en el proceso principal.
+ * The environment variables electron-vite injects into the main process.
  *
- * Solo las que empiezan por `MAIN_VITE_` llegan hasta aqui; el resto del `.env`
- * se queda fuera del bundle. Se declaran opcionales a proposito: si alguien
- * compila sin `.env`, la app sigue funcionando y pide las credenciales en
+ * Only those starting `MAIN_VITE_` reach this far; the rest of the `.env` stays
+ * out of the bundle. They are declared optional on purpose: if somebody builds
+ * without a `.env`, the app still runs and asks for the credentials in
  * Ajustes en lugar de romper al arrancar.
  *
- * Sin `import` ni `export` en este fichero: tiene que ser un script global para
- * que la interfaz se fusione con la que ya trae electron-vite.
+ * No `import` or `export` in this file: it has to be a global script so the
+ * interface merges with the one electron-vite already ships.
  */
 interface ImportMetaEnv {
   readonly MAIN_VITE_GOOGLE_CLIENT_ID?: string

@@ -8,14 +8,14 @@ const listArgs = z.object({
 export const classroomList: Tool<z.infer<typeof listArgs>> = {
   name: 'classroom_list_work',
   description:
-    'Consulta las tareas del usuario en Google Classroom, con su asignatura, ' +
-    'fecha de entrega y estado. Usala para responder que hay que entregar y cuando.',
+    "Lists the user's assignments in Google Classroom, with their course, due date " +
+    'and status. Use it to answer what has to be handed in and when.',
   parameters: {
     type: 'object',
     properties: {
       soloPendientes: {
         type: 'boolean',
-        description: 'Si es true, devuelve solo las tareas sin entregar. Por defecto true.'
+        description: 'If true, only returns work that has not been handed in. Defaults to true.'
       }
     },
     required: []
@@ -29,13 +29,15 @@ export const classroomList: Tool<z.infer<typeof listArgs>> = {
       : await ctx.classroom.listAssignments()
 
     return {
-      summary: `${assignments.length} tarea(s)${onlyPending ? ' pendiente(s)' : ''}.`,
-      // Se manda lo minimo. El enunciado completo de la tarea no le hace falta
-      // al modelo para contestar y son datos del colegio que no necesita ver.
+      summary: `${assignments.length} ${onlyPending ? 'open ' : ''}assignment${
+        assignments.length === 1 ? '' : 's'
+      }.`,
+      // The bare minimum goes out. The model does not need the full brief of an
+      // assignment to answer, and it is school data it has no business seeing.
       data: assignments.map((a) => ({
-        titulo: a.title,
-        asignatura: a.courseName,
-        entrega: a.dueDate,
+        title: a.title,
+        subject: a.courseName,
+        dueDate: a.dueDate,
         diasRestantes: a.daysLeft,
         estado: a.state
       }))

@@ -1,6 +1,6 @@
-appId: com.iker.jarvis
-productName: JARVIS
-copyright: Copyright (c) 2026 Iker
+appId: com.vilo.app
+productName: Vilo
+copyright: 'Copyright (c) 2026 Enzoreael & Noox'
 directories:
   output: release
   buildResources: build
@@ -10,6 +10,7 @@ files:
   - package.json
 
 asar: true
+afterPack: scripts/after-pack.cjs
 
 # --- Actualizaciones -------------------------------------------------------
 #
@@ -61,13 +62,13 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: JARVIS
+  shortcutName: Vilo
   # 1034 es el identificador de espanol en NSIS.
-  language: '1034'
+  language: '1033'
   # Al desinstalar no se borran los ajustes ni las tareas apuntadas: si alguien
   # reinstala, se encuentra sus cosas donde las dejo.
   deleteAppDataOnUninstall: false
-  artifactName: ${productName}-${version}-instalador.${ext}
+  artifactName: ${productName}-${version}-setup.${ext}
 
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
@@ -87,13 +88,14 @@ mac:
   category: public.app-category.productivity
   # macOS necesita declarar por que se pide acceso a carpetas del usuario.
   extendInfo:
-    NSDesktopFolderUsageDescription: JARVIS necesita acceso para organizar tus archivos del escritorio.
-    NSDocumentsFolderUsageDescription: JARVIS necesita acceso para organizar tus documentos del colegio.
-    NSDownloadsFolderUsageDescription: JARVIS necesita acceso para clasificar los archivos que descargas.
+    NSDesktopFolderUsageDescription: Vilo needs access to tidy files on your desktop.
+    NSDocumentsFolderUsageDescription: Vilo needs access to tidy your schoolwork documents.
+    NSDownloadsFolderUsageDescription: Vilo needs access to sort the files you download.
+    NSMicrophoneUsageDescription: Vilo needs the microphone so you can talk to it. Speech is transcribed on this Mac and never uploaded.
 
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
-  title: JARVIS
+  title: Vilo
   background: build/dmg-background.png
   window:
     width: 540

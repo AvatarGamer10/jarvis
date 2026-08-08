@@ -1,8 +1,8 @@
 /**
- * Pruebas del organizador de carpetas contra archivos reales en una carpeta
- * temporal. Es el unico modulo que puede hacer dano de verdad, asi que se
- * prueba a conciencia: sobre todo que no se pueda salir de las carpetas
- * autorizadas y que nunca se pierda un archivo.
+ * Tests for the folder organiser, against real files in a temporary folder.
+ * It is the one module that can do actual damage, so it is tested thoroughly:
+ * above all that it cannot escape the authorised folders, and that a file is
+ * never lost.
  *
  *   npm test
  */
@@ -41,36 +41,36 @@ const rule = (over) => ({
 
 // --- Guardas de rutas -----------------------------------------------------
 
-test('isInside acepta rutas dentro de la raiz', () => {
+test('isInside accepts paths inside the root', () => {
   const { root, downloads } = makeTree([])
   assert.equal(isInside(root, downloads), true)
   assert.equal(isInside(root, root), true)
 })
 
-test('isInside rechaza salir de la raiz con ..', () => {
+test('isInside refuses to leave the root with ..', () => {
   const { root, downloads } = makeTree([])
   assert.equal(isInside(downloads, path.join(downloads, '..', '..')), false)
   assert.equal(isInside(root, path.join(root, '..')), false)
 })
 
-test('isInside rechaza rutas del sistema', () => {
+test('isInside refuses system paths', () => {
   const { root } = makeTree([])
   assert.equal(isInside(root, 'C:\\Windows\\System32'), false)
   assert.equal(isInside(root, path.join(root, '..', '..', 'Windows')), false)
 })
 
-test('assertAllowed lanza si no hay ninguna raiz autorizada', () => {
-  assert.throws(() => assertAllowed([], 'C:\\cualquiera'), /fuera de las carpetas autorizadas/)
+test('assertAllowed throws when there is no authorised root', () => {
+  assert.throws(() => assertAllowed([], 'C:\\cualquiera'), /outside the authorised folders/)
 })
 
-test('assertAllowed lanza para una ruta fuera de las raices', () => {
+test('assertAllowed throws for a path outside the roots', () => {
   const { root } = makeTree([])
-  assert.throws(() => assertAllowed([root], 'C:\\Windows'), /fuera de las carpetas autorizadas/)
+  assert.throws(() => assertAllowed([root], 'C:\\Windows'), /outside the authorised folders/)
 })
 
 // --- Planificacion --------------------------------------------------------
 
-test('planMoves selecciona solo lo que casa con la regla', () => {
+test('planMoves selects only what matches the rule', () => {
   const { root, downloads, school } = makeTree([
     'tema1 fisica.pdf',
     'tema2 fisica.pdf',
@@ -86,13 +86,13 @@ test('planMoves selecciona solo lo que casa con la regla', () => {
   assert.equal(plan.skipped, 2)
 })
 
-test('planMoves ignora reglas que apuntan fuera de las raices', () => {
+test('planMoves ignores rules pointing outside the roots', () => {
   const { root, school } = makeTree(['tema1 fisica.pdf'])
   const plan = planMoves([rule({ source: 'C:\\Windows', destination: school })], [root])
   assert.equal(plan.moves.length, 0)
 })
 
-test('planMoves no toca subcarpetas', () => {
+test('planMoves does not touch subfolders', () => {
   const { root, downloads, school } = makeTree(['tema1 fisica.pdf'])
   const nested = path.join(downloads, 'subcarpeta')
   fs.mkdirSync(nested)
@@ -102,9 +102,9 @@ test('planMoves no toca subcarpetas', () => {
   assert.equal(plan.moves.length, 1)
 })
 
-test('planMoves renombra si el destino ya tiene ese archivo', () => {
+test('planMoves renames if the destination already has that file', () => {
   const { root, downloads, school } = makeTree(['tema1 fisica.pdf'])
-  fs.writeFileSync(path.join(school, 'tema1 fisica.pdf'), 'el que ya estaba')
+  fs.writeFileSync(path.join(school, 'tema1 fisica.pdf'), 'the one that was already there')
 
   const plan = planMoves([rule({ source: downloads, destination: school })], [root])
   assert.equal(plan.moves.length, 1)
@@ -113,7 +113,7 @@ test('planMoves renombra si el destino ya tiene ese archivo', () => {
 
 // --- Ejecucion y deshacer -------------------------------------------------
 
-test('applyPlan mueve los archivos y undoBatch los devuelve', () => {
+test('applyPlan moves the files and undoBatch puts them back', () => {
   const { root, downloads, school } = makeTree(['tema1 fisica.pdf', 'tema2 fisica.pdf'])
   const plan = planMoves([rule({ source: downloads, destination: school })], [root])
 
@@ -134,7 +134,7 @@ test('applyPlan nunca sobrescribe un archivo existente', () => {
   const { root, downloads, school } = makeTree(['tema1 fisica.pdf'])
   const plan = planMoves([rule({ source: downloads, destination: school })], [root])
 
-  // El archivo aparece en el destino DESPUES de calcular el plan.
+  // The file appears at the destination AFTER the plan was calculated.
   fs.writeFileSync(path.join(school, 'tema1 fisica.pdf'), 'no me pises')
 
   const applied = applyPlan(plan, [root])
@@ -142,14 +142,14 @@ test('applyPlan nunca sobrescribe un archivo existente', () => {
   assert.equal(
     fs.readFileSync(path.join(school, 'tema1 fisica.pdf'), 'utf8'),
     'no me pises',
-    'el archivo que ya estaba debe seguir intacto'
+    'the file that was already there must be left intact'
   )
   assert.equal(fs.existsSync(path.join(school, 'tema1 fisica (2).pdf')), true)
 })
 
-test('applyPlan rechaza movimientos fuera de las raices autorizadas', () => {
+test('applyPlan rejects moves outside the authorised roots', () => {
   const { root, downloads } = makeTree(['tema1 fisica.pdf'])
-  // Simula un plan manipulado que intenta escribir en el sistema.
+  // Simulates a tampered plan trying to write into the system.
   const malicious = {
     id: 'p1',
     createdAt: '',
@@ -166,11 +166,11 @@ test('applyPlan rechaza movimientos fuera de las raices autorizadas', () => {
   const applied = applyPlan(malicious, [root])
   assert.equal(applied.moved.length, 0)
   assert.equal(applied.failed.length, 1)
-  assert.match(applied.failed[0].error, /fuera de las carpetas autorizadas/)
+  assert.match(applied.failed[0].error, /outside the authorised folders/)
   assert.equal(fs.existsSync(path.join(downloads, 'tema1 fisica.pdf')), true)
 })
 
-test('availableName encuentra un hueco sin sobrescribir', () => {
+test('availableName finds a free slot without overwriting', () => {
   const { school } = makeTree([])
   fs.writeFileSync(path.join(school, 'a.pdf'), 'x')
   fs.writeFileSync(path.join(school, 'a (2).pdf'), 'x')

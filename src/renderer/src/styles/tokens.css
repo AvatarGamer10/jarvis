@@ -1,0 +1,223 @@
+/* =========================================================================
+   VILO — TOKENS
+
+   One neutral ramp, one accent that is just "lighter grey", and nothing else.
+   The interface has no colour, so brightness is the only axis left to carry
+   meaning: what is closer to white is either interactive or urgent, and the
+   two never happen in the same place.
+
+   Every surface is built from the same ramp. A card is not "a different
+   colour", it is the same grey one step up, with a hairline of light along
+   its top edge — the way a real object catches the light of the room. That
+   single trick is what the whole thing is made of.
+   ========================================================================= */
+
+:root {
+  /* --- Neutral ramp -------------------------------------------------------
+     Very slightly cool. A perfectly neutral grey reads brown on OLED panels
+     next to warm desktop wallpaper, and Vilo sits on top of the desktop. */
+  --g-1000: #08080a;
+  --g-950: #0d0d10;
+  --g-900: #121215;
+  --g-850: #17171b;
+  --g-800: #1c1c21;
+  --g-750: #222228;
+  --g-700: #2a2a31;
+  --g-650: #33333b;
+  --g-600: #3f3f48;
+  --g-500: #55555f;
+  --g-400: #74747f;
+  --g-300: #9a9aa4;
+  --g-200: #c2c2ca;
+  --g-100: #e2e2e7;
+  --g-050: #f2f2f5;
+
+  /* --- Text ---------------------------------------------------------------
+     Four levels, and that is the entire hierarchy. If something needs a
+     fifth, the layout is wrong, not the palette. */
+  --text: #ecedf0;
+  --text-2: #a6a7b0;
+  --text-3: #74757f;
+  --text-4: #4d4e57;
+
+  /* Reserved for "this is happening now". Nothing else gets to be this
+     bright — see urgency.ts. */
+  --hot: #ffffff;
+
+  /* --- Status -------------------------------------------------------------
+     Three colours, and they are the only colours in the app.
+
+     The rule for using them is narrow on purpose: a colour here means the
+     state of something, never the category of it. Green is "this is working
+     and it was checked", red is "this cannot be undone or it has failed",
+     amber is "this needs you". A provider does not get a colour for being
+     OpenAI; it gets green for having answered.
+
+     They are desaturated well below their usual web values so they sit on a
+     near-black grey without glowing, and each has a soft variant for fills
+     and a line variant for borders. */
+  --ok: #5fd39a;
+  --ok-soft: rgb(95 211 154 / 13%);
+  --ok-line: rgb(95 211 154 / 34%);
+
+  --danger: #f07171;
+  --danger-soft: rgb(240 113 113 / 13%);
+  --danger-line: rgb(240 113 113 / 34%);
+
+  --warn: #e5b567;
+  --warn-soft: rgb(229 181 103 / 13%);
+  --warn-line: rgb(229 181 103 / 32%);
+
+  /* --- Lines --------------------------------------------------------------
+     Always light on dark, never a solid grey: a hairline made of white at
+     low alpha keeps working when the surface underneath changes. */
+  --line: rgb(255 255 255 / 6%);
+  --line-2: rgb(255 255 255 / 11%);
+  --line-3: rgb(255 255 255 / 18%);
+  --line-4: rgb(255 255 255 / 28%);
+
+  /* --- Surfaces -----------------------------------------------------------
+     `--app-bg` is the window itself. When macOS vibrancy is on it goes
+     translucent so the desktop shows through; see [data-glass] below. */
+  --app-bg: var(--g-950);
+  --surface: rgb(255 255 255 / 3.5%);
+  --surface-2: rgb(255 255 255 / 5.5%);
+  --surface-3: rgb(255 255 255 / 8%);
+  --surface-solid: #15151a;
+  /* Opaque surface for things that float over the app (dialogs, popovers).
+     These cannot be translucent or the content behind bleeds into them. */
+  --elevated: #16161a;
+
+  /* --- The light ----------------------------------------------------------
+     The signature of the whole design. `--lit` is the highlight that runs
+     along the top edge of anything raised; `--lit-strong` is the same idea
+     on something that is meant to look pressed towards you. */
+  --lit: inset 0 1px 0 rgb(255 255 255 / 7%);
+  --lit-strong: inset 0 1px 0 rgb(255 255 255 / 14%);
+  --sunk: inset 0 1px 2px rgb(0 0 0 / 40%);
+
+  /* --- Shadows ------------------------------------------------------------
+     Tight and dark. A soft grey shadow on a dark UI just makes mud. */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-2: 0 4px 16px -4px rgb(0 0 0 / 55%);
+  --shadow-3: 0 16px 48px -12px rgb(0 0 0 / 70%);
+  --shadow-4: 0 32px 80px -16px rgb(0 0 0 / 80%);
+
+  /* Halo used by the voice orb and the primary button. It is white light
+     spilling off a bright object, not a coloured glow. */
+  --halo: 0 0 40px -8px rgb(255 255 255 / 14%);
+
+  /* --- Radii --------------------------------------------------------------
+     Generous, because the logo is drawn with fully round joins and the UI
+     should look like it came from the same pen. */
+  --r-xs: 6px;
+  --r-sm: 9px;
+  --r-md: 13px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --r-2xl: 32px;
+  --r-full: 999px;
+
+  /* --- Type ---------------------------------------------------------------
+     Archivo carries a width axis, so headings can be set tight and wide at
+     once — that is where the "designed" feel of a title comes from. Inter
+     does the reading.
+
+     There is no bundled monospace any more. JetBrains Mono was here and it
+     read as a pixel font at the sizes it was used at — percentages, file
+     sizes, version numbers — none of which needed a different typeface in the
+     first place. Numbers now stay in Inter with tabular figures, which lines
+     them up just as well and looks like the rest of the app.
+
+     What is left is the system mono, and only for things that are genuinely
+     code: fenced blocks and file paths. On macOS that is SF Mono, which is
+     already on every machine and costs nothing to ship. */
+  --font-display: 'Archivo Variable', 'Archivo', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+
+  --fs-display-xl: 46px;
+  --fs-display: 32px;
+  --fs-h1: 23px;
+  --fs-h2: 17px;
+  --fs-h3: 15px;
+  --fs-body: 14px;
+  --fs-sm: 13px;
+  --fs-xs: 12px;
+  --fs-label: 11px;
+
+  /* --- Space --------------------------------------------------------------
+     4px base. Everything in the app lands on this. */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-20: 80px;
+
+  /* --- Motion -------------------------------------------------------------
+     One curve does almost all the work: a strong expo-out that starts fast
+     and settles slowly. It is what makes an interface feel responsive
+     without feeling twitchy. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+
+  --t-1: 120ms;
+  --t-2: 200ms;
+  --t-3: 320ms;
+  --t-4: 520ms;
+  --t-5: 800ms;
+
+  /* --- Layout -------------------------------------------------------------
+     `--rail` is the sidebar. `--traffic` is the vertical room macOS needs
+     for its window buttons before anything of ours can sit there. */
+  --rail: 232px;
+  --traffic: 38px;
+  --measure: 68ch;
+}
+
+/* -------------------------------------------------------------------------
+   Translucency
+
+   `under-window` vibrancy blurs the *desktop*, which is the one thing CSS
+   cannot do. When it is on, the app background steps back and lets it
+   through; when the user turns it off in Settings, the same variable goes
+   opaque and nothing else in the stylesheet has to know.
+   ------------------------------------------------------------------------- */
+
+:root[data-glass='on'] {
+  --app-bg: rgb(13 13 16 / 62%);
+}
+
+:root[data-glass='off'] {
+  --app-bg: var(--g-950);
+}
+
+/* The HUD is its own transparent window; its card paints its own background. */
+:root[data-window='hud'] {
+  --app-bg: transparent;
+}
+
+/* -------------------------------------------------------------------------
+   Reduced motion
+
+   Everything here animates, so this matters more than usual. Durations
+   collapse to almost nothing rather than to zero: instant state changes are
+   genuinely harder to follow than fast ones.
+   ------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-1: 1ms;
+    --t-2: 1ms;
+    --t-3: 1ms;
+    --t-4: 1ms;
+    --t-5: 1ms;
+  }
+}

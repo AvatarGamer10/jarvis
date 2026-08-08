@@ -1,23 +1,48 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import { Channels, type JarvisApi } from '@shared/ipc'
-import type { ProgresoDescarga, Settings, UpdateState } from '@shared/types'
+import { Channels, type ViloApi } from '@shared/ipc'
+import type {
+  ModelBundleId,
+  ModelDownload,
+  OllamaPullProgress,
+  Settings,
+  UpdateState
+} from '@shared/types'
 
 /**
  * Puente entre el renderer y el proceso main.
  *
- * `contextBridge` copia estas funciones al contexto de la pagina sin darle
+ * `contextBridge` copies these functions into the page's context without
+ * giving it
  * acceso a `require` ni a `ipcRenderer` directamente. Aunque alguien inyectara
- * codigo en el renderer, solo podria llamar a lo que hay aqui abajo.
+ * code into the renderer, all it could call is what is written below.
  */
-const api: JarvisApi = {
+const api: ViloApi = {
   auth: {
     status: () => ipcRenderer.invoke(Channels.authStatus),
     signIn: () => ipcRenderer.invoke(Channels.authSignIn),
     signOut: () => ipcRenderer.invoke(Channels.authSignOut)
   },
+  app: {
+    version: () => ipcRenderer.invoke(Channels.appVersion),
+    microphone: () => ipcRenderer.invoke(Channels.appMicrophone)
+  },
+  models: {
+    size: () => ipcRenderer.invoke(Channels.modelsSize),
+    clear: () => ipcRenderer.invoke(Channels.modelsClear),
+    status: (bundle: ModelBundleId) => ipcRenderer.invoke(Channels.modelsStatus, bundle),
+    install: (bundle: ModelBundleId) => ipcRenderer.invoke(Channels.modelsInstall, bundle),
+    repair: (bundle: ModelBundleId) => ipcRenderer.invoke(Channels.modelsRepair, bundle),
+    cancel: (bundle: ModelBundleId) => ipcRenderer.invoke(Channels.modelsCancel, bundle),
+    onProgress: (callback: (progress: ModelDownload) => void) => {
+      const listener = (_e: IpcRendererEvent, progress: ModelDownload): void => callback(progress)
+      ipcRenderer.on(Channels.modelProgress, listener)
+      return () => ipcRenderer.removeListener(Channels.modelProgress, listener)
+    }
+  },
   settings: {
     get: () => ipcRenderer.invoke(Channels.settingsGet),
-    update: (patch: Partial<Settings>) => ipcRenderer.invoke(Channels.settingsUpdate, patch)
+    update: (patch: Partial<Settings>) => ipcRenderer.invoke(Channels.settingsUpdate, patch),
+    reset: () => ipcRenderer.invoke(Channels.settingsReset)
   },
   calendar: {
     list: (timeMin: string, timeMax: string) =>
@@ -31,26 +56,26 @@ const api: JarvisApi = {
     add: (input) => ipcRenderer.invoke(Channels.tasksAdd, input),
     update: (id, patch) => ipcRenderer.invoke(Channels.tasksUpdate, id, patch),
     remove: (id: string) => ipcRenderer.invoke(Channels.tasksRemove, id),
-    interpretarPegado: (texto: string) =>
-      ipcRenderer.invoke(Channels.tasksInterpretarPegado, texto)
+    parsePasted: (texto: string) =>
+      ipcRenderer.invoke(Channels.tasksParsePasted, texto)
   },
-  examenes: {
-    list: () => ipcRenderer.invoke(Channels.examenesList),
-    add: (input) => ipcRenderer.invoke(Channels.examenesAdd, input),
-    update: (id, patch) => ipcRenderer.invoke(Channels.examenesUpdate, id, patch),
-    remove: (id: string) => ipcRenderer.invoke(Channels.examenesRemove, id)
+  exams: {
+    list: () => ipcRenderer.invoke(Channels.examsList),
+    add: (input) => ipcRenderer.invoke(Channels.examsAdd, input),
+    update: (id, patch) => ipcRenderer.invoke(Channels.examsUpdate, id, patch),
+    remove: (id: string) => ipcRenderer.invoke(Channels.examsRemove, id)
   },
   ollama: {
     isRunning: () => ipcRenderer.invoke(Channels.ollamaIsRunning),
     recommended: () => ipcRenderer.invoke(Channels.ollamaRecommended),
     pull: (model: string) => ipcRenderer.invoke(Channels.ollamaPull, model),
     cancelPull: () => ipcRenderer.invoke(Channels.ollamaCancelPull),
-    onProgress: (callback: (progress: ProgresoDescarga) => void) => {
-      const oyente = (_e: IpcRendererEvent, progress: ProgresoDescarga): void => callback(progress)
-      ipcRenderer.on(Channels.ollamaProgress, oyente)
-      return () => ipcRenderer.removeListener(Channels.ollamaProgress, oyente)
+    onProgress: (callback: (progress: OllamaPullProgress) => void) => {
+      const listener = (_e: IpcRendererEvent, progress: OllamaPullProgress): void => callback(progress)
+      ipcRenderer.on(Channels.ollamaProgress, listener)
+      return () => ipcRenderer.removeListener(Channels.ollamaProgress, listener)
     },
-    probar: () => ipcRenderer.invoke(Channels.ollamaProbar)
+    test: () => ipcRenderer.invoke(Channels.ollamaTest)
   },
   agent: {
     history: () => ipcRenderer.invoke(Channels.agentHistory),
@@ -58,8 +83,14 @@ const api: JarvisApi = {
     confirm: (actionId: string, approved: boolean) =>
       ipcRenderer.invoke(Channels.agentConfirm, actionId, approved),
     reset: () => ipcRenderer.invoke(Channels.agentReset),
+    conversations: () => ipcRenderer.invoke(Channels.agentConversations),
+    newConversation: () => ipcRenderer.invoke(Channels.agentNewConversation),
+    openConversation: (id: string) => ipcRenderer.invoke(Channels.agentOpenConversation, id),
+    deleteConversation: (id: string) => ipcRenderer.invoke(Channels.agentDeleteConversation, id),
     usage: () => ipcRenderer.invoke(Channels.agentUsage),
-    ollamaModels: () => ipcRenderer.invoke(Channels.agentOllamaModels)
+    ollamaModels: () => ipcRenderer.invoke(Channels.agentOllamaModels),
+    models: (provider) => ipcRenderer.invoke(Channels.agentModels, provider),
+    check: () => ipcRenderer.invoke(Channels.agentCheck)
   },
   organizer: {
     listRules: () => ipcRenderer.invoke(Channels.organizerListRules),
@@ -72,26 +103,27 @@ const api: JarvisApi = {
   },
   brief: {
     get: (withSummary?: boolean) => ipcRenderer.invoke(Channels.briefGet, withSummary ?? true),
-    contadores: () => ipcRenderer.invoke(Channels.briefContadores)
+    counts: () => ipcRenderer.invoke(Channels.briefCounts)
   },
   plan: {
-    calcular: (dias?: number) => ipcRenderer.invoke(Channels.planCalcular, dias ?? 7),
+    planBlocks: (dias?: number) => ipcRenderer.invoke(Channels.planCalcular, dias ?? 7),
     aplicar: (planId: string) => ipcRenderer.invoke(Channels.planAplicar, planId)
   },
-  novedades: {
-    pendientes: () => ipcRenderer.invoke(Channels.novedadesPendientes),
-    marcarVistas: () => ipcRenderer.invoke(Channels.novedadesMarcarVistas)
+  whatsNew: {
+    pending: () => ipcRenderer.invoke(Channels.whatsNewPending),
+    markSeen: () => ipcRenderer.invoke(Channels.whatsNewMarkSeen)
   },
   updater: {
     get: () => ipcRenderer.invoke(Channels.updaterGet),
     check: () => ipcRenderer.invoke(Channels.updaterCheck),
     installAndRestart: () => ipcRenderer.invoke(Channels.updaterInstall),
     onState: (callback: (state: UpdateState) => void) => {
-      // Se envuelve el callback en vez de pasarlo tal cual: asi el renderer no
-      // recibe el objeto `event` de Electron, que trae el sender dentro.
-      const oyente = (_event: IpcRendererEvent, state: UpdateState): void => callback(state)
-      ipcRenderer.on(Channels.updaterState, oyente)
-      return () => ipcRenderer.removeListener(Channels.updaterState, oyente)
+      // The callback is wrapped rather than passed straight through: that way
+      // the renderer never receives Electron's `event` object, which carries
+      // the sender inside it.
+      const listener = (_event: IpcRendererEvent, state: UpdateState): void => callback(state)
+      ipcRenderer.on(Channels.updaterState, listener)
+      return () => ipcRenderer.removeListener(Channels.updaterState, listener)
     }
   },
   hud: {
@@ -101,17 +133,18 @@ const api: JarvisApi = {
     expand: (open: boolean) => ipcRenderer.invoke(Channels.hudExpand, open),
     openApp: () => ipcRenderer.invoke(Channels.hudOpenApp)
   },
-  datos: {
-    exportar: () => ipcRenderer.invoke(Channels.datosExportar),
-    importar: () => ipcRenderer.invoke(Channels.datosImportar)
+  data: {
+    exportData: () => ipcRenderer.invoke(Channels.dataExport),
+    importData: () => ipcRenderer.invoke(Channels.dataImport)
   },
   dialog: {
     pickFolder: () => ipcRenderer.invoke(Channels.dialogPickFolder),
-    importGoogleJson: () => ipcRenderer.invoke(Channels.dialogImportGoogleJson)
+    importGoogleJson: () => ipcRenderer.invoke(Channels.dialogImportGoogleJson),
+    attachFile: () => ipcRenderer.invoke(Channels.dialogAttachFile)
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke(Channels.shellOpenExternal, url)
   }
 }
 
-contextBridge.exposeInMainWorld('jarvis', api)
+contextBridge.exposeInMainWorld('vilo', api)

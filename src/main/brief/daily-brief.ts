@@ -2,10 +2,10 @@ import type { BriefTask, DailyBrief } from '@shared/types'
 import type { LLMProvider } from '../agent/provider'
 import type { CalendarService } from '../integrations/calendar'
 import type { ClassroomService } from '../integrations/classroom'
-import type { ExamenService } from '../tasks/examenes'
+import type { ExamenService } from '../tasks/exams'
 import type { ManualTaskService } from '../tasks/manual-tasks'
 
-/** Cuantos dias por delante cuentan como "viene pronto". */
+/** How many days ahead count as "coming up soon". */
 const SOON_DAYS = 3
 
 function startOfToday(): Date {
@@ -14,7 +14,7 @@ function startOfToday(): Date {
   return d
 }
 
-/** Dias naturales hasta la fecha. Negativo si ya paso, null si no hay fecha. */
+/** Calendar days until the date. Negative once passed, null if there is none. */
 function daysUntil(iso: string | null): number | null {
   if (!iso) return null
   const parsed = Date.parse(iso)
@@ -29,69 +29,70 @@ const plural = (n: number, uno: string, varios: string): string =>
   `${n} ${n === 1 ? uno : varios}`
 
 /**
- * Reune el resumen del dia a partir de las tres fuentes.
+ * Assembles the day's brief from the three sources.
  *
- * Ninguna es obligatoria: si el calendario falla o Classroom esta bloqueado por
- * el centro, el resumen sale igualmente con lo que haya. Un resumen a medias es
- * util; uno que no aparece porque una fuente fallo, no.
+ * None of them is required: if the calendar fails or Classroom is blocked by
+ * the school, the brief still goes out with whatever there is. A partial brief
+ * is useful; one that never appears because a source failed is not.
  */
 export class BriefService {
   constructor(
     private readonly calendar: CalendarService,
     private readonly classroom: ClassroomService,
     private readonly tasks: ManualTaskService,
-    private readonly examenes: ExamenService,
+    private readonly exams: ExamenService,
     private readonly llm: LLMProvider
   ) {}
 
   /**
-   * Examenes que aun no han pasado, como entradas del resumen.
+   * Exams that have not happened yet, as brief entries.
    *
-   * Los ya corregidos quedan fuera, y los pasados sin nota tambien: un examen
-   * que ya hiciste no es algo pendiente, solo te falta apuntar el resultado.
+   * Marked ones are left out, and so are past ones with no grade: an exam you
+   * have already sat is not outstanding, you have just not written down the
+   * result.
    */
   private examenesPendientes(): BriefTask[] {
-    const hoy = startOfToday().getTime()
-    return this.examenes
+    const today = startOfToday().getTime()
+    return this.exams
       .list()
-      .filter((e) => e.grade === null && Date.parse(e.date) >= hoy)
+      .filter((e) => e.grade === null && Date.parse(e.date) >= today)
       .map((e) => ({
-        title: `Examen: ${e.title}`,
+        title: `Exam: ${e.title}`,
         subject: e.subject,
         dueDate: e.date,
-        source: 'examen' as const
+        source: 'exam' as const
       }))
   }
 
   /**
-   * Cuenta lo urgente, sin tocar el calendario ni el modelo.
+   * Counts what is urgent, without touching the calendar or the model.
    *
-   * Lo usa el boton flotante, que pregunta cada pocos minutos: construir el
-   * resumen entero para pintar un numero seria gastar red y bateria de mas.
+   * Used by the floating orb, which asks every few minutes: building the whole
+   * brief to paint one number would spend network and battery for nothing.
    */
-  async contadores(): Promise<{ hoy: number; atrasadas: number }> {
+  async counts(): Promise<{ today: number; overdue: number }> {
     const manual = this.tasks.list().filter((t) => !t.done)
     const classroom = await this.safeClassroom()
 
     const fechas = [...manual.map((t) => t.dueDate), ...classroom.map((t) => t.dueDate)]
 
-    let hoy = 0
-    let atrasadas = 0
+    let today = 0
+    let overdue = 0
     for (const fecha of fechas) {
       const dias = daysUntil(fecha)
       if (dias === null) continue
-      if (dias < 0) atrasadas++
-      else if (dias === 0) hoy++
+      if (dias < 0) overdue++
+      else if (dias === 0) today++
     }
 
-    // Un examen hoy es lo mas urgente que hay. Los pasados sin nota no cuentan
-    // como atrasados: ya los hiciste, solo falta apuntar el resultado, y avisar
-    // de eso cada dia convertiria el contador en ruido.
-    for (const examen of this.examenesPendientes()) {
-      if (daysUntil(examen.dueDate) === 0) hoy++
+    // An exam today is the most urgent thing there is. Past ones with no grade
+    // do not count as overdue: you sat them, you just have not written the
+    // result down, and nagging about that daily would turn the count to noise.
+    for (const exam of this.examenesPendientes()) {
+      if (daysUntil(exam.dueDate) === 0) today++
     }
 
-    return { hoy, atrasadas }
+    return { today, overdue }
   }
 
   async build(withSummary = true): Promise<DailyBrief> {
@@ -124,11 +125,11 @@ export class BriefService {
       else if (days <= SOON_DAYS) dueSoon.push(task)
     }
 
-    // Mismo dia: primero el examen. Es lo que no se puede posponer.
+    // Same day: the exam first. It is the thing that cannot be put off.
     const byDate = (a: BriefTask, b: BriefTask): number => {
       const fechas = (a.dueDate ?? '').localeCompare(b.dueDate ?? '')
       if (fechas !== 0) return fechas
-      return (a.source === 'examen' ? 0 : 1) - (b.source === 'examen' ? 0 : 1)
+      return (a.source === 'exam' ? 0 : 1) - (b.source === 'exam' ? 0 : 1)
     }
     overdue.sort(byDate)
     dueToday.sort(byDate)
@@ -148,20 +149,20 @@ export class BriefService {
     return brief
   }
 
-  /** Frase de la notificacion. Lo urgente primero, y nada de relleno. */
+  /** The notification sentence. Most urgent first, and no filler. */
   private headline(events: number, today: BriefTask[], overdue: number): string {
-    // Los examenes se cuentan aparte: llamar "entrega" a un examen le quita
-    // justo el peso que tiene que tener en una frase de una linea.
-    const examenes = today.filter((t) => t.source === 'examen').length
-    const entregas = today.length - examenes
+    // Exams are counted separately: calling an exam a "deadline" strips it of
+    // exactly the weight it needs to carry in a one-line sentence.
+    const exams = today.filter((t) => t.source === 'exam').length
+    const entregas = today.length - exams
 
     const partes: string[] = []
-    if (examenes > 0) partes.push(`${plural(examenes, 'EXAMEN hoy', 'EXAMENES hoy')}`)
-    if (overdue > 0) partes.push(`${plural(overdue, 'tarea atrasada', 'tareas atrasadas')}`)
-    if (entregas > 0) partes.push(`${plural(entregas, 'entrega hoy', 'entregas hoy')}`)
-    if (events > 0) partes.push(`${plural(events, 'evento', 'eventos')}`)
+    if (exams > 0) partes.push(`${plural(exams, 'EXAM today', 'EXAMS today')}`)
+    if (overdue > 0) partes.push(`${plural(overdue, 'task late', 'tasks late')}`)
+    if (entregas > 0) partes.push(`${plural(entregas, 'due today', 'due today')}`)
+    if (events > 0) partes.push(`${plural(events, 'event', 'events')}`)
 
-    if (partes.length === 0) return 'Hoy no tienes nada pendiente.'
+    if (partes.length === 0) return 'Nothing due today.'
     return partes.join(' · ')
   }
 
@@ -172,7 +173,7 @@ export class BriefService {
       to.setDate(to.getDate() + 1)
       return await this.calendar.listEvents(from.toISOString(), to.toISOString())
     } catch (err) {
-      console.error('[brief] sin calendario:', (err as Error).message)
+      console.error('[brief] no calendar:', (err as Error).message)
       return []
     }
   }
@@ -188,14 +189,14 @@ export class BriefService {
         link: a.link
       }))
     } catch (err) {
-      console.error('[brief] sin Classroom:', (err as Error).message)
+      console.error('[brief] no Classroom:', (err as Error).message)
       return []
     }
   }
 
   /**
-   * Redaccion del resumen por el modelo. Es un extra: si no hay modelo
-   * disponible, la interfaz muestra igualmente los datos estructurados.
+   * The model's write-up. It is a bonus: with no model reachable, the
+   * interface still shows all the structured data underneath.
    */
   private async safeSummary(brief: DailyBrief): Promise<string | null> {
     if (brief.events.length === 0 && brief.dueToday.length === 0 && brief.overdue.length === 0) {
@@ -205,12 +206,12 @@ export class BriefService {
     const linea = (t: BriefTask): string =>
       `- ${t.title}${t.subject ? ` (${t.subject})` : ''}`
 
-    const datos = [
-      brief.overdue.length > 0 ? `Atrasadas:\n${brief.overdue.map(linea).join('\n')}` : '',
-      brief.dueToday.length > 0 ? `Vencen hoy:\n${brief.dueToday.map(linea).join('\n')}` : '',
-      brief.dueSoon.length > 0 ? `Vencen pronto:\n${brief.dueSoon.map(linea).join('\n')}` : '',
+    const data = [
+      brief.overdue.length > 0 ? `Late:\n${brief.overdue.map(linea).join('\n')}` : '',
+      brief.dueToday.length > 0 ? `Due today:\n${brief.dueToday.map(linea).join('\n')}` : '',
+      brief.dueSoon.length > 0 ? `Due soon:\n${brief.dueSoon.map(linea).join('\n')}` : '',
       brief.events.length > 0
-        ? `Calendario de hoy:\n${brief.events.map((e) => `- ${e.title}`).join('\n')}`
+        ? `Today's calendar:\n${brief.events.map((e) => `- ${e.title}`).join('\n')}`
         : ''
     ]
       .filter(Boolean)
@@ -219,17 +220,17 @@ export class BriefService {
     try {
       const reply = await this.llm.complete({
         system:
-          'Eres JARVIS, el asistente de un estudiante. Redacta su resumen de la manana en ' +
-          'espanol, de tu, en dos o tres frases como maximo. Di primero lo mas urgente y ' +
-          'sugiere por donde empezar. Nada de saludos ni de listas: solo el texto seguido. ' +
-          'No inventes nada que no este en los datos.',
-        history: [{ role: 'user', text: datos }],
-        // Sin herramientas: aqui solo queremos que redacte.
+          'You are Vilo, a student\'s assistant. Write their morning brief in English, ' +
+          'second person, in two or three sentences at most. Lead with the most urgent ' +
+          'thing and suggest where to start. No greeting and no lists: just prose. ' +
+          'Invent nothing that is not in the data.',
+        history: [{ role: 'user', text: data }],
+        // No tools: all we want here is the writing.
         tools: []
       })
       return reply.text
     } catch (err) {
-      console.error('[brief] sin redaccion del modelo:', (err as Error).message)
+      console.error('[brief] no prose from the model:', (err as Error).message)
       return null
     }
   }

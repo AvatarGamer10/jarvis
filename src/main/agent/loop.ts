@@ -1,24 +1,24 @@
 import { randomUUID } from 'node:crypto'
-import type { ChatMessage, PendingAction, ToolCallRecord } from '@shared/types'
+import type { ChatMessage, ChatSummary, PendingAction, ToolCallRecord } from '@shared/types'
 import type { ChatStore } from './chat-store'
 import { LlmError, type ConversationItem, type LLMProvider, type ToolCall } from './provider'
 import { systemPrompt } from './prompt'
 import { toolByName, TOOLS, type Tool, type ToolContext } from './tools'
 
 /**
- * Tope de vueltas del bucle. Sin esto, un modelo que se atasca llamando a la
- * misma herramienta puede vaciar la cuota diaria en un minuto.
+ * Ceiling on loop iterations. Without it, a model that gets stuck calling the
+ * same tool can empty the daily quota in a minute.
  */
 const MAX_STEPS = 6
 
-/** Turnos que se conservan. La conversacion entera acabaria costando demasiados tokens. */
+/** Turns kept. The whole conversation would end up costing too many tokens. */
 const MAX_HISTORY = 40
 
 interface PendingBatch {
   action: PendingAction
-  /** Lote completo de llamadas que pidio el modelo. */
+  /** The full batch of calls the model asked for. */
   calls: ToolCall[]
-  /** Indice de la que esta esperando confirmacion. */
+  /** Index of the one waiting on confirmation. */
   index: number
   args: unknown
 }
@@ -32,32 +32,61 @@ export class AgentService {
     private readonly context: () => ToolContext,
     private readonly store: ChatStore
   ) {
-    // La conversacion sobrevive a los reinicios: sin esto, cerrar la app
-    // borraba todo lo hablado y el asistente no recordaba nada de un dia
-    // para otro.
-    this.history = store.contexto()
+    // The conversation survives restarts: without this, closing the app erased
+    // everything said and the assistant remembered nothing from one day to the
+    // next.
+    this.history = store.context()
   }
 
-  /** Lo que hay que pintar al abrir el chat. */
+  /** What to paint when the chat opens. */
   mensajesGuardados(): ChatMessage[] {
-    return this.store.mensajes()
+    return this.store.messages()
   }
 
   reset(): void {
     this.history = []
     this.pending = null
-    this.store.vaciar()
+    this.store.clear()
   }
 
-  /** Manda un mensaje del usuario y devuelve los mensajes nuevos del asistente. */
+  /** Earlier conversations, for the history list. */
+  conversations(): ChatSummary[] {
+    return this.store.history()
+  }
+
+  /**
+   * Files the conversation in progress away and starts another.
+   *
+   * The in-memory context is discarded too, which is the easy part to forget:
+   * clearing only the file would leave the model still dragging everything
+   * that came before into the next question.
+   */
+  newConversation(): void {
+    this.history = []
+    this.pending = null
+    this.store.archiveCurrent()
+  }
+
+  openConversation(id: string): ChatMessage[] {
+    this.pending = null
+    const mensajes = this.store.open(id)
+    this.history = this.store.context()
+    return mensajes
+  }
+
+  deleteConversation(id: string): void {
+    this.store.remove(id)
+  }
+
+  /** Sends a user message and returns the assistant's new messages. */
   async send(text: string): Promise<ChatMessage[]> {
-    // Un mensaje nuevo invalida cualquier confirmacion a medias: el usuario ha
+    // A new message invalidates any half-finished confirmation: the user has
     // seguido a otra cosa.
     this.pending = null
     this.history.push({ role: 'user', text })
     this.trim()
 
-    const propios: ChatMessage = {
+    const own: ChatMessage = {
       id: randomUUID(),
       role: 'user',
       text,
@@ -65,28 +94,28 @@ export class AgentService {
     }
 
     const respuestas = await this.run([])
-    this.persistir([propios, ...respuestas])
+    this.persistir([own, ...respuestas])
     return respuestas
   }
 
   /**
    * Vuelca a disco lo nuevo.
    *
-   * Se guarda tras cada intercambio y no al cerrar: si la app se cierra de
-   * golpe, un guardado al final no llega a ejecutarse nunca.
+   * Saved after each exchange rather than on close: if the app is closed
+   * abruptly, a save at the end never runs at all.
    */
   private persistir(nuevos: ChatMessage[]): void {
-    // Las acciones pendientes no se guardan: al reabrir la app ya no se pueden
-    // confirmar, y un boton que no hace nada es peor que ninguno.
+    // Las acciones pending no se guardan: al reabrir la app ya no se pueden
+    // confirm, and a button that does nothing is worse than no button.
     const limpios = nuevos.map(({ pendingAction: _omitido, ...resto }) => resto)
-    this.store.guardar([...this.store.mensajes(), ...limpios], this.history)
+    this.store.save([...this.store.messages(), ...limpios], this.history)
   }
 
-  /** Resuelve una confirmacion pendiente y sigue desde donde se quedo. */
+  /** Resolves a pending confirmation and carries on from where it stopped. */
   async confirm(actionId: string, approved: boolean): Promise<ChatMessage[]> {
     const batch = this.pending
     if (!batch || batch.action.id !== actionId) {
-      throw new Error('Esa accion ya no esta pendiente.')
+      throw new Error('That action is no longer pending.')
     }
     this.pending = null
 
@@ -96,20 +125,20 @@ export class AgentService {
     if (approved) {
       const call = batch.calls[batch.index]
       const tool = toolByName(call.name)
-      if (!tool) throw new Error(`La herramienta "${call.name}" ya no existe.`)
+      if (!tool) throw new Error(`The tool "${call.name}" no longer exists.`)
       await this.runOne(tool, call, batch.args, records)
     } else {
       const call = batch.calls[batch.index]
       this.history.push({
         role: 'tool',
         name: call.name,
-        response: { cancelado: true, motivo: 'El usuario no ha autorizado la accion.' }
+        response: { cancelled: true, reason: 'The user did not authorise the action.' }
       })
-      records.push({ name: call.name, args: call.args, summary: 'Cancelada por el usuario.', ok: false })
+      records.push({ name: call.name, args: call.args, summary: 'Cancelled by the user', ok: false })
     }
 
-    // El modelo espera una respuesta por cada llamada que hizo. Las que quedaron
-    // detras de la confirmacion se responden como no ejecutadas.
+    // The model expects one answer per call it made. The ones queued behind the
+    // confirmation are answered as not executed.
     const paused = await this.consume(batch.calls, batch.index + 1, records, produced)
     if (paused) {
       this.persistir(produced)
@@ -139,8 +168,8 @@ export class AgentService {
           }))
         })
       } catch (err) {
-        // Si el modelo falla dejamos la conversacion como estaba antes de la
-        // llamada, para que reintentar no arrastre un historial roto.
+        // If the model fails, the conversation is left as it was before the
+        // call, so retrying does not drag a broken history along.
         const message = err instanceof LlmError ? err.message : (err as Error).message
         produced.push(this.assistantMessage(message, records))
         return produced
@@ -153,11 +182,11 @@ export class AgentService {
       })
 
       if (reply.toolCalls.length === 0) {
-        produced.push(this.assistantMessage(reply.text ?? 'No he sabido que responder.', records))
+        produced.push(this.assistantMessage(reply.text ?? 'I did not know how to answer that.', records))
         return produced
       }
 
-      // Si el modelo ha escrito algo antes de usar las herramientas, se muestra.
+      // If the model wrote something before using the tools, it is shown.
       if (reply.text) produced.push(this.assistantMessage(reply.text, []))
 
       const paused = await this.consume(reply.toolCalls, 0, records, produced)
@@ -169,7 +198,7 @@ export class AgentService {
 
     produced.push(
       this.assistantMessage(
-        'He dado demasiadas vueltas sin llegar a una respuesta. Prueba a pedirmelo de otra forma.',
+        'I went round too many times without reaching an answer. Try asking it another way.',
         records
       )
     )
@@ -177,8 +206,8 @@ export class AgentService {
   }
 
   /**
-   * Ejecuta las llamadas desde `from`. Devuelve true si se ha parado a esperar
-   * una confirmacion del usuario.
+   * Runs the calls from `from` onwards. Returns true if it stopped to wait for
+   * the user to confirm something.
    */
   private async consume(
     calls: ToolCall[],
@@ -200,8 +229,8 @@ export class AgentService {
         continue
       }
 
-      // El modelo se equivoca con los argumentos mas de lo que parece. Validar
-      // aqui evita, por ejemplo, crear un evento con una fecha imposible.
+      // The model gets arguments wrong more often than you would think.
+      // Validating here prevents, for instance, an event on an impossible date.
       const parsed = tool.schema.safeParse(call.args)
       if (!parsed.success) {
         const detail = parsed.error.issues.map((issue) => issue.message).join('; ')
@@ -215,13 +244,13 @@ export class AgentService {
       }
 
       if (tool.requiresConfirmation) {
-        // Algunas herramientas necesitan calcular antes de poder explicar que
-        // van a hacer. Si ese calculo falla, se trata como un fallo normal de
+        // Some tools have to work something out before they can explain what
+        // they will do. If that fails it is treated as an ordinary failure of
         // la herramienta en vez de dejar la conversacion colgada.
-        let datos = parsed.data
+        let data = parsed.data
         if (tool.prepare) {
           try {
-            datos = await tool.prepare(datos as never, this.context())
+            data = await tool.prepare(data as never, this.context())
           } catch (err) {
             const message = (err as Error).message
             this.history.push({ role: 'tool', name: call.name, response: { error: message } })
@@ -230,7 +259,7 @@ export class AgentService {
           }
         }
 
-        const described = tool.describe?.(datos as never) ?? {
+        const described = tool.describe?.(data as never) ?? {
           description: `Ejecutar ${tool.name}`,
           details: []
         }
@@ -240,7 +269,7 @@ export class AgentService {
           args: call.args,
           ...described
         }
-        this.pending = { action, calls, index: i, args: datos }
+        this.pending = { action, calls, index: i, args: data }
         produced.push({
           id: randomUUID(),
           role: 'assistant',
@@ -270,7 +299,7 @@ export class AgentService {
       records.push({ name: call.name, args: call.args, summary: result.summary, ok: true })
     } catch (err) {
       const message = (err as Error).message
-      // El error va al historial para que el modelo pueda explicarselo al
+      // The error goes into the history so the model can explain it to the
       // usuario en vez de quedarse callado.
       this.history.push({ role: 'tool', name: call.name, response: { error: message } })
       records.push({ name: call.name, args: call.args, summary: message, ok: false })
@@ -288,8 +317,8 @@ export class AgentService {
   }
 
   /**
-   * Recorta el historial sin partir un par llamada/respuesta por la mitad:
-   * si Gemini recibe un functionResponse cuyo functionCall ya no esta, falla.
+   * Trims the history without cutting a call/response pair in half: if Gemini
+   * receives a functionResponse whose functionCall is gone, it fails.
    */
   private trim(): void {
     if (this.history.length <= MAX_HISTORY) return

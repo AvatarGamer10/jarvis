@@ -12,12 +12,12 @@ interface RulesData {
 }
 
 /**
- * Fachada del organizador. Guarda las reglas, calcula planes, los ejecuta y
- * mantiene el historial para deshacer.
+ * The organiser's front door. Stores the rules, calculates plans, runs them,
+ * and keeps the history that makes undo possible.
  *
- * Los planes calculados se guardan en memoria y solo se pueden ejecutar por su
- * id: asi el renderer (o el agente) nunca puede pasar una lista de movimientos
- * inventada, solo aprobar una que se calculo aqui dentro.
+ * Calculated plans are held in memory and can only be executed by id: that way
+ * the renderer — or the agent — can never hand over an invented list of moves,
+ * only approve one that was calculated in here.
  */
 export class OrganizerService {
   private readonly store: JsonStore<RulesData>
@@ -39,8 +39,8 @@ export class OrganizerService {
   }
 
   saveRule(rule: Omit<FileRule, 'id'> & { id?: string }): FileRule {
-    // Se valida al guardar, no solo al ejecutar: mejor rechazar una regla
-    // imposible en el momento que crearla y que falle en silencio despues.
+    // Validated on save, not only on execution: better to reject an impossible
+    // rule there and then than to create it and have it fail quietly later.
     assertAllowed(this.roots(), rule.source)
     assertAllowed(this.roots(), rule.destination)
 
@@ -61,12 +61,12 @@ export class OrganizerService {
 
   // --- Planes -------------------------------------------------------------
 
-  /** Simulacro: calcula los movimientos sin tocar el disco. */
+  /** A dry run: works out the moves without touching the disk. */
   plan(): MovePlan {
     const plan = planMoves(this.listRules(), this.roots())
     this.plans.set(plan.id, plan)
 
-    // No dejamos crecer el mapa sin control en una sesion larga.
+    // The map is not allowed to grow unchecked over a long session.
     if (this.plans.size > 10) {
       const oldest = [...this.plans.keys()][0]
       this.plans.delete(oldest)
@@ -77,7 +77,7 @@ export class OrganizerService {
   apply(planId: string): ApplyOutcome {
     const plan = this.plans.get(planId)
     if (!plan) {
-      throw new Error('Ese plan ya no existe. Vuelve a calcular la vista previa.')
+      throw new Error('That plan no longer exists. Run the preview again.')
     }
 
     const outcome = applyPlan(plan, this.roots())
@@ -101,11 +101,11 @@ export class OrganizerService {
 
   undoLast(): ApplyOutcome {
     const batch = this.journal.last()
-    if (!batch) throw new Error('No hay nada que deshacer.')
+    if (!batch) throw new Error('There is nothing to undo.')
 
     const outcome = undoBatch(batch, this.roots())
-    // El lote se retira aunque algun archivo falle: lo que se pudo devolver ya
-    // esta devuelto, y reintentar el resto moveria cosas dos veces.
+    // The batch is retired even if a file fails: what could be put back has
+    // been, and retrying the rest would move things twice.
     this.journal.remove(batch.id)
     return outcome
   }

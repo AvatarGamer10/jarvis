@@ -1,380 +1,382 @@
+import { ArrowRight, Check, KeyRound } from 'lucide-react'
+import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
-import type { AuthStatus, ModeloRecomendado, ProgresoDescarga } from '@shared/types'
+import type { AuthStatus, LlmProviderId } from '@shared/types'
+import AssistantLogo from '../components/AssistantLogo'
+import Greeting from '../components/Greeting'
+import Logo from '../components/Logo'
+import { BlurIn, EASE, Reveal, Swap } from '../components/anim'
+import { Field } from '../components/ui'
 import { sound } from '../lib/sound'
 
-const MARK = 'JARVIS'
-const PASOS = ['bienvenida', 'google', 'cerebro', 'listo'] as const
-type Paso = (typeof PASOS)[number]
+const STEPS = ['welcome', 'google', 'model', 'ready'] as const
+type Step = (typeof STEPS)[number]
 
 interface Props {
-  onDone: () => void
+  onDone: () => void | Promise<void>
 }
 
 /**
- * Configuracion guiada del primer arranque.
+ * First run.
  *
- * Solo aparece una vez en la vida de la instalacion: la marca vive en
- * settings.json, dentro de la carpeta de datos del usuario, que ni el
- * instalador ni el actualizador tocan.
- *
- * Esta escrito para alguien que no ha configurado nada tecnico nunca: una sola
- * decision por pantalla, sin jerga, y todo se puede saltar. Un tutorial que no
- * deja avanzar es peor que no tenerlo.
+ * Three decisions and a hello, and both of the decisions can be postponed —
+ * you can reach the app with neither an account nor a model and everything
+ * still opens, just emptier. Setup that refuses to let you in until every
+ * field is filled is how people decide an app is not worth it.
  */
 export default function Onboarding({ onDone }: Props): JSX.Element {
-  const [paso, setPaso] = useState<Paso>('bienvenida')
-  const [hayLogo, setHayLogo] = useState(true)
+  const [step, setStep] = useState<Step>('welcome')
+  /** Which way the steps are travelling, so Back reverses the animation. */
+  const [back, setBack] = useState(false)
 
-  const avanzar = (siguiente: Paso): void => {
+  const go = (next: Step): void => {
     sound.play('nav')
-    setPaso(siguiente)
+    setBack(STEPS.indexOf(next) < STEPS.indexOf(step))
+    setStep(next)
   }
 
-  const terminar = (): void => {
+  const finish = (): void => {
     sound.play('start')
-    onDone()
+    void onDone()
   }
+
+  const index = STEPS.indexOf(step)
 
   return (
-    <div className="intro">
-      <div className="intro-pasos" aria-hidden="true">
-        {PASOS.map((p) => (
-          <span key={p} className={`intro-punto ${p === paso ? 'activo' : ''}`} />
-        ))}
-      </div>
+    <div className="onboard">
+      <header className="onboard-head">
+        <Logo size={22} opacity={0.94} />
+        <span className="rail-name">Vilo</span>
+        <div className="onboard-progress" aria-hidden="true">
+          {STEPS.map((id, position) => (
+            <i key={id} className={position <= index ? 'on' : ''} />
+          ))}
+        </div>
+      </header>
 
-      {paso === 'bienvenida' && (
-        <>
-          {hayLogo ? (
-            <img
-              className="intro-logo"
-              src="./logo.png"
-              alt="JARVIS"
-              onError={() => setHayLogo(false)}
-            />
-          ) : (
-            <h1 className="intro-mark" aria-label={MARK}>
-              {MARK.split('').map((letra, i) => (
-                <span key={`${letra}-${i}`} aria-hidden="true" style={{ animationDelay: `${180 + i * 70}ms` }}>
-                  {letra}
-                </span>
-              ))}
-            </h1>
+      {/*
+       * One step dissolves into the next in place.
+       *
+       * `mode="wait"` matters: overlapping two steps means two sets of buttons
+       * on screen at once, and on a setup flow that is how people click the
+       * thing that is on its way out.
+       */}
+      <AnimatePresence mode="wait" initial={false} custom={back}>
+        <motion.div
+          key={step}
+          className="onboard-step"
+          custom={back}
+          initial={{ opacity: 0, x: back ? -26 : 26, filter: 'blur(8px)' }}
+          animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, x: back ? 26 : -26, filter: 'blur(8px)' }}
+          transition={{ duration: 0.42, ease: EASE }}
+        >
+          {step === 'welcome' && (
+            <>
+              <div className="onboard-body">
+                {/* No blur on the way in: this one is a live animation loop and
+                    starting it behind a filter costs a frame or two of it. */}
+                <Reveal blur={0} distance={18} duration={0.8}>
+                  <AssistantLogo size={210} className="onboard-assistant" />
+                </Reveal>
+
+                <Greeting />
+
+                <BlurIn
+                  delay={0.35}
+                  text="Vilo keeps track of your week — your classes, your homework, your exams — and does the tedious parts for you. Talk to it or type at it; either way, anything that changes something waits for your yes first."
+                />
+              </div>
+
+              <footer className="onboard-foot">
+                <span className="meta onboard-authors">Created by Enzoreael &amp; Noox</span>
+                <button className="btn primary lg" onClick={() => go('google')}>
+                  Get started
+                  <ArrowRight />
+                </button>
+              </footer>
+            </>
           )}
 
-          <p className="intro-line">
-            Lo que entregas, lo que tienes hoy y donde va cada archivo. En una sola ventana.
-          </p>
+          {step === 'google' && (
+            <GoogleStep onNext={() => go('model')} onBack={() => go('welcome')} />
+          )}
 
-          <button className="intro-start" onClick={() => avanzar('google')} autoFocus>
-            Empezar
-          </button>
+          {step === 'model' && <ModelStep onNext={() => go('ready')} onBack={() => go('google')} />}
 
-          <p className="intro-note">SON DOS MINUTOS, UNA SOLA VEZ</p>
-        </>
-      )}
-
-      {paso === 'google' && <PasoGoogle onSiguiente={() => avanzar('cerebro')} />}
-      {paso === 'cerebro' && <PasoCerebro onSiguiente={() => avanzar('listo')} />}
-
-      {paso === 'listo' && (
-        <>
-          <h2 className="intro-titulo">Todo listo</h2>
-          <p className="intro-line">Esto es lo que encontraras dentro:</p>
-
-          <div className="intro-tour">
-            {[
-              ['Chat', 'Pidele las cosas hablando, como a una persona.'],
-              ['Agenda', 'Tu semana y el resumen de cada dia.'],
-              ['Tareas', 'Lo que tienes que entregar, ordenado por urgencia.'],
-              ['Carpetas', 'Reglas para que cada archivo acabe en su sitio.']
-            ].map(([titulo, texto]) => (
-              <div key={titulo}>
-                <strong>{titulo}</strong>
-                <span>{texto}</span>
+          {step === 'ready' && (
+            <>
+              <div className="onboard-body">
+                <Reveal blur={0} distance={18} duration={0.8}>
+                  <AssistantLogo size={210} className="onboard-assistant is-ready" state="speaking" />
+                </Reveal>
+                <BlurIn as="h1" className="display" text="You're set." stagger={0.06} />
+                <Reveal delay={0.3}>
+                  <p>
+                    Hold the orb and ask something — “what do I have this week?” is a good first
+                    try. Everything else lives in the sidebar, and <kbd>⌘K</kbd> jumps anywhere.
+                  </p>
+                </Reveal>
               </div>
-            ))}
-          </div>
 
-          <button className="intro-start" onClick={terminar} autoFocus>
-            Entrar
-          </button>
-
-          <p className="intro-note">PUEDES CAMBIARLO TODO EN AJUSTES</p>
-        </>
-      )}
+              <footer className="onboard-foot">
+                <span className="spacer" />
+                <button className="btn primary lg" onClick={finish}>
+                  Open Vilo
+                  <ArrowRight />
+                </button>
+              </footer>
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }
 
-// --- Paso: cuenta de Google --------------------------------------------------
-
-function PasoGoogle({ onSiguiente }: { onSiguiente: () => void }): JSX.Element {
-  const [estado, setEstado] = useState<AuthStatus | null>(null)
-  const [ocupado, setOcupado] = useState(false)
+/** Connecting Google. Skippable — the app still runs without it. */
+function GoogleStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }): JSX.Element {
+  const [status, setStatus] = useState<AuthStatus | null>(null)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    void window.jarvis.auth.status().then((r) => {
-      if (r.ok) setEstado(r.data)
+    void window.vilo.auth.status().then((result) => {
+      if (result.ok) setStatus(result.data)
     })
   }, [])
 
-  const conectar = async (): Promise<void> => {
-    setOcupado(true)
+  const connect = async (): Promise<void> => {
+    setBusy(true)
     setError(null)
-    const r = await window.jarvis.auth.signIn()
-    if (r.ok) {
-      setEstado(r.data)
+
+    const result = await window.vilo.auth.signIn()
+    if (result.ok) {
+      setStatus(result.data)
       sound.play('confirm')
     } else {
-      setError(r.error)
+      setError(result.error)
     }
-    setOcupado(false)
+    setBusy(false)
   }
 
-  const conectado = estado?.connected === true
+  const connected = status?.connected === true
 
   return (
     <>
-      <h2 className="intro-titulo">Tu cuenta de Google</h2>
-      <p className="intro-line">
-        JARVIS necesita tu permiso para leer tu calendario y tus tareas. Se abrira el navegador
-        para que inicies sesion.
-      </p>
+      <div className="onboard-body">
+        <BlurIn as="h1" className="display" text="Connect your school account" stagger={0.045} />
+        <Reveal delay={0.24}>
+          <p>
+            This is what lets Vilo see your calendar and your Classroom assignments. It only ever
+            reads them — nothing is posted, submitted or deleted on your behalf.
+          </p>
+        </Reveal>
 
-      <div className="intro-caja">
-        {conectado ? (
-          <>
-            <div className="intro-ok">Conectado como {estado?.email}</div>
-            <p className="hint">Ya puedes seguir.</p>
-          </>
-        ) : (
-          <>
-            <button className="primary" onClick={conectar} disabled={ocupado}>
-              {ocupado ? 'Esperando al navegador…' : 'Conectar con Google'}
-            </button>
-            {error && <p className="hint intro-error">{error}</p>}
-            <p className="hint">
-              Google avisara de que no ha verificado la aplicacion. Es normal: la has instalado tu.
-              Pulsa <strong>Configuracion avanzada</strong> y luego <strong>Ir a JARVIS</strong>.
-            </p>
-          </>
-        )}
+        <Swap swapKey={connected ? 'in' : busy ? 'waiting' : 'out'} className="onboard-card">
+          {connected ? (
+            <div className="card">
+              <div className="row">
+                <span className="status-dot on" />
+                <div className="grow">
+                  <div className="item-title">{status?.email}</div>
+                  <div className="item-sub">Calendar and Classroom connected</div>
+                </div>
+                <Check size={16} />
+              </div>
+            </div>
+          ) : (
+            <div className="col" style={{ alignItems: 'center', gap: 'var(--s-3)' }}>
+              <button className="btn primary lg" onClick={connect} disabled={busy}>
+                {busy ? 'Waiting for your browser…' : 'Connect with Google'}
+              </button>
+              {busy && (
+                <p className="meta">
+                  A browser window has opened. Come back here once you have approved it.
+                </p>
+              )}
+            </div>
+          )}
+        </Swap>
+
+        {error && <div className="alert error">{error}</div>}
       </div>
 
-      <div className="row" style={{ justifyContent: 'center' }}>
-        <button className={conectado ? 'primary' : ''} onClick={onSiguiente}>
-          {conectado ? 'Siguiente' : 'Ahora no, seguir'}
+      <footer className="onboard-foot">
+        <button className="btn ghost" onClick={onBack}>
+          Back
         </button>
-      </div>
-
-      {!conectado && (
-        <p className="intro-note">SIN ESTO, LA AGENDA SE QUEDA VACIA. SE PUEDE HACER DESPUES.</p>
-      )}
+        <button className={`btn ${connected ? 'primary' : ''}`} onClick={onNext}>
+          {connected ? 'Continue' : 'Skip for now'}
+          <ArrowRight />
+        </button>
+      </footer>
     </>
   )
 }
 
-// --- Paso: el cerebro --------------------------------------------------------
-
-function PasoCerebro({ onSiguiente }: { onSiguiente: () => void }): JSX.Element {
-  const [instalado, setInstalado] = useState<boolean | null>(null)
-  const [modelos, setModelos] = useState<string[]>([])
-  const [recomendados, setRecomendados] = useState<ModeloRecomendado[]>([])
-  const [descarga, setDescarga] = useState<ProgresoDescarga | null>(null)
-  const [prueba, setPrueba] = useState<{ ok: boolean; detalle: string } | null>(null)
-  const [probando, setProbando] = useState(false)
-
-  useEffect(() => {
-    void window.jarvis.ollama.recommended().then((r) => {
-      if (r.ok) setRecomendados(r.data)
-    })
-    return window.jarvis.ollama.onProgress(setDescarga)
-  }, [])
-
-  /**
-   * Mientras Ollama no aparezca, se comprueba cada 3 segundos. Asi el usuario
-   * lo instala en otra ventana y al volver ya esta detectado, sin tener que
-   * acordarse de pulsar nada.
-   */
-  useEffect(() => {
-    let vivo = true
-
-    const mirar = async (): Promise<void> => {
-      const r = await window.jarvis.ollama.isRunning()
-      if (!vivo) return
-      const activo = r.ok && r.data
-      setInstalado(activo)
-
-      if (activo) {
-        const m = await window.jarvis.agent.ollamaModels()
-        if (vivo && m.ok) setModelos(m.data)
-      }
-    }
-
-    void mirar()
-    const id = setInterval(() => void mirar(), 3000)
-    return () => {
-      vivo = false
-      clearInterval(id)
-    }
-  }, [])
-
-  // Al terminar una descarga, refrescar la lista para que aparezca ya elegido.
-  useEffect(() => {
-    if (!descarga?.terminado || descarga.error) return
-    sound.play('done')
-    void window.jarvis.agent.ollamaModels().then((r) => {
-      if (r.ok) setModelos(r.data)
-    })
-  }, [descarga?.terminado])
-
-  const elegir = async (nombre: string): Promise<void> => {
-    sound.play('confirm')
-    await window.jarvis.settings.update({ ollamaModel: nombre })
-    setModelos((previos) => [nombre, ...previos.filter((m) => m !== nombre)])
-    // Cambiar de modelo invalida la prueba anterior.
-    setPrueba(null)
+/**
+ * Choosing the model.
+ *
+ * OpenRouter is first and pre-selected because it is the only one of the three
+ * that works within a minute of installing: no eight-gigabyte download, no
+ * Google Cloud project. The local option is still here for anyone who wants
+ * it, but it is no longer the road everybody is pushed down.
+ */
+/**
+ * The five worth offering on the first run.
+ *
+ * Settings has all eight. Setup does not, because a first-run screen asking
+ * someone to pick between eight things they have never heard of is a screen
+ * they close — these are the ones that go from nothing to a working assistant
+ * fastest, and everything else is one click away afterwards.
+ *
+ * No logos here either; see the note in Settings.
+ */
+const CHOICES: {
+  id: LlmProviderId
+  name: string
+  blurb: string
+  keys?: { url: string; label: string }
+}[] = [
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    blurb: 'One key, most models. Nothing to install — start in a minute.',
+    keys: { url: 'https://openrouter.ai/keys', label: 'openrouter.ai/keys' }
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    blurb: 'Open models, answered almost instantly. Generous free tier.',
+    keys: { url: 'https://console.groq.com/keys', label: 'console.groq.com/keys' }
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    blurb: 'GPT models, straight from the source.',
+    keys: { url: 'https://platform.openai.com/api-keys', label: 'platform.openai.com' }
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    blurb: 'Claude models, direct. Strong at following instructions.',
+    keys: { url: 'https://console.anthropic.com/settings/keys', label: 'console.anthropic.com' }
+  },
+  {
+    id: 'gemini',
+    name: 'Gemini',
+    blurb: "Google's own API, with a free tier.",
+    keys: { url: 'https://aistudio.google.com/apikey', label: 'aistudio.google.com' }
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    blurb: 'Runs on this Mac. Free and private, but wants several gigabytes.'
   }
+]
 
-  const probar = async (): Promise<void> => {
-    setProbando(true)
-    setPrueba(null)
-    const r = await window.jarvis.ollama.probar()
-    if (r.ok) {
-      setPrueba(r.data)
-      sound.play(r.data.ok ? 'done' : 'cancel')
-    } else {
-      setPrueba({ ok: false, detalle: r.error })
+function ModelStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }): JSX.Element {
+  const [provider, setProvider] = useState<LlmProviderId>('openrouter')
+  const [key, setKey] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const chosen = CHOICES.find((option) => option.id === provider)
+
+  const save = async (): Promise<void> => {
+    setBusy(true)
+
+    const patch: Record<string, string> = { llmProvider: provider }
+    if (chosen?.keys && key.trim()) patch[`${provider}ApiKey`] = key.trim()
+
+    const result = await window.vilo.settings.update(patch)
+    if (result.ok) {
+      sound.play('confirm')
+      setSaved(true)
+      onNext()
     }
-    setProbando(false)
+    setBusy(false)
   }
-
-  const descargar = (nombre: string): void => {
-    sound.play('nav')
-    setDescarga({
-      modelo: nombre,
-      fase: 'Preparando',
-      porcentaje: 0,
-      descargado: 0,
-      total: 0,
-      terminado: false
-    })
-    void window.jarvis.ollama.pull(nombre)
-  }
-
-  const hayModelo = modelos.length > 0
-  const descargando = descarga !== null && !descarga.terminado
-  const gb = (bytes: number): string => (bytes / 1024 ** 3).toFixed(1)
 
   return (
     <>
-      <h2 className="intro-titulo">El cerebro</h2>
-      <p className="intro-line">
-        Para entenderte cuando le escribas, JARVIS usa un programa llamado Ollama que funciona
-        dentro de tu ordenador. Nada de lo que le digas sale de aqui.
-      </p>
+      <div className="onboard-body">
+        <BlurIn as="h1" className="display" text="Give Vilo a brain" stagger={0.05} />
+        <Reveal delay={0.2}>
+          <p>
+            Vilo does not ship with a model of its own. Point it at one — you can change your mind
+            later in Settings, and it takes effect straight away.
+          </p>
+        </Reveal>
 
-      <div className="intro-caja">
-        {instalado === null && <p className="hint">Buscando Ollama…</p>}
-
-        {instalado === false && (
-          <>
-            <div className="intro-falta">Falta instalar Ollama</div>
-            <p className="hint" style={{ maxWidth: '42ch' }}>
-              Pulsa el boton, instalalo como cualquier otro programa y vuelve aqui. Te detectare
-              solo, no hace falta que hagas nada mas.
-            </p>
-            <button
-              className="primary"
-              onClick={() => void window.jarvis.shell.openExternal('https://ollama.com/download')}
-            >
-              Descargar Ollama
-            </button>
-            <p className="hint intro-latido">Comprobando cada pocos segundos…</p>
-          </>
-        )}
-
-        {instalado === true && descargando && descarga && (
-          <>
-            <div className="intro-ok">Ollama funcionando</div>
-            <p className="hint">
-              {descarga.fase} {descarga.modelo}
-              {descarga.total > 0 && ` · ${gb(descarga.descargado)} de ${gb(descarga.total)} GB`}
-            </p>
-            <div className="update-bar" style={{ width: '100%' }}>
-              <div className="update-bar-fill" style={{ width: `${descarga.porcentaje}%` }} />
-            </div>
-            <button onClick={() => void window.jarvis.ollama.cancelPull()}>Cancelar</button>
-          </>
-        )}
-
-        {instalado === true && !descargando && descarga?.error && (
-          <p className="hint intro-error">{descarga.error}</p>
-        )}
-
-        {instalado === true && !descargando && hayModelo && (
-          <>
-            <div className="intro-ok">Ollama listo, usando {modelos[0]}</div>
-            {modelos.length > 1 && (
-              <div className="row" style={{ justifyContent: 'center', marginTop: 6 }}>
-                {modelos.map((m) => (
-                  <button
-                    key={m}
-                    className={m === modelos[0] ? 'primary' : ''}
-                    onClick={() => void elegir(m)}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Que exista no significa que sirva: hay modelos que no saben
-                usar herramientas y fallan al primer mensaje util. */}
-            {prueba === null && (
-              <button onClick={probar} disabled={probando} style={{ marginTop: 10 }}>
-                {probando ? 'Probandolo…' : 'Comprobar que funciona'}
+        <div className="provider-grid onboard-card">
+          {CHOICES.map((option, position) => (
+            <Reveal key={option.id} delay={0.28 + position * 0.05} distance={8}>
+              <button
+                className="provider specular"
+                aria-pressed={provider === option.id}
+                onClick={() => setProvider(option.id)}
+              >
+                <strong>{option.name}</strong>
+                <span>{option.blurb}</span>
               </button>
-            )}
-            {prueba && (
-              <p className={`hint ${prueba.ok ? '' : 'intro-error'}`} style={{ marginTop: 8 }}>
-                {prueba.ok ? '✓ ' : ''}
-                {prueba.detalle}
-              </p>
-            )}
-          </>
-        )}
+            </Reveal>
+          ))}
+        </div>
 
-        {instalado === true && !descargando && !hayModelo && (
-          <>
-            <div className="intro-ok">Ollama funcionando</div>
-            <p className="hint">Falta descargar un modelo. Yo me encargo, elige cual:</p>
-            <div className="intro-modelos">
-              {recomendados.map((m) => (
-                <button key={m.nombre} onClick={() => descargar(m.nombre)}>
-                  <strong>{m.etiqueta}</strong>
-                  <span>{m.descripcion}</span>
-                  <em>
-                    {m.nombre} · {m.gigas} GB
-                  </em>
-                </button>
-              ))}
+        {/* Height-aware, so choosing Ollama and then changing your mind does
+            not make the footer buttons jump out from under the pointer. */}
+        <Swap swapKey={provider} className="onboard-card">
+          {chosen?.keys ? (
+            <Field
+              label={`${chosen.name} API key`}
+              hint={
+                <>
+                  Get one at{' '}
+                  <button
+                    className="link"
+                    onClick={() => void window.vilo.shell.openExternal(chosen.keys!.url)}
+                  >
+                    {chosen.keys.label}
+                  </button>
+                  . It is stored in your Mac's keychain, and you can paste it later instead.
+                </>
+              }
+            >
+              <input
+                className="input"
+                type="password"
+                value={key}
+                placeholder="sk-…"
+                autoFocus
+                onChange={(event) => setKey(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void save()
+                }}
+              />
+            </Field>
+          ) : (
+            <div className="alert">
+              <KeyRound />
+              <span>
+                Install Ollama from ollama.com, then pull a model that supports tools — llama3.1:8b
+                is a good start. Settings will find it once it is running.
+              </span>
             </div>
-          </>
-        )}
+          )}
+        </Swap>
       </div>
 
-      <div className="row" style={{ justifyContent: 'center' }}>
-        <button className={hayModelo ? 'primary' : ''} onClick={onSiguiente} disabled={descargando}>
-          {hayModelo ? 'Siguiente' : 'Ahora no, seguir'}
+      <footer className="onboard-foot">
+        <button className="btn ghost" onClick={onBack}>
+          Back
         </button>
-      </div>
-
-      {!hayModelo && !descargando && (
-        <p className="intro-note">SIN ESTO, TODO FUNCIONA MENOS EL CHAT</p>
-      )}
+        <button className="btn primary" onClick={save} disabled={busy || saved}>
+          Continue
+          <ArrowRight />
+        </button>
+      </footer>
     </>
   )
 }

@@ -1,9 +1,9 @@
 {
-  "name": "jarvis",
-  "version": "1.0.0",
-  "description": "Asistente escolar de escritorio: calendario, Classroom y organizacion de carpetas",
+  "name": "vilo",
+  "version": "2.0.0",
+  "description": "Vilo — a desktop study assistant: calendar, Classroom, grades and file tidying",
   "main": "./out/main/index.js",
-  "author": "Iker",
+  "author": "Enzoreael & Noox",
   "license": "MIT",
   "private": true,
   "//transformers": "@huggingface/transformers va en devDependencies, no en dependencies: solo se usa en el renderer, que Vite empaqueta. Como dependencia arrastraria onnxruntime-node (210 MB) al instalador sin usarse nunca.",
@@ -26,7 +26,9 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
+    "kokoro-js": "^1.2.1",
     "lucide-react": "^1.30.0",
+    "motion": "^13.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "zod": "^3.23.8"
@@ -34,7 +36,6 @@
   "devDependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource-variable/inter": "^5.3.0",
-    "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@huggingface/transformers": "^4.2.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.9.0",
@@ -44,8 +45,12 @@
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
+    "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
+  },
+  "overrides": {
+    "@huggingface/transformers": "$@huggingface/transformers"
   }
 }

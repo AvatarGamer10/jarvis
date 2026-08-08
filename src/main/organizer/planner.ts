@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type { FileRule, MovePlan, PlannedMove } from '@shared/types'
 import { assertAllowed, availableName } from './paths'
 
-/** Tope de archivos que se examinan de una vez, para no bloquear la app. */
+/** Ceiling on files examined at once, so the app does not lock up. */
 const MAX_FILES = 2000
 
 function matches(rule: FileRule, filename: string): boolean {
@@ -21,21 +21,21 @@ function matches(rule: FileRule, filename: string): boolean {
 }
 
 /**
- * Calcula que se moveria, sin mover nada.
+ * Works out what would move, without moving anything.
  *
- * Es siempre el paso previo a aplicar: el usuario ve la tabla completa antes de
- * que nadie toque el disco.
+ * Always the step before applying: the user sees the full table before anybody
+ * touches the disk.
  */
 export function planMoves(rules: FileRule[], allowedRoots: string[]): MovePlan {
   const moves: PlannedMove[] = []
-  /** Nombres ya reservados en cada destino dentro de este mismo plan. */
+  /** Names already claimed at each destination within this same plan. */
   const reserved = new Map<string, Set<string>>()
   let skipped = 0
   let examined = 0
 
   for (const rule of rules.filter((r) => r.enabled)) {
-    // Una regla que apunte fuera de las carpetas autorizadas se ignora entera
-    // en vez de tumbar el plan: puede venir de una configuracion vieja.
+    // A rule pointing outside the authorised folders is ignored whole rather
+    // than bringing the plan down: it may be left over from an old setup.
     try {
       assertAllowed(allowedRoots, rule.source)
       assertAllowed(allowedRoots, rule.destination)
@@ -52,7 +52,7 @@ export function planMoves(rules: FileRule[], allowedRoots: string[]): MovePlan {
 
     for (const entry of entries) {
       if (examined >= MAX_FILES) break
-      // Solo archivos sueltos: nada de recorrer subcarpetas ni mover directorios.
+      // Loose files only: no walking into subfolders, no moving directories.
       if (!entry.isFile()) continue
       examined++
 
@@ -62,7 +62,7 @@ export function planMoves(rules: FileRule[], allowedRoots: string[]): MovePlan {
       }
 
       const from = path.join(rule.source, entry.name)
-      // Si otra regla anterior ya reclamo este archivo, gana la primera.
+      // If an earlier rule already claimed this file, the first one wins.
       if (moves.some((m) => m.from === from)) continue
 
       const taken = reserved.get(rule.destination) ?? new Set<string>()

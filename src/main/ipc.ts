@@ -1,28 +1,46 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, systemPreferences } from 'electron'
 import { Channels, type ApplyOutcomeDto } from '@shared/ipc'
-import type { Examen, FileRule, ManualTask, Result, Settings } from '@shared/types'
-import { porAsignatura } from './tasks/notas-core'
-import { MODELOS_RECOMENDADOS } from './integrations/ollama-manager'
-import { novedadesPendientes } from './novedades'
+import type {
+  Exam,
+  OllamaPullProgress,
+  FileRule,
+  LlmProviderId,
+  ManualTask,
+  ModelBundleId,
+  Result,
+  Settings
+} from '@shared/types'
+import { bySubject } from './tasks/grades-core'
+import { RECOMMENDED_MODELS } from './integrations/ollama-manager'
+import { whatsNewPending } from './whatsNew'
 import type { ApplyOutcome } from './organizer/executor'
-import { exportar, importar, nombreSugerido } from './store/exportar'
+import { exportData, importData, suggestedBackupName } from './store/exportData'
 import type { Services } from './services'
 import type { Hud } from './hud'
 import type { UpdaterService } from './updater'
+import {
+  borrarModelos,
+  cancelarBundle,
+  estadoBundle,
+  instalarBundle,
+  repararBundle,
+  tamanoModelos
+} from './model-proxy'
 
 import path from 'node:path'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
+import { basename } from 'node:path'
 
-/** El renderer no necesita la lista completa de movimientos fallidos, solo el nombre. */
+/** The renderer does not need every failed move, only the name. */
 const toDto = (outcome: ApplyOutcome): ApplyOutcomeDto => ({
   moved: outcome.moved.length,
   failed: outcome.failed.map((f) => ({ file: path.basename(f.move.from), error: f.error }))
 })
 
 /**
- * Envuelve un handler para que ningun error cruce el IPC como excepcion cruda.
- * El renderer siempre recibe un Result, nunca una promesa rechazada con un
- * stack trace del proceso main dentro.
+ * Wraps a handler so no error ever crosses the IPC as a raw exception. The
+ * renderer always receives a Result, never a rejected promise with a main
+ * process stack trace inside it.
  */
 function handle<Args extends unknown[], T>(
   channel: string,
@@ -42,11 +60,11 @@ function handle<Args extends unknown[], T>(
 
 export interface IpcHooks {
   /**
-   * Se llama tras guardar ajustes. Lo usa main para reprogramar el resumen y
-   * aplicar el arranque automatico, que son cosas que solo el sabe hacer.
+   * Called after settings are saved. Main uses it to reschedule the brief and
+   * apply start-at-login, which are things only it can do.
    */
   onSettingsChanged: () => void
-  /** Trae la ventana principal al frente. */
+  /** Brings the main window to the front. */
   onOpenApp: () => void
 }
 
@@ -58,8 +76,8 @@ export function registerIpc(
 ): void {
   const { auth, settings, calendar, classroom, agent, usage, organizer, ollama, tasks, brief } =
     services
-  const { examenes, pegar } = services
-  const { ollamaManager, planner } = services
+  const { exams, paste } = services
+  const { ollamaManager, planner, compat, gemini } = services
 
   // --- Autenticacion ---
   handle(Channels.authStatus, () => auth.status())
@@ -70,10 +88,46 @@ export function registerIpc(
     return null
   })
 
+  handle(Channels.appVersion, () => app.getVersion())
+  handle(Channels.appMicrophone, async () => {
+    if (process.platform !== 'darwin') {
+      // Chromium owns the platform prompt on Windows and Linux.
+      return { granted: true, status: 'granted' as const }
+    }
+
+    let status = systemPreferences.getMediaAccessStatus('microphone')
+    if (status === 'not-determined') {
+      await systemPreferences.askForMediaAccess('microphone')
+      status = systemPreferences.getMediaAccessStatus('microphone')
+    }
+
+    return { granted: status === 'granted', status }
+  })
+  handle(Channels.modelsSize, () => tamanoModelos())
+  handle(Channels.modelsClear, async () => {
+    await borrarModelos()
+    return null
+  })
+  handle(Channels.modelsStatus, (bundle: ModelBundleId) => estadoBundle(bundle))
+  handle(Channels.modelsInstall, (bundle: ModelBundleId) => instalarBundle(bundle))
+  handle(Channels.modelsRepair, (bundle: ModelBundleId) => repararBundle(bundle))
+  handle(Channels.modelsCancel, async (bundle: ModelBundleId) => {
+    await cancelarBundle(bundle)
+    return null
+  })
+
   // --- Ajustes ---
   handle(Channels.settingsGet, () => settings.safe())
   handle(Channels.settingsUpdate, (patch: Partial<Settings>) => {
     const updated = settings.update(patch)
+    hooks.onSettingsChanged()
+    return updated
+  })
+  handle(Channels.settingsReset, async () => {
+    const updated = settings.reset()
+    // The Google token went with the other secrets; the Classroom cache would
+    // otherwise keep showing homework from an account that is no longer there.
+    classroom.invalidateCache()
     hooks.onSettingsChanged()
     return updated
   })
@@ -96,40 +150,41 @@ export function registerIpc(
     tasks.remove(id)
     return null
   })
-  // Solo propone: las tareas se crean con tasks:add cuando el usuario confirma.
-  handle(Channels.tasksInterpretarPegado, (texto: string) => pegar.interpretar(texto))
+  // Proposes only: tasks are created with tasks:add once the user confirms.
+  handle(Channels.tasksParsePasted, (text: string) => paste.parse(text))
 
   // --- Novedades tras actualizar ---
-  handle(Channels.novedadesPendientes, () => {
+  handle(Channels.whatsNewPending, () => {
     const actuales = settings.all()
-    return novedadesPendientes(
+    return whatsNewPending(
       app.getVersion(),
       actuales.lastSeenVersion,
       actuales.onboardingDone
     )
   })
-  handle(Channels.novedadesMarcarVistas, () => {
+  handle(Channels.whatsNewMarkSeen, () => {
     settings.update({ lastSeenVersion: app.getVersion() })
     return null
   })
 
   // --- Examenes y notas ---
-  // El resumen se calcula aqui y no en el renderer: es la misma cuenta que usa
-  // el agente, y tenerla en un solo sitio evita que las dos medias se separen.
-  handle(Channels.examenesList, () => {
-    const lista = examenes.list()
-    return { examenes: lista, resumen: porAsignatura(lista) }
+  // The summary is worked out here and not in the renderer: it is the same
+  // calculation the agent uses, and keeping it in one place stops the two
+  // averages drifting apart.
+  handle(Channels.examsList, () => {
+    const lista = exams.list()
+    return { exams: lista, summary: bySubject(lista) }
   })
   handle(
-    Channels.examenesAdd,
+    Channels.examsAdd,
     (input: { title: string; subject?: string; date: string; weight?: number | null }) =>
-      examenes.add(input)
+      exams.add(input)
   )
-  handle(Channels.examenesUpdate, (id: string, patch: Partial<Examen>) =>
-    examenes.update(id, patch)
+  handle(Channels.examsUpdate, (id: string, patch: Partial<Exam>) =>
+    exams.update(id, patch)
   )
-  handle(Channels.examenesRemove, (id: string) => {
-    examenes.remove(id)
+  handle(Channels.examsRemove, (id: string) => {
+    exams.remove(id)
     return null
   })
 
@@ -144,7 +199,49 @@ export function registerIpc(
     return null
   })
   handle(Channels.agentUsage, () => ({ callsToday: usage.callsToday() }))
+  handle(Channels.agentConversations, () => agent.conversations())
+  handle(Channels.agentNewConversation, () => {
+    agent.newConversation()
+    return null
+  })
+  handle(Channels.agentOpenConversation, (id: string) => agent.openConversation(id))
+  handle(Channels.agentDeleteConversation, (id: string) => {
+    agent.deleteConversation(id)
+    return null
+  })
   handle(Channels.agentOllamaModels, () => ollama.listModels())
+  handle(Channels.agentModels, (provider: LlmProviderId) =>
+    compat[provider]?.listModels() ?? Promise.resolve([])
+  )
+
+  /**
+   * Actually checks the active provider.
+   *
+   * Listing models only proves the key exists. Settings needs to say whether
+   * the brain *works*, and the only way to know that is to ask it for
+   * something: a trivial sentence, no tools, against whichever provider is
+   * mismo.
+   */
+  handle(Channels.agentCheck, async () => {
+    const id = settings.all().llmProvider
+
+    if (compat[id]) return compat[id].check()
+
+    const brain = id === 'ollama' ? ollama : gemini
+    const model = id === 'ollama' ? settings.all().ollamaModel : settings.all().geminiModel
+    if (!model) return { ok: false, detail: 'No model chosen' }
+
+    try {
+      await brain.complete({
+        system: 'Reply with the single word: ready.',
+        history: [{ role: 'user', text: 'ready?' }],
+        tools: []
+      })
+      return { ok: true, detail: `${model} answered` }
+    } catch (err) {
+      return { ok: false, detail: (err as Error).message }
+    }
+  })
 
   // --- Organizador de carpetas ---
   handle(Channels.organizerListRules, () => organizer.listRules())
@@ -162,71 +259,71 @@ export function registerIpc(
 
   // --- Resumen diario ---
   handle(Channels.briefGet, (withSummary: boolean) => brief.build(withSummary))
-  handle(Channels.briefContadores, () => brief.contadores())
+  handle(Channels.briefCounts, () => brief.counts())
 
   // --- Ollama ---
-  handle(Channels.ollamaIsRunning, () => ollamaManager.estaFuncionando())
-  handle(Channels.ollamaRecommended, () => [...MODELOS_RECOMENDADOS])
+  handle(Channels.ollamaIsRunning, () => ollamaManager.isRunning())
+  handle(Channels.ollamaRecommended, () => [...RECOMMENDED_MODELS])
   handle(Channels.ollamaPull, async (model: string) => {
-    // No se espera a que termine: la descarga son varios GB y el renderer se
-    // quedaria bloqueado. El progreso viaja por su propio canal.
-    void ollamaManager.descargarModelo(model, (progreso) =>
-      BrowserWindow.getAllWindows()[0]?.webContents.send(Channels.ollamaProgress, progreso)
+    // Not awaited: the download is several gigabytes and the renderer would
+    // sit blocked. Progress travels on its own channel.
+    void ollamaManager.pullModel(model, (progress: OllamaPullProgress) =>
+      BrowserWindow.getAllWindows()[0]?.webContents.send(Channels.ollamaProgress, progress)
     )
     return null
   })
   handle(Channels.ollamaCancelPull, () => {
-    ollamaManager.cancelarDescarga()
+    ollamaManager.cancelPull()
     return null
   })
 
   /**
    * Prueba de verdad, no solo de presencia.
    *
-   * Que Ollama responda y tenga un modelo descargado no significa que ese
-   * modelo sepa usar herramientas: los que no lo soportan contestan con texto
-   * corriente y el chat falla al primer mensaje util. Se le pide algo que
-   * obliga a llamar a una herramienta y se comprueba si lo hace.
+   * Ollama answering, with a model pulled, does not mean that model knows how
+   * to use tools: the ones that do not support them reply with ordinary prose
+   * and the chat fails on the first useful message. So it is asked something
+   * that forces a tool call, and we check whether it makes one.
    */
-  handle(Channels.ollamaProbar, async () => {
+  handle(Channels.ollamaTest, async () => {
     try {
       const respuesta = await ollama.complete({
         system:
-          'Eres un asistente con herramientas. Usa la herramienta adecuada cuando te pidan datos.',
-        history: [{ role: 'user', text: '¿Que tareas tengo apuntadas?' }],
+          'You are an assistant with tools. Use the right tool when asked for data.',
+        history: [{ role: 'user', text: 'What tasks do I have written down?' }],
         tools: [
           {
             name: 'tasks_list',
-            description: 'Consulta las tareas apuntadas por el usuario.',
+            description: 'Looks up the tasks the user has written down.',
             parameters: { type: 'object', properties: {}, required: [] }
           }
         ]
       })
 
       if (respuesta.toolCalls.length > 0) {
-        return { ok: true, detalle: 'El modelo responde y sabe usar herramientas.' }
+        return { ok: true, detail: 'The model answers and knows how to use tools.' }
       }
 
       return {
         ok: false,
-        detalle:
-          'El modelo responde, pero no ha usado la herramienta. Puede que no las admita; ' +
-          'prueba con llama3.1:8b o qwen2.5:7b.'
+        detail:
+          'The model answers but did not use the tool. It may not support them; ' +
+          'try llama3.1:8b or qwen2.5:7b.'
       }
     } catch (err) {
-      return { ok: false, detalle: (err as Error).message }
+      return { ok: false, detail: (err as Error).message }
     }
   })
 
   // --- Planificador de estudio ---
-  handle(Channels.planCalcular, (dias: number) => planner.calcular(dias))
+  handle(Channels.planCalcular, (dias: number) => planner.planBlocks(dias))
   handle(Channels.planAplicar, (planId: string) =>
     planner.aplicar(planId, async (b) => {
       await calendar.createEvent({
-        title: `Estudiar: ${b.tarea}`,
-        start: b.inicio.toISOString(),
-        end: b.fin.toISOString(),
-        description: b.asignatura ? `Asignatura: ${b.asignatura}` : undefined
+        title: `Study: ${b.task}`,
+        start: b.start.toISOString(),
+        end: b.end.toISOString(),
+        description: b.subject ? `Subject: ${b.subject}` : undefined
       })
     })
   )
@@ -244,19 +341,19 @@ export function registerIpc(
 
   // --- Boton flotante ---
   handle(Channels.hudToggle, () => {
-    hud.alternar()
+    hud.toggle()
     return hud.visible()
   })
   handle(Channels.hudClose, () => {
-    hud.cerrar()
+    hud.close()
     return null
   })
   handle(Channels.hudMove, (dx: number, dy: number) => {
-    hud.mover(dx, dy)
+    hud.move(dx, dy)
     return null
   })
   handle(Channels.hudExpand, (abierto: boolean) => {
-    hud.ajustar(abierto)
+    hud.resize(abierto)
     return null
   })
   handle(Channels.hudOpenApp, () => {
@@ -265,61 +362,98 @@ export function registerIpc(
   })
 
   // --- Copias de seguridad ---
-  handle(Channels.datosExportar, async () => {
-    const ventana = BrowserWindow.getFocusedWindow()
-    const opciones = {
-      title: 'Guardar una copia de tus datos',
-      defaultPath: nombreSugerido(),
-      filters: [{ name: 'Copia de JARVIS', extensions: ['json'] }]
+  handle(Channels.dataExport, async () => {
+    const window = BrowserWindow.getFocusedWindow()
+    const options = {
+      title: 'Save a copy of your data',
+      defaultPath: suggestedBackupName(),
+      filters: [{ name: 'Vilo backup', extensions: ['json'] }]
     }
-    const elegido = ventana
-      ? await dialog.showSaveDialog(ventana, opciones)
-      : await dialog.showSaveDialog(opciones)
+    const chosen = window
+      ? await dialog.showSaveDialog(window, options)
+      : await dialog.showSaveDialog(options)
 
-    if (elegido.canceled || !elegido.filePath) return null
-    const { ficheros } = exportar(elegido.filePath)
-    return { ruta: elegido.filePath, ficheros }
+    if (chosen.canceled || !chosen.filePath) return null
+    const { files } = exportData(chosen.filePath)
+    return { path: chosen.filePath, files }
   })
 
-  handle(Channels.datosImportar, async () => {
-    const ventana = BrowserWindow.getFocusedWindow()
-    const opciones = {
-      title: 'Elige la copia que quieres restaurar',
-      filters: [{ name: 'Copia de JARVIS', extensions: ['json'] }],
+  handle(Channels.dataImport, async () => {
+    const window = BrowserWindow.getFocusedWindow()
+    const options = {
+      title: 'Choose the backup to restore',
+      filters: [{ name: 'Vilo backup', extensions: ['json'] }],
       properties: ['openFile' as const]
     }
-    const elegido = ventana
-      ? await dialog.showOpenDialog(ventana, opciones)
-      : await dialog.showOpenDialog(opciones)
+    const chosen = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
 
-    if (elegido.canceled || !elegido.filePaths[0]) return null
-    return importar(elegido.filePaths[0])
+    if (chosen.canceled || !chosen.filePaths[0]) return null
+    return importData(chosen.filePaths[0])
+  })
+
+  /**
+   * Attaching a file to the chat.
+   *
+   * Text only, and with a ceiling. What is attached ends up inside the prompt,
+   * so a binary PDF would be noise and a ten-megabyte file would eat the whole
+   * context window — and the bill — without warning anybody.
+   */
+  handle(Channels.dialogAttachFile, async () => {
+    const window = BrowserWindow.getFocusedWindow()
+    const options = {
+      title: 'Choose a file to attach',
+      filters: [
+        {
+          name: 'Text',
+          extensions: ['txt', 'md', 'markdown', 'csv', 'json', 'log', 'rtf', 'tex', 'html', 'xml']
+        }
+      ],
+      properties: ['openFile' as const]
+    }
+    const chosen = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
+
+    if (chosen.canceled || !chosen.filePaths[0]) return null
+
+    const path = chosen.filePaths[0]
+    const { size } = await stat(path)
+    const TOPE = 400_000
+    if (size > TOPE) {
+      throw new Error(
+        `That file is ${Math.round(size / 1000)} KB. Attachments are limited to 400 KB — the whole thing has to fit in the model's context.`
+      )
+    }
+
+    return { name: basename(path), text: await readFile(path, 'utf8'), bytes: size }
   })
 
   // --- Sistema ---
   handle(Channels.dialogImportGoogleJson, async () => {
     const window = BrowserWindow.getFocusedWindow()
-    const opciones = {
-      title: 'Elige el client_secret que descargaste de Google Cloud',
-      filters: [{ name: 'Credenciales de Google', extensions: ['json'] }],
+    const options = {
+      title: 'Choose the client_secret you downloaded from Google Cloud',
+      filters: [{ name: 'Google credentials', extensions: ['json'] }],
       properties: ['openFile' as const]
     }
-    const elegido = window
-      ? await dialog.showOpenDialog(window, opciones)
-      : await dialog.showOpenDialog(opciones)
+    const chosen = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
 
-    if (elegido.canceled || !elegido.filePaths[0]) return null
+    if (chosen.canceled || !chosen.filePaths[0]) return null
 
-    const crudo = await readFile(elegido.filePaths[0], 'utf8')
+    const raw = await readFile(chosen.filePaths[0], 'utf8')
     let json: unknown
     try {
-      json = JSON.parse(crudo)
+      json = JSON.parse(raw)
     } catch {
-      throw new Error('Ese fichero no es un JSON valido.')
+      throw new Error('That file is not valid JSON.')
     }
 
-    // Google mete las credenciales bajo "installed" para clientes de escritorio
-    // y bajo "web" para los de servidor; aceptamos las dos formas.
+    // Google files the credentials under "installed" for desktop clients and
+    // under "web" for server ones; both shapes are accepted.
     const contenedor = (json as { installed?: unknown; web?: unknown }).installed ??
       (json as { web?: unknown }).web ?? json
     const { client_id: clientId, client_secret: clientSecret } = contenedor as {
@@ -330,7 +464,7 @@ export function registerIpc(
     if (!clientId || !clientSecret) {
       throw new Error(
         'No encuentro client_id y client_secret ahi dentro. ' +
-          'Descarga el JSON desde el cliente de OAuth en Google Cloud.'
+          'Download the JSON from the OAuth client in Google Cloud.'
       )
     }
 
@@ -346,8 +480,8 @@ export function registerIpc(
   })
 
   handle(Channels.shellOpenExternal, async (url: string) => {
-    // El renderer no debe poder abrir cualquier cosa: sin este filtro, una URL
-    // file:// o un esquema raro seria una via para ejecutar algo en el equipo.
+    // The renderer must not be able to open just anything: without this filter
+    // a file:// URL or an odd scheme would be a way to run something locally.
     const parsed = new URL(url)
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
       throw new Error(`Esquema de URL no permitido: ${parsed.protocol}`)

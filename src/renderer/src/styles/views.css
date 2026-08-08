@@ -1,0 +1,2376 @@
+/* =========================================================================
+   VILO — VIEWS
+
+   Screen-specific layout. Anything in here that starts getting reused twice
+   should move up into components.css.
+   ========================================================================= */
+
+/* =========================================================================
+   VOICE
+
+   The orb is the app's face, so it gets the whole screen and everything else
+   arranges itself around it. Reading order top to bottom is: what it is
+   doing, the orb, what it said, how to talk to it.
+   ========================================================================= */
+
+.voice {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  padding-bottom: var(--s-6);
+}
+
+.voice-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-6);
+  min-height: 0;
+}
+
+/* The state line above the orb. It changes text often, so it fades between
+   values rather than swapping — a label that flickers reads as an error. */
+.voice-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 20px;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  animation: fade var(--t-3) var(--ease) both;
+}
+
+.voice-state.live {
+  color: var(--text);
+}
+
+/* The orb itself. Fixed square; the wrapper exists so the press target and
+   the level ring can sit over the mark without being part of it. */
+.orb {
+  position: relative;
+  width: clamp(200px, 34vh, 300px);
+  aspect-ratio: 1;
+  flex: none;
+}
+
+.voice-assistant {
+  display: block;
+  flex: none;
+  filter: drop-shadow(0 18px 32px rgb(0 0 0 / 34%));
+  transition: filter var(--t-4) var(--ease), opacity var(--t-3) var(--ease);
+}
+
+.orb > .voice-assistant {
+  width: 100%;
+  height: 100%;
+}
+
+.voice-setup > .voice-assistant {
+  width: 230px;
+  height: 230px;
+}
+
+/* The state only changes the light around the mark. Its movement is handled
+   in the animation loop, which already knows what state it is in — doing it
+   twice would mean two things scaling the same element against each other. */
+
+.voice-assistant[data-state='listening'] {
+  filter:
+    drop-shadow(0 18px 32px rgb(0 0 0 / 34%))
+    drop-shadow(0 0 26px rgb(255 255 255 / calc(9% + var(--a-level, 0) * 22%)));
+}
+
+.voice-assistant[data-state='thinking'] {
+  filter:
+    drop-shadow(0 18px 32px rgb(0 0 0 / 34%))
+    drop-shadow(0 0 22px rgb(255 255 255 / 10%));
+}
+
+.voice-assistant[data-state='speaking'] {
+  filter:
+    drop-shadow(0 18px 32px rgb(0 0 0 / 34%))
+    drop-shadow(0 0 30px rgb(255 255 255 / 16%));
+}
+
+/* Push-to-talk target: the middle of the orb. Invisible, because the orb
+   already shows where to press. */
+.orb-hit {
+  position: absolute;
+  inset: 22%;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.orb-hit:active {
+  transform: scale(0.985);
+}
+
+.orb-hit:disabled {
+  cursor: default;
+}
+
+/* -------------------------------------------------------------------------
+   Transcript
+
+   The whole point of the design brief: the answer appears under the orb,
+   word by word, rising into focus as it is spoken.
+   ------------------------------------------------------------------------- */
+
+.voice-caption {
+  max-width: 62ch;
+  min-height: 3.4em;
+  text-align: center;
+  font-size: 19px;
+  line-height: 1.62;
+  letter-spacing: -0.016em;
+  color: var(--text);
+  text-wrap: pretty;
+  user-select: text;
+}
+
+.voice-caption.quiet {
+  font-size: var(--fs-body);
+  color: var(--text-3);
+}
+
+/* One word. The delay is set inline per index so a sentence arrives as a
+   wave. blur → sharp is what sells it; without the blur it is just a slide. */
+.word {
+  display: inline-block;
+  white-space: pre;
+  animation: word-in 620ms var(--ease) both;
+}
+
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Both sides of the exchange, stacked. Fixed minimum height so the orb does
+   not walk up and down the screen every time a sentence arrives. */
+.voice-script {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 132px;
+}
+
+/* What you said, above the answer. Set in a quiet pill rather than as plain
+   text: it is a quotation of you, and it should not be mistaken for something
+   Vilo is saying. */
+.voice-said {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 54ch;
+  padding: 7px 14px 7px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: rgb(0 0 0 / 20%);
+  box-shadow: var(--sunk);
+  text-align: left;
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  user-select: text;
+  animation: rise var(--t-3) var(--ease) both;
+}
+
+.voice-said svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--text-4);
+}
+
+/*
+ * The level ring.
+ *
+ * Sits behind the mark and swells with your voice while the microphone is
+ * open. --level is written every frame from the audio meter, so this is the
+ * one thing on the screen that is genuinely reacting to the room rather than
+ * running a timer.
+ */
+.voice-level {
+  position: absolute;
+  inset: 6%;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid rgb(255 255 255 / calc(4% + var(--level, 0) * 26%));
+  transform: scale(calc(0.94 + var(--level, 0) * 0.16));
+  box-shadow: 0 0 calc(14px + var(--level, 0) * 46px)
+    rgb(255 255 255 / calc(2% + var(--level, 0) * 12%));
+  animation: fade var(--t-3) var(--ease) both;
+}
+
+/* -------------------------------------------------------------------------
+   Voice controls
+   ------------------------------------------------------------------------- */
+
+.voice-dock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+}
+
+.voice-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+.voice-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-2);
+  max-width: 620px;
+  animation: rise var(--t-4) var(--ease) both;
+  animation-delay: 180ms;
+}
+
+/* -------------------------------------------------------------------------
+   The download gate
+
+   Shown until Whisper is on disk. It asks one question — how much disk are
+   you willing to spend — and it has to answer that question truthfully,
+   because the previous version of this screen did not.
+   ------------------------------------------------------------------------- */
+
+/*
+ * Centred, but able to scroll.
+ *
+ * `justify-content: center` on a fixed-height flex column overflows in *both*
+ * directions once the content is taller than the box, and an overflowing flex
+ * item cannot be scrolled back to — which is how an error message ended up
+ * sitting on top of the button that would have retried it. Auto margins centre
+ * the same way while leaving the overflow scrollable.
+ */
+.voice-setup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+  height: 100%;
+  padding: var(--s-4) 0 var(--s-6);
+  overflow-y: auto;
+  text-align: center;
+}
+
+.voice-setup > *:first-child {
+  margin-top: auto;
+}
+
+.voice-setup > *:last-child {
+  margin-bottom: auto;
+}
+
+.voice-setup-title {
+  font-size: 27px;
+}
+
+.voice-setup p {
+  max-width: 46ch;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  line-height: 1.62;
+}
+
+.voice-setup-body {
+  width: min(430px, 100%);
+}
+
+.voice-choices {
+  display: grid;
+  gap: var(--s-2);
+  text-align: left;
+}
+
+.voice-choices .provider strong {
+  justify-content: flex-start;
+}
+
+/* The size, right there in the option. Nobody should have to find out what a
+   choice costs by making it. */
+.voice-size {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 0;
+}
+
+.voice-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  text-align: left;
+}
+
+.voice-setup .progress {
+  width: 100%;
+}
+
+.voice-setup-error {
+  max-width: 430px;
+  text-align: left;
+}
+
+.voice-setup-error strong {
+  display: block;
+  font-weight: 560;
+  color: var(--text);
+}
+
+/* The actionable half of an error, set apart from the statement of what went
+   wrong. Almost every failure here has something the reader can do. */
+.voice-setup-error em {
+  display: block;
+  margin-top: 3px;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1.55;
+}
+
+.voice-output-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.voice-output-options,
+.voice-output-detail,
+.voice-output-error {
+  width: min(720px, 100%);
+}
+
+.voice-output-setup .voice-output-options,
+.voice-output-setup .voice-output-detail,
+.voice-output-setup .voice-output-error {
+  width: min(520px, 100%);
+}
+
+.voice-output-error {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  text-align: left;
+}
+
+.voice-output-error-copy {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.voice-output-error-copy strong,
+.voice-output-error-copy em {
+  display: block;
+}
+
+.voice-output-error-copy em {
+  margin-top: 3px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+
+.voice-output-error-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-left: auto;
+}
+
+.voice-dock-actions {
+  justify-content: center;
+}
+
+.voice-realistic-picker {
+  text-align: left;
+}
+
+.voice-picker-heading {
+  gap: var(--s-3);
+}
+
+.provider.voice-option {
+  position: relative;
+  display: flex;
+  min-height: 150px;
+  min-width: 0;
+  padding: var(--s-3);
+  overflow: hidden;
+  cursor: default;
+}
+
+.voice-option[data-selected='true'] {
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
+}
+
+.voice-option-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding-right: 34px;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.voice-option-copy strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 590;
+}
+
+.voice-option-copy strong svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ok);
+}
+
+.voice-option-copy > span {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+}
+
+.voice-preview-button {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    border-color var(--t-2) var(--ease),
+    background var(--t-2) var(--ease),
+    color var(--t-2) var(--ease),
+    transform var(--t-2) var(--ease);
+}
+
+.voice-preview-button:hover:not(:disabled) {
+  border-color: var(--line-3);
+  background: var(--surface-3);
+  color: var(--text);
+  transform: scale(1.04);
+}
+
+.voice-preview-button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.voice-preview-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.voice-select-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 30px;
+  margin-top: var(--s-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 560;
+  cursor: pointer;
+  transition:
+    border-color var(--t-2) var(--ease),
+    background var(--t-2) var(--ease),
+    color var(--t-2) var(--ease);
+}
+
+.voice-select-button:hover {
+  border-color: var(--line-3);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.voice-select-button[aria-pressed='true'] {
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.voice-select-button svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Engine startup has no useful percentage. Keep the completed bar still: a
+   travelling highlight looked like the old hover flashlight and suggested
+   that another download was happening. The message carries the state. */
+.progress-fill.indeterminate {
+  width: 100% !important;
+  opacity: 0.72;
+}
+
+/* =========================================================================
+   CHAT
+
+   Asymmetric on purpose. Your side is short, so it gets a surface and sits to
+   the right where the eye expects the thing it just typed. Vilo's side is
+   prose, so it gets no surface at all: full measure, left aligned, set like
+   something written rather than something sent.
+
+   The two never look alike, which means you never have to read a message to
+   find out whose it was.
+   ========================================================================= */
+
+.chat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  min-height: 0;
+  gap: var(--s-4);
+  padding-bottom: var(--s-6);
+}
+
+.msg {
+  display: flex;
+  animation: rise var(--t-3) var(--ease) both;
+}
+
+.msg-user {
+  justify-content: flex-end;
+}
+
+.msg-assistant .msg-body {
+  position: relative;
+  width: 100%;
+  /* Room for the mark in the margin. It sits outside the text column so the
+     first line of an answer starts at the same place as every other line. */
+  padding-left: 30px;
+}
+
+.msg-user .msg-body {
+  max-width: 78%;
+}
+
+/* Your words. A quiet raised pill — the only surface in the transcript. */
+.msg-bubble {
+  padding: 9px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 15px 15px 4px 15px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 3.5%));
+  box-shadow: var(--lit), var(--shadow-1);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+
+/* Vilo's mark, in the margin beside the first line of the answer. */
+.msg-mark {
+  position: absolute;
+  left: 0;
+  top: 1px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  box-shadow: var(--lit);
+}
+
+/* Hidden until the pointer is over the answer. Copy and retry are useful and
+   they are not what anyone is looking at while reading. */
+.msg-actions {
+  display: flex;
+  gap: 2px;
+  margin-top: var(--s-2);
+  margin-left: -6px;
+  opacity: 0;
+  transform: translateY(-3px);
+  transition:
+    opacity var(--t-2) var(--ease),
+    transform var(--t-2) var(--ease);
+}
+
+.msg:hover .msg-actions,
+.msg-actions:focus-within {
+  opacity: 1;
+  transform: none;
+}
+
+/* -------------------------------------------------------------------------
+   The tool record
+   ------------------------------------------------------------------------- */
+
+.tools {
+  margin-bottom: var(--s-3);
+}
+
+.tools-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 9px 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: rgb(0 0 0 / 18%);
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    color var(--t-2) var(--ease),
+    border-color var(--t-2) var(--ease);
+}
+
+.tools-head:hover {
+  color: var(--text-2);
+  border-color: var(--line-3);
+}
+
+.tools-head svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tools-caret {
+  transition: transform var(--t-2) var(--ease);
+}
+
+.tools[data-open='true'] .tools-caret {
+  transform: rotate(90deg);
+}
+
+.tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--s-2);
+  padding-left: 3px;
+}
+
+.tools-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  animation: rise var(--t-2) var(--ease) both;
+}
+
+.tools-row svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-4);
+}
+
+.tools-row.failed svg {
+  color: var(--danger);
+}
+
+/* Tool names are identifiers, so they do keep the system mono — that is what
+   monospace is for. Everything else that used to carry .mono was a number. */
+.tools-row .mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+/* -------------------------------------------------------------------------
+   Thinking
+
+   A light travelling along the word rather than three bouncing dots. It says
+   the same thing without looking like every other chat window.
+   ------------------------------------------------------------------------- */
+
+.thinking {
+  display: inline-block;
+  font-size: var(--fs-body);
+  color: var(--text-4);
+  background: linear-gradient(
+    100deg,
+    var(--text-4) 20%,
+    var(--text) 42%,
+    var(--text) 50%,
+    var(--text-4) 72%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: thinking-sweep 2.1s linear infinite;
+}
+
+@keyframes thinking-sweep {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   The empty chat
+   ------------------------------------------------------------------------- */
+
+.chat-opening {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 10vh 0 var(--s-6);
+  text-align: center;
+}
+
+.chat-opening h2 {
+  font-size: 25px;
+}
+
+.chat-opening p {
+  max-width: 46ch;
+  font-size: var(--fs-sm);
+  line-height: 1.62;
+  color: var(--text-3);
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-2);
+  max-width: 560px;
+  margin-top: var(--s-4);
+}
+
+/* -------------------------------------------------------------------------
+   Markdown
+
+   Models write it whether or not they were asked to, so it has to look like
+   it belongs here rather than like a document that wandered in.
+   ------------------------------------------------------------------------- */
+
+.md {
+  font-size: var(--fs-body);
+  line-height: 1.68;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.md > * + * {
+  margin-top: var(--s-3);
+}
+
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  font-family: var(--font-display);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.md ul,
+.md ol {
+  padding-left: 1.35em;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.md li::marker {
+  color: var(--text-4);
+}
+
+.md blockquote {
+  padding-left: var(--s-4);
+  border-left: 2px solid var(--line-3);
+  color: var(--text-2);
+}
+
+.md code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+  background: rgb(0 0 0 / 28%);
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: var(--text);
+}
+
+.md-code {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: rgb(0 0 0 / 30%);
+  box-shadow: var(--sunk);
+  overflow: hidden;
+}
+
+.md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 4px 3px var(--s-3);
+  border-bottom: 1px solid var(--line);
+  font-size: 10.5px;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.md-code pre {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  overflow-x: auto;
+}
+
+.md-code code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 12.5px;
+  line-height: 1.62;
+  white-space: pre;
+}
+
+/* Pending confirmation. Anything that writes to the calendar, the disk or
+   the task list stops here first. */
+.confirm {
+  margin-top: var(--s-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--lit), var(--shadow-1);
+  overflow: hidden;
+  animation: scale-in var(--t-3) var(--ease) both;
+}
+
+.confirm-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--fs-sm);
+  font-weight: 540;
+  color: var(--text);
+}
+
+.confirm-head svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+  flex: none;
+}
+
+.confirm-details {
+  padding: 0 var(--s-4) var(--s-3);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.confirm-foot {
+  display: flex;
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--line);
+  background: rgb(0 0 0 / 20%);
+}
+
+/* -------------------------------------------------------------------------
+   Composer
+   ------------------------------------------------------------------------- */
+
+.composer {
+  max-width: 780px;
+  width: 100%;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: rgb(0 0 0 / 26%);
+  box-shadow: var(--lit), var(--shadow-2);
+  transition:
+    border-color var(--t-2) var(--ease),
+    box-shadow var(--t-2) var(--ease);
+}
+
+.composer:focus-within {
+  border-color: var(--line-3);
+  box-shadow:
+    var(--lit-strong),
+    var(--shadow-2),
+    0 0 0 3px rgb(255 255 255 / 4%);
+}
+
+/*
+ * The second rectangle.
+ *
+ * Clicking into the box drew a stray outline inside it: the global
+ * focus-visible rule (base.css) puts a 2px outline with a *small* corner
+ * radius on whatever has focus, and what has focus here is the textarea —
+ * a full-width box inside a much rounder container. Two rectangles, two
+ * different radii, one inside the other.
+ *
+ * The composer already shows focus as a whole, with the border and the ring
+ * above, so the inner element does not need to say it again. This is the one
+ * place in the app where suppressing the focus outline loses nothing: the
+ * thing it would mark is the thing that just lit up.
+ */
+.composer textarea:focus,
+.composer textarea:focus-visible {
+  outline: none;
+}
+
+/* Auto-growing input. rows=1 plus a max-height, with the height set from JS
+   on every change — a textarea that stays one line until it needs not to. */
+.composer textarea {
+  display: block;
+  width: 100%;
+  max-height: 190px;
+  padding: 13px var(--s-4) 4px;
+  border: 0;
+  background: none;
+  resize: none;
+  font: inherit;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--text);
+  user-select: text;
+  overflow-y: auto;
+}
+
+.composer textarea::placeholder {
+  color: var(--text-4);
+}
+
+/* -------------------------------------------------------------------------
+   The composer toolbar
+
+   The row under the text: which model is answering, a way to say it out loud
+   instead, and send. Everything on it is about writing the next message —
+   nothing destructive, and nothing that navigates away without saying so.
+   ------------------------------------------------------------------------- */
+
+.composer-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 4px 8px 8px 8px;
+}
+
+.composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.composer-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r-full);
+  background: transparent;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    color 180ms var(--ease),
+    background 180ms var(--ease),
+    border-color 180ms var(--ease);
+}
+
+.composer-tool:hover {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.composer-tool svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  opacity: 0.8;
+}
+
+.composer-usage {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--text-4);
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   SCHEDULE
+   ========================================================================= */
+
+.week {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: var(--s-4);
+}
+
+/* The week, before it has arrived. Seven columns of blocks in a pattern that
+   is not quite regular, so it reads as a calendar rather than as a grid of
+   placeholders. */
+.week-skeleton {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--s-3);
+  flex: 1;
+  min-height: 0;
+  padding-top: 34px;
+  overflow: hidden;
+}
+
+.week-skeleton-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.week-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+}
+
+.week-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+  font-weight: 600;
+  letter-spacing: -0.024em;
+  min-width: 230px;
+}
+
+/* The header and the hour rows are two separate grids that share one column
+   template, stacked inside a single scroll container. The alternative —
+   subgrid inside an `overflow: auto` box, or a header outside the scroller —
+   either misbehaves or drifts out of alignment by exactly the width of the
+   scrollbar the moment the system stops using overlay ones. */
+.grid {
+  --grid-cols: 52px repeat(7, minmax(0, 1fr));
+
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--lit);
+  overflow: auto;
+}
+
+.grid-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: var(--grid-cols);
+  border-bottom: 1px solid var(--line);
+  /* Opaque, not translucent: events scroll underneath it. */
+  background: var(--elevated);
+}
+
+.grid-body {
+  display: grid;
+  grid-template-columns: var(--grid-cols);
+}
+
+.grid-day {
+  padding: 9px 10px;
+  text-align: center;
+}
+
+.grid-day + .grid-day {
+  box-shadow: inset 1px 0 0 var(--line);
+}
+
+.grid-day .dow {
+  font-size: 10.5px;
+  font-weight: 560;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+
+.grid-day .dom {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Today gets the bright treatment — same rule as everywhere else in Vilo:
+   brighter means nearer. */
+.grid-day.today .dow {
+  color: var(--text-2);
+}
+
+.grid-day.today .dom {
+  color: var(--hot);
+}
+
+.grid-hours {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+}
+
+.grid-hour {
+  height: 46px;
+  flex: none;
+  padding: 2px 8px 0 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.grid-col {
+  position: relative;
+  border-right: 1px solid var(--line);
+}
+
+.grid-col:last-child {
+  border-right: 0;
+}
+
+/* Hour lines are drawn with a background gradient rather than 14 elements
+   per column. Same look, a lot less DOM. */
+.grid-col {
+  background-image: linear-gradient(180deg, var(--line) 1px, transparent 1px);
+  background-size: 100% 46px;
+}
+
+.grid-col.weekend {
+  background-color: rgb(0 0 0 / 12%);
+}
+
+.event {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  padding: 4px 7px;
+  border: 1px solid var(--line-2);
+  border-left: 2px solid var(--g-400);
+  border-radius: var(--r-xs);
+  background: rgb(30 30 36 / 88%);
+  box-shadow: var(--lit), var(--shadow-1);
+  font-size: 11px;
+  line-height: 1.32;
+  color: var(--text);
+  overflow: hidden;
+  cursor: default;
+  transition:
+    background var(--t-2) var(--ease),
+    border-color var(--t-2) var(--ease),
+    transform var(--t-2) var(--ease);
+}
+
+.event:hover {
+  background: rgb(40 40 47 / 94%);
+  border-color: var(--line-3);
+  border-left-color: var(--g-200);
+  z-index: 2;
+}
+
+.event .event-time {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-3);
+}
+
+/* Study blocks the planner created. Dashed, so it is obvious at a glance
+   which events came from Vilo and which came from your real calendar. */
+.event.study {
+  border-left-style: dashed;
+  border-left-color: var(--g-300);
+  background: rgb(24 24 29 / 88%);
+}
+
+.allday {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 4px;
+}
+
+.allday .badge {
+  height: 17px;
+  font-size: 10px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  line-height: 15px;
+  padding: 0 6px;
+}
+
+/* =========================================================================
+   TASKS
+   ========================================================================= */
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-4);
+}
+
+/* Inline add row that expands out of a button. Keeping it inline means
+   adding a task never covers the list you are adding it to. */
+.add-row {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-start;
+  padding: var(--s-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--lit);
+  margin-bottom: var(--s-4);
+  animation: scale-in var(--t-3) var(--ease) both;
+}
+
+.add-row .input {
+  height: 34px;
+}
+
+.date-shortcuts {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.source-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-4);
+}
+
+.source-mark svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* =========================================================================
+   GRADES
+   ========================================================================= */
+
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--s-3);
+  margin-bottom: var(--s-6);
+}
+
+.subject-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+}
+
+.subject-card .subject-name {
+  font-size: var(--fs-sm);
+  font-weight: 540;
+  color: var(--text);
+}
+
+/* The average, set large in the display face. It is the number people open
+   this screen for, so it is the biggest thing on it. */
+.subject-avg {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 680;
+  font-stretch: 94%;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.subject-avg small {
+  font-family: var(--font-body);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-4);
+}
+
+.subject-avg.none {
+  color: var(--text-4);
+  font-size: 22px;
+}
+
+.need-line {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+.need-line strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.grade-pill {
+  min-width: 40px;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================================
+   FILES
+   ========================================================================= */
+
+.rule-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+}
+
+/* source → destination, in mono, with the arrow as its own dim element so
+   the two paths read as a pair rather than one long string. */
+.path-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.path-pair .arrow {
+  color: var(--text-4);
+  flex: none;
+}
+
+.path-pair span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.plan-preview {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.plan-move {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 5px var(--s-2);
+  border-radius: var(--r-xs);
+  color: var(--text-3);
+}
+
+.plan-move:hover {
+  background: var(--surface-2);
+}
+
+.plan-move .to {
+  color: var(--text-2);
+}
+
+/* =========================================================================
+   SETTINGS
+   ========================================================================= */
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  max-width: 680px;
+  /* Room for the save bar, which is pinned to the viewport. Without this the
+     last control on the page sits underneath it. */
+  padding-bottom: 92px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.settings-section > header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-section > header h2 {
+  font-size: var(--fs-h3);
+  font-weight: 600;
+}
+
+.settings-section > header p {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1.55;
+}
+
+/* Provider picker. Three cards, one selected, and the selected one is the
+   only bright thing in the group. */
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--s-2);
+}
+
+.provider {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--lit);
+  text-align: left;
+  font: inherit;
+  color: var(--text-2);
+  cursor: pointer;
+  transition:
+    background var(--t-2) var(--ease),
+    border-color var(--t-2) var(--ease),
+    box-shadow var(--t-2) var(--ease),
+    transform var(--t-2) var(--ease);
+}
+
+.provider:hover {
+  background: var(--surface-2);
+  border-color: var(--line-2);
+  box-shadow: var(--lit);
+}
+
+.provider strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-sm);
+  font-weight: 560;
+  color: var(--text);
+}
+
+.provider span {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+
+/* Chosen. This is the one place a colour is allowed to mean "you picked this
+   one" rather than "something is wrong": with six cards in a grid, brightness
+   alone was not enough to find the selected one at a glance. */
+.provider[aria-pressed='true'] {
+  border-color: var(--ok-line);
+  background: var(--ok-soft);
+  box-shadow: var(--lit-strong), var(--shadow-1);
+  color: var(--text);
+}
+
+.provider[aria-pressed='true'] strong {
+  color: var(--ok);
+}
+
+/* Connection state row at the top of Settings. */
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--g-500);
+}
+
+.status-dot.on,
+.status-dot[data-state='ready'] {
+  background: var(--ok);
+  box-shadow: 0 0 10px var(--ok-line);
+}
+
+/* Never tested. Deliberately different from both working and broken: a light
+   that has not been checked should not claim either. */
+.status-dot[data-state='idle'] {
+  background: transparent;
+  border: 1px solid var(--line-4);
+}
+
+.status-dot[data-state='error'] {
+  background: var(--danger);
+  box-shadow: 0 0 10px var(--danger-line);
+}
+
+.status-dot[data-state='warning'] {
+  background: var(--warn);
+  box-shadow: 0 0 10px var(--warn-line);
+}
+
+.settings-section > header.connection-head {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+/* -------------------------------------------------------------------------
+   The active model
+
+   The one row on this screen that answers "is it working". Everything below
+   it is a form; this is the state of the thing the form configures, and it
+   goes first because it is the reason anybody opens this page.
+   ------------------------------------------------------------------------- */
+
+.active-model {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-5);
+}
+
+/* Sits below the key and model fields, separated by a hairline so it reads as
+   "and now check it" rather than as another field. */
+.model-test {
+  align-items: center;
+  gap: var(--s-3);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+
+.model-test .meta {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* A ring on whichever provider is actually saved, so the selection you are
+   editing and the one that is live are never confused. */
+.provider-live {
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--g-050);
+  box-shadow: 0 0 8px rgb(255 255 255 / 55%);
+}
+
+/* -------------------------------------------------------------------------
+   The save bar
+
+   Fixed to the viewport, in its own container. It used to borrow the toast
+   stack, which has pointer-events off — so it appeared over the page and its
+   own button did nothing. The column reserves space for it below, so it never
+   sits on top of the last row you were editing.
+   ------------------------------------------------------------------------- */
+
+.save-bar {
+  position: fixed;
+  left: calc(50% + var(--rail) / 2);
+  bottom: var(--s-6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: 8px 8px 8px var(--s-4);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: rgb(24 24 28 / 94%);
+  backdrop-filter: blur(24px) saturate(150%);
+  box-shadow: var(--lit-strong), var(--shadow-3);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  transform: translateX(-50%);
+  animation: rise var(--t-3) var(--ease) both;
+}
+
+/* -------------------------------------------------------------------------
+   Danger zone and the foot of the page
+   ------------------------------------------------------------------------- */
+
+/* The danger zone is the one block on the page that is allowed to look
+   different from the rest of it. A hairline of red down the left edge, and
+   nothing else — enough to stop somebody scrolling into it by accident, not
+   so much that it shouts on every visit. */
+.settings-section.danger > header h2 {
+  color: var(--danger);
+}
+
+/* Flat. Every surface in Vilo is one value of one colour with a hairline of
+   light on its top edge — a gradient wash across a card is a different design
+   language, and one red one in the middle of Settings looked like it had
+   wandered in from another app. */
+.settings-section.danger > .card {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+
+.btn.danger {
+  color: var(--danger);
+  border-color: var(--danger-line);
+}
+
+.btn.danger:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
+/* Armed: the second press is the one that does it, so it fills in. */
+.btn.danger[data-armed='true'] {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: var(--s-6);
+  border-top: 1px solid var(--line);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
+.about-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  font-size: var(--fs-body);
+  color: var(--text);
+}
+
+.about-line .mono {
+  font-size: var(--fs-xs);
+  color: var(--text-4);
+}
+
+.about strong {
+  color: var(--text-2);
+  font-weight: 560;
+}
+
+.about .row {
+  margin-top: var(--s-3);
+}
+
+.health-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--lit), var(--shadow-1);
+  overflow: hidden;
+}
+
+.health-row {
+  display: grid;
+  grid-template-columns: 18px 140px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 44px;
+  padding: 0 var(--s-4);
+  border-bottom: 1px solid var(--line);
+}
+
+.health-row:last-child {
+  border-bottom: 0;
+}
+
+.health-row > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+}
+
+.health-row[data-state='ready'] > svg {
+  color: var(--ok);
+}
+
+.health-row[data-state='warning'] > svg {
+  color: var(--warn);
+}
+
+.health-row[data-state='error'] > svg {
+  color: var(--danger);
+}
+
+.health-row strong {
+  font-size: var(--fs-xs);
+}
+
+.health-row span {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+/* Model download list. */
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+}
+
+.model-row .model-size {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================================
+   ONBOARDING
+
+   Full-bleed, centred, one decision per step. The rail does not exist yet at
+   this point — there is nothing to navigate to until setup is done.
+   ========================================================================= */
+
+.onboard {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+  padding: var(--traffic) var(--s-8) var(--s-8);
+  -webkit-app-region: drag;
+}
+
+.onboard-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding-top: var(--s-2);
+}
+
+.onboard-progress {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.onboard-progress i {
+  width: 18px;
+  height: 3px;
+  border-radius: var(--r-full);
+  background: var(--line-2);
+  transition: background var(--t-3) var(--ease);
+}
+
+.onboard-progress i.on {
+  background: var(--g-100);
+  box-shadow: 0 0 10px rgb(255 255 255 / 35%);
+}
+
+/* One step. Holds the body and the footer so the whole thing can travel as a
+   unit when the step changes; the animation itself is in Onboarding.tsx. */
+.onboard-step {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+}
+
+.onboard-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-5);
+  text-align: center;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.onboard-assistant {
+  width: 210px;
+  height: 210px;
+  flex: none;
+  filter: drop-shadow(0 18px 34px rgb(0 0 0 / 30%));
+}
+
+.onboard-assistant.is-ready {
+  filter:
+    drop-shadow(0 18px 34px rgb(0 0 0 / 30%))
+    drop-shadow(0 0 24px rgb(255 255 255 / 10%));
+}
+
+.assistant-logo {
+  display: block;
+  overflow: visible;
+}
+
+/*
+ * The character's transforms.
+ *
+ * There is deliberately no animation here. Every value below arrives from the
+ * rAF loop in components/AssistantLogo.tsx as a custom property, because the
+ * movement that makes it feel alive — jumping, then waiting, then jumping
+ * somewhere else — is not something keyframes can express. What is left in
+ * CSS is only the plumbing: which group each number applies to.
+ *
+ * The nesting matters. Head sits inside body, gaze inside head, lid inside
+ * gaze, so a glance to the left carries the eyes with the head instead of
+ * fighting it.
+ */
+
+/*
+ * Origins are given in viewBox coordinates, not `fill-box`.
+ *
+ * `fill-box` sounds right and is a trap here. The head group *contains* the
+ * eyes, so its bounding box changes every time they look somewhere new — and
+ * with `transform-origin: center` the pivot for the head's rotation would
+ * drift a few units left and right with every glance, rocking the whole mark
+ * against itself. Fixed numbers cannot do that.
+ *
+ * 627 is the middle of the 1254 viewBox. 712 is the vertical centre of the two
+ * eye bars, which is where a blink has to close towards.
+ */
+.assistant-body,
+.assistant-head,
+.assistant-gaze,
+.assistant-blink {
+  transform-box: view-box;
+}
+
+.assistant-body {
+  transform-origin: 627px 627px;
+  transform: scale(var(--a-scale, 1));
+}
+
+.assistant-head {
+  transform-origin: 627px 627px;
+  transform: translate(var(--a-head-x, 0), var(--a-head-y, 0)) rotate(var(--a-head-r, 0deg));
+}
+
+.assistant-gaze {
+  transform: translate(var(--a-eye-x, 0), var(--a-eye-y, 0));
+}
+
+/* The lid. Squashing to the centre of the eye is not how an eyelid works, but
+   at this scale, on a mark with no lids drawn, it is what reads as a blink. */
+.assistant-blink {
+  transform-origin: 627px 712px;
+  transform: scaleY(var(--a-lid, 1));
+}
+
+.onboard-authors {
+  letter-spacing: 0.01em;
+}
+
+/* -------------------------------------------------------------------------
+   The greeting
+
+   One line becoming another, letter by letter from the middle outwards. The
+   markup comes from TextSwap in components/anim.tsx; this only holds the
+   space so the paragraph underneath never moves.
+   ------------------------------------------------------------------------- */
+
+.greeting-slot {
+  display: grid;
+  place-items: center;
+  width: min(680px, 100%);
+  min-height: 62px;
+}
+
+/* Full width, so the two lines are both centred in the same box and the box
+   never has to resize between them. */
+.text-swap {
+  position: relative;
+  display: grid;
+  width: 100%;
+  place-items: center;
+  text-align: center;
+}
+
+/* Both lines occupy the same cell, so the outgoing one dissolves in place
+   under the incoming one rather than pushing it around. */
+.text-swap-line {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  justify-content: center;
+  white-space: pre;
+}
+
+.text-swap-letter {
+  display: inline-block;
+  will-change: transform, filter, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-assistant,
+  .onboard-body {
+    animation: none;
+  }
+}
+
+.onboard-body > * {
+  -webkit-app-region: no-drag;
+}
+
+.onboard-body p {
+  max-width: 52ch;
+  font-size: var(--fs-body);
+  line-height: 1.66;
+  color: var(--text-2);
+}
+
+.onboard-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding-top: var(--s-6);
+}
+
+.onboard-foot > * {
+  -webkit-app-region: no-drag;
+}
+
+.onboard-card {
+  width: min(520px, 100%);
+  text-align: left;
+}
+
+/* =========================================================================
+   HUD
+
+   A transparent always-on-top window. Everything visible is drawn by the
+   card inside it, and the window only grows when there is something to say.
+   ========================================================================= */
+
+.hud {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+  padding: 8px;
+  height: 100%;
+  background: transparent;
+}
+
+.hud-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The floating button is the orb again, small. Using the same object in both
+   places is what makes the HUD feel like part of the app rather than a
+   second, lesser one. */
+.hud-orb {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: rgb(18 18 22 / 88%);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: var(--lit-strong), var(--shadow-3);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform var(--t-2) var(--ease),
+    box-shadow var(--t-3) var(--ease);
+}
+
+.hud-orb:hover {
+  transform: scale(1.05);
+  box-shadow: var(--lit-strong), var(--shadow-3), var(--halo);
+}
+
+.hud-orb:active {
+  transform: scale(0.97);
+}
+
+.hud-orb .assistant-logo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Count of what is due, sitting on the rim. */
+.hud-count {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--r-full);
+  background: var(--g-100);
+  color: var(--g-950);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-count.late {
+  background: #fff;
+  box-shadow: 0 0 12px rgb(255 255 255 / 55%);
+}
+
+.hud-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  animation: fade var(--t-2) var(--ease) both;
+}
+
+.hud-actions button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+  background: rgb(20 20 24 / 90%);
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    color var(--t-2) var(--ease),
+    background var(--t-2) var(--ease);
+}
+
+.hud-actions button:hover {
+  background: rgb(32 32 38 / 94%);
+  color: var(--text);
+}
+
+.hud-actions svg {
+  width: 12px;
+  height: 12px;
+}
+
+.hud-panel {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: rgb(18 18 22 / 92%);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--lit-strong), var(--shadow-3);
+  animation: rise var(--t-3) var(--ease) both;
+}
+
+.hud-panel .hud-said {
+  font-size: 11.5px;
+  color: var(--text-4);
+  margin-bottom: 4px;
+}
+
+.hud-panel .hud-answer {
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text);
+  user-select: text;
+}
+
+.hud-panel .hud-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* -------------------------------------------------------------------------
+   The voice picker
+
+   Cards rather than a dropdown. These differ in a way you cannot read — the
+   only way to choose between nine voices is to hear them, so selecting one
+   plays it.
+   ------------------------------------------------------------------------- */
+
+.voice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--s-2);
+}
+
+/* -------------------------------------------------------------------------
+   Chat header and history
+
+   The two buttons live in the window header, next to the page title — they
+   are about which conversation you are in, not about the message you are
+   writing, so they belong to the window rather than to the composer. Putting
+   them there also keeps them out of the transcript, which had to leave a gap
+   for them when they floated over it.
+   ------------------------------------------------------------------------- */
+
+.chat-head-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-full);
+  background: rgb(24 24 28 / 88%);
+  backdrop-filter: blur(16px);
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    color 180ms var(--ease),
+    border-color 180ms var(--ease);
+}
+
+.chat-head-btn:hover:not(:disabled),
+.chat-head-btn[aria-expanded='true'] {
+  color: var(--text);
+  border-color: var(--line-3);
+}
+
+.chat-head-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Covers the whole view so a click anywhere puts the panel away. Invisible —
+   dimming the screen for a list of six items is far too much ceremony. */
+.chat-history-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+/* Hangs from the top right of the screen area, directly under the button in
+   the header that opened it. */
+.chat-history {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 9;
+  width: min(380px, 100%);
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--elevated);
+  box-shadow: var(--lit-strong), var(--shadow-4);
+  overflow: hidden;
+  animation: drop var(--t-3) var(--ease) both;
+}
+
+.chat-history > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+
+.chat-history-list {
+  padding: var(--s-2);
+  overflow-y: auto;
+}
+
+.chat-history-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--r-sm);
+}
+
+.chat-history-row:hover {
+  background: var(--surface-2);
+}
+
+.chat-history-row > button.grow {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Only on hover: three delete buttons in a list of three conversations is a
+   list that looks like it is mostly about deleting things. */
+.chat-history-row .btn.ghost {
+  opacity: 0;
+  transition: opacity var(--t-2) var(--ease);
+}
+
+.chat-history-row:hover .btn.ghost,
+.chat-history-row:focus-within .btn.ghost {
+  opacity: 1;
+}
+
+/* -------------------------------------------------------------------------
+   Attachments
+   ------------------------------------------------------------------------- */
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: var(--s-3) var(--s-4) 0;
+}
+
+.attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 260px;
+  height: 26px;
+  padding: 0 4px 0 9px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.attachment > svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-4);
+}
+
+.attachment .mono {
+  color: var(--text-4);
+  white-space: nowrap;
+}
+
+.attachment > button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-4);
+  cursor: pointer;
+  transition: color var(--t-2) var(--ease), background var(--t-2) var(--ease);
+}
+
+.attachment > button:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.attachment > button svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* The one label in the app that recommends something. Kept quiet: it is a
+   hint about which to try first, not a badge. */
+.voice-tag {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  background: var(--ok-soft);
+  font-size: 10px;
+  font-weight: 560;
+  letter-spacing: 0.02em;
+  color: var(--ok);
+}
+
+.voice-progress.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}

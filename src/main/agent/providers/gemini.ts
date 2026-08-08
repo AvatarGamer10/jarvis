@@ -8,7 +8,7 @@ import {
 } from '../provider'
 const ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 
-// --- Forma del payload de Gemini ------------------------------------------
+// --- The shape of Gemini's payload ------------------------------------------
 
 interface GeminiPart {
   text?: string
@@ -32,9 +32,9 @@ interface GeminiResponse {
 
 /**
  * Las herramientas se declaran en JSON Schema estandar (tipos en minuscula),
- * que es lo que entiende todo el mundo. Gemini usa su propio dialecto con los
- * tipos en mayuscula, asi que la traduccion se hace aqui y no ensucia las
- * definiciones de las herramientas.
+ * which is what everything else understands. Gemini uses its own dialect with
+ * the types in upper case, so the translation happens here rather than dirtying
+ * the tool definitions.
  */
 function toGeminiSchema(node: unknown): unknown {
   if (Array.isArray(node)) return node.map(toGeminiSchema)
@@ -54,9 +54,9 @@ function toGeminiSchema(node: unknown): unknown {
 /**
  * Traduce nuestra conversacion neutra al formato de Gemini.
  *
- * Gemini solo conoce dos roles: "user" y "model". Los resultados de las
- * herramientas viajan como partes `functionResponse` dentro de un turno de
- * usuario, que es como el propio SDK oficial los envia.
+ * Gemini knows only two roles: "user" and "model". Tool results travel as
+ * `functionResponse` parts inside a user turn, which is how the official SDK
+ * sends them.
  */
 function toContents(history: ConversationItem[]): GeminiContent[] {
   const contents: GeminiContent[] = []
@@ -82,14 +82,14 @@ function toContents(history: ConversationItem[]): GeminiContent[] {
     const part: GeminiPart = {
       functionResponse: {
         name: item.name,
-        // La respuesta debe ser un objeto: si la herramienta devuelve un array
-        // o un escalar, Gemini rechaza la peticion.
+        // The response has to be an object: if a tool returns an array
+        // or a scalar, Gemini rejects the request.
         response: { result: item.response }
       }
     }
 
-    // Varias respuestas seguidas se agrupan en el mismo turno, que es lo que
-    // espera el modelo cuando pide varias herramientas a la vez.
+    // Consecutive responses are grouped into the same turn, which is what the
+    // model expects when it asks for several tools at once.
     if (previous?.role === 'user' && previous.parts.every((p) => p.functionResponse)) {
       previous.parts.push(part)
     } else {
@@ -108,7 +108,7 @@ export class GeminiProvider implements LLMProvider {
   async complete(input: CompleteInput): Promise<LlmReply> {
     const { apiKey, model } = this.getConfig()
     if (!apiKey) {
-      throw new LlmError('Falta la API key de Gemini. Configurala en Ajustes.', false)
+      throw new LlmError('No Gemini API key yet. Add one in Settings.', false)
     }
 
     const body = {
@@ -140,7 +140,7 @@ export class GeminiProvider implements LLMProvider {
         body: JSON.stringify(body)
       })
     } catch (err) {
-      throw new LlmError(`No hay conexion con Gemini: ${(err as Error).message}`, true)
+      throw new LlmError(`Cannot reach Gemini: ${(err as Error).message}`, true)
     }
 
     const data = (await res.json().catch(() => ({}))) as GeminiResponse
@@ -151,7 +151,7 @@ export class GeminiProvider implements LLMProvider {
 
     if (data.promptFeedback?.blockReason) {
       throw new LlmError(
-        `Gemini ha bloqueado la peticion (${data.promptFeedback.blockReason}).`,
+        `Gemini blocked the request (${data.promptFeedback.blockReason}).`,
         false
       )
     }
@@ -169,7 +169,7 @@ export class GeminiProvider implements LLMProvider {
 
     const finish = data.candidates?.[0]?.finishReason
     if (finish === 'MAX_TOKENS' && !text && toolCalls.length === 0) {
-      throw new LlmError('La respuesta se corto por longitud. Prueba a preguntar algo mas concreto.', false)
+      throw new LlmError('The reply was cut off by length. Try asking something more specific.', false)
     }
 
     return { text: text.trim() || null, toolCalls }
@@ -179,17 +179,17 @@ export class GeminiProvider implements LLMProvider {
     const raw = data.error?.message ?? `HTTP ${status}`
 
     if (status === 400 && /API key not valid/i.test(raw)) {
-      return 'La API key de Gemini no es valida. Revisala en Ajustes.'
+      return 'That Gemini API key is not valid. Check it in Settings.'
     }
     if (status === 404) {
-      return `El modelo "${model}" no existe o no esta disponible para tu clave. Comprueba el nombre en AI Studio.`
+      return `The model “${model}” does not exist or is unavailable for this key. Check its name in AI Studio.`
     }
     if (status === 429) {
-      return 'Has agotado la cuota gratuita de Gemini por ahora. Espera un poco o cambia a un modelo Flash.'
+      return 'The Gemini quota is exhausted for now. Wait a little or switch to a Flash model.'
     }
     if (status >= 500) {
-      return 'Gemini esta teniendo problemas ahora mismo. Intentalo en un minuto.'
+      return 'Gemini is having trouble right now. Try again in a minute.'
     }
-    return `Gemini devolvio un error: ${raw}`
+    return `Gemini returned an error: ${raw}`
   }
 }

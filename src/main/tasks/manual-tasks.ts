@@ -6,14 +6,14 @@ interface TasksData {
   tasks: ManualTask[]
 }
 
-/** Cuantas tareas ya hechas se conservan antes de ir descartando las mas viejas. */
+/** How many finished tasks are kept before the oldest start being dropped. */
 const MAX_DONE = 100
 
 /**
- * Tareas que el usuario apunta a mano.
+ * Tasks the user writes down by hand.
  *
- * Es la fuente que siempre funciona: no depende de Google ni de que el
- * administrador del centro apruebe nada.
+ * The source that always works: it depends on neither Google nor a school
+ * administrator approving anything.
  */
 export class ManualTaskService {
   private readonly store: JsonStore<TasksData>
@@ -23,8 +23,8 @@ export class ManualTaskService {
   }
 
   list(): ManualTask[] {
-    // Pendientes primero y, dentro de cada grupo, por fecha de entrega.
-    // Las que no tienen fecha van al final: no son urgentes por definicion.
+    // Outstanding first and, within each group, by due date.
+    // Undated ones go last: by definition they are not urgent.
     return [...this.store.get().tasks].sort((a, b) => {
       if (a.done !== b.done) return a.done ? 1 : -1
       if (a.dueDate === null && b.dueDate === null) return a.createdAt.localeCompare(b.createdAt)
@@ -36,10 +36,10 @@ export class ManualTaskService {
 
   add(input: { title: string; subject?: string; dueDate?: string | null }): ManualTask {
     const title = input.title.trim()
-    if (!title) throw new Error('La tarea necesita un titulo.')
+    if (!title) throw new Error('A task needs a title.')
 
     if (input.dueDate && Number.isNaN(Date.parse(input.dueDate))) {
-      throw new Error(`"${input.dueDate}" no es una fecha valida.`)
+      throw new Error(`"${input.dueDate}" is not a valid date.`)
     }
 
     const task: ManualTask = {
@@ -58,10 +58,10 @@ export class ManualTaskService {
   update(id: string, patch: Partial<Omit<ManualTask, 'id' | 'createdAt'>>): ManualTask {
     const tasks = [...this.store.get().tasks]
     const index = tasks.findIndex((t) => t.id === id)
-    if (index === -1) throw new Error('Esa tarea ya no existe.')
+    if (index === -1) throw new Error('That task no longer exists.')
 
     if (patch.dueDate && Number.isNaN(Date.parse(patch.dueDate))) {
-      throw new Error(`"${patch.dueDate}" no es una fecha valida.`)
+      throw new Error(`"${patch.dueDate}" is not a valid date.`)
     }
 
     tasks[index] = {
@@ -81,8 +81,9 @@ export class ManualTaskService {
   }
 
   /**
-   * Busca una tarea pendiente por titulo aproximado.
-   * El modelo dira "marca como hecha la de mates", no un uuid.
+   * Finds an outstanding task by approximate title.
+   *
+   * The model will say "mark the maths one as done", not quote a uuid.
    */
   findByTitle(query: string): ManualTask | null {
     const needle = query.trim().toLowerCase()
@@ -97,7 +98,7 @@ export class ManualTaskService {
     )
   }
 
-  /** Evita que el fichero crezca sin fin con tareas viejas ya completadas. */
+  /** Stops the file growing forever with old, completed tasks. */
   private prune(tasks: ManualTask[]): ManualTask[] {
     const done = tasks.filter((t) => t.done)
     if (done.length <= MAX_DONE) return tasks

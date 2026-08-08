@@ -1,70 +1,70 @@
 import type { SettingsService } from '../store/settings'
 
 /**
- * Descarga de modelos de Ollama desde dentro de la app.
+ * Pulling Ollama models from inside the app.
  *
- * Existe para quitar de en medio el paso que mas gente pierde: abrir una
- * terminal y escribir `ollama pull`. La API de Ollama devuelve el progreso en
- * streaming, asi que se puede ensenar una barra en vez de un texto quieto.
+ * It exists to remove the step that loses the most people: opening a terminal
+ * and typing `ollama pull`. Ollama's API streams the progress, so a bar can be
+ * shown rather than a wall of static text.
  */
 
-/** Modelos recomendados, con su peso real y para quien es cada uno. */
-export const MODELOS_RECOMENDADOS = [
+/** Recommended models, with their real size and who each one is for. */
+export const RECOMMENDED_MODELS = [
   {
-    nombre: 'llama3.1:8b',
-    etiqueta: 'Equilibrado',
-    gigas: 4.7,
-    descripcion: 'La mejor opcion si tu ordenador tiene 16 GB de memoria o mas.',
-    memoriaMinimaGb: 16
+    name: 'llama3.1:8b',
+    label: 'Balanced',
+    gigabytes: 4.7,
+    description: 'The best balance for Macs with 16 GB of memory or more.',
+    minimumMemoryGb: 16
   },
   {
-    nombre: 'qwen2.5:7b',
-    etiqueta: 'Mejor en espanol',
-    gigas: 4.7,
-    descripcion: 'Entiende mejor el espanol, y pide lo mismo que el anterior.',
-    memoriaMinimaGb: 16
+    name: 'qwen2.5:7b',
+    label: 'Strong multilingual',
+    gigabytes: 4.7,
+    description: 'Stronger multilingual understanding with the same memory requirement.',
+    minimumMemoryGb: 16
   },
   {
-    nombre: 'llama3.2:3b',
-    etiqueta: 'Ligero',
-    gigas: 2,
-    descripcion: 'Para portatiles con 8 GB. Responde mas rapido, se equivoca algo mas.',
-    memoriaMinimaGb: 8
+    name: 'llama3.2:3b',
+    label: 'Lightweight',
+    gigabytes: 2,
+    description: 'For 8 GB Macs. Faster and smaller, with a little less accuracy.',
+    minimumMemoryGb: 8
   }
 ] as const
 
-export interface ProgresoDescarga {
-  modelo: string
-  /** Fase en cristiano: "Preparando", "Descargando"... */
-  fase: string
-  porcentaje: number
-  /** Bytes ya descargados, para poder ensenar "1,2 de 4,7 GB". */
-  descargado: number
+export interface OllamaPullProgress {
+  model: string
+  /** The phase in plain English: "Preparing", "Downloading"… */
+  phase: string
+  percent: number
+  /** Bytes already fetched, so "1.2 of 4.7 GB" can be shown. */
+  downloaded: number
   total: number
-  terminado: boolean
+  done: boolean
   error?: string
 }
 
-interface LineaOllama {
+interface OllamaLine {
   status?: string
   completed?: number
   total?: number
   error?: string
 }
 
-/** Traduce los estados de Ollama, que vienen en ingles y en jerga. */
-function traducirFase(status: string | undefined): string {
-  if (!status) return 'Preparando'
-  if (status.includes('manifest')) return 'Preparando'
-  if (status.startsWith('pulling')) return 'Descargando'
-  if (status.includes('verifying')) return 'Comprobando'
-  if (status.includes('writing') || status.includes('extracting')) return 'Instalando'
-  if (status === 'success') return 'Listo'
-  return 'Descargando'
+/** Turns Ollama's own status strings, which are jargon, into plain English. */
+function phaseOf(status: string | undefined): string {
+  if (!status) return 'Preparing'
+  if (status.includes('manifest')) return 'Preparing'
+  if (status.startsWith('pulling')) return 'Downloading'
+  if (status.includes('verifying')) return 'Verifying'
+  if (status.includes('writing') || status.includes('extracting')) return 'Installing'
+  if (status === 'success') return 'Ready'
+  return 'Downloading'
 }
 
 export class OllamaManager {
-  private cancelar: AbortController | null = null
+  private pulling: AbortController | null = null
 
   constructor(private readonly settings: SettingsService) {}
 
@@ -72,8 +72,8 @@ export class OllamaManager {
     return this.settings.all().ollamaHost
   }
 
-  /** True si Ollama responde. Se usa para detectar cuando lo acaban de instalar. */
-  async estaFuncionando(): Promise<boolean> {
+  /** True if Ollama answers. Used to notice when it has just been installed. */
+  async isRunning(): Promise<boolean> {
     try {
       const res = await fetch(new URL('/api/tags', this.host()).toString(), {
         signal: AbortSignal.timeout(2500)
@@ -84,7 +84,7 @@ export class OllamaManager {
     }
   }
 
-  async modelos(): Promise<string[]> {
+  async models(): Promise<string[]> {
     try {
       const res = await fetch(new URL('/api/tags', this.host()).toString())
       if (!res.ok) return []
@@ -95,35 +95,34 @@ export class OllamaManager {
     }
   }
 
-  cancelarDescarga(): void {
-    this.cancelar?.abort()
-    this.cancelar = null
+  cancelPull(): void {
+    this.pulling?.abort()
+    this.pulling = null
   }
 
   /**
-   * Descarga un modelo informando del progreso.
+   * Pulls a model, reporting progress.
    *
-   * Ollama responde con una linea JSON por evento, no con un JSON entero, asi
-   * que se va leyendo el flujo y partiendo por saltos de linea. Un trozo puede
-   * cortar una linea por la mitad, por eso se guarda el resto para la vuelta
-   * siguiente.
+   * Ollama answers with one JSON line per event rather than a single JSON
+   * document, so the stream is read and split on newlines. A chunk can cut a
+   * line in half, which is why the remainder is kept for the next round.
    */
-  async descargarModelo(
-    modelo: string,
-    alProgresar: (progreso: ProgresoDescarga) => void
+  async pullModel(
+    model: string,
+    onProgress: (progress: OllamaPullProgress) => void
   ): Promise<void> {
-    this.cancelarDescarga()
-    this.cancelar = new AbortController()
+    this.cancelPull()
+    this.pulling = new AbortController()
 
-    const emitir = (parcial: Partial<ProgresoDescarga>): void =>
-      alProgresar({
-        modelo,
-        fase: 'Preparando',
-        porcentaje: 0,
-        descargado: 0,
+    const emit = (partial: Partial<OllamaPullProgress>): void =>
+      onProgress({
+        model,
+        phase: 'Preparing',
+        percent: 0,
+        downloaded: 0,
         total: 0,
-        terminado: false,
-        ...parcial
+        done: false,
+        ...partial
       })
 
     let res: Response
@@ -131,77 +130,77 @@ export class OllamaManager {
       res = await fetch(new URL('/api/pull', this.host()).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: modelo, stream: true }),
-        signal: this.cancelar.signal
+        body: JSON.stringify({ model, stream: true }),
+        signal: this.pulling.signal
       })
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
-      emitir({ terminado: true, error: 'No se puede conectar con Ollama. ¿Esta abierto?' })
+      emit({ done: true, error: 'Cannot reach Ollama. Check that it is running.' })
       return
     }
 
     if (!res.ok || !res.body) {
-      emitir({
-        terminado: true,
+      emit({
+        done: true,
         error:
           res.status === 404
-            ? `Ollama no conoce el modelo "${modelo}".`
-            : `Ollama devolvio un error (${res.status}).`
+            ? `Ollama does not recognise the model “${model}”.`
+            : `Ollama returned an error (${res.status}).`
       })
       return
     }
 
-    const lector = res.body.getReader()
-    const decodificador = new TextDecoder()
-    let resto = ''
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let remainder = ''
 
     try {
       for (;;) {
-        const { done, value } = await lector.read()
+        const { done, value } = await reader.read()
         if (done) break
 
-        resto += decodificador.decode(value, { stream: true })
-        const lineas = resto.split('\n')
-        // La ultima puede estar cortada a medias: se guarda para la proxima.
-        resto = lineas.pop() ?? ''
+        remainder += decoder.decode(value, { stream: true })
+        const lines = remainder.split('\n')
+        // The last one may be cut in half: it is kept for the next round.
+        remainder = lines.pop() ?? ''
 
-        for (const linea of lineas) {
-          if (!linea.trim()) continue
+        for (const line of lines) {
+          if (!line.trim()) continue
 
-          let evento: LineaOllama
+          let event: OllamaLine
           try {
-            evento = JSON.parse(linea) as LineaOllama
+            event = JSON.parse(line) as OllamaLine
           } catch {
             continue
           }
 
-          if (evento.error) {
-            emitir({ terminado: true, error: evento.error })
+          if (event.error) {
+            emit({ done: true, error: event.error })
             return
           }
 
-          const total = evento.total ?? 0
-          const completado = evento.completed ?? 0
-          emitir({
-            fase: traducirFase(evento.status),
-            porcentaje: total > 0 ? Math.round((completado / total) * 100) : 0,
-            descargado: completado,
+          const total = event.total ?? 0
+          const completed = event.completed ?? 0
+          emit({
+            phase: phaseOf(event.status),
+            percent: total > 0 ? Math.round((completed / total) * 100) : 0,
+            downloaded: completed,
             total
           })
 
-          if (evento.status === 'success') {
-            // Se deja elegido: quien acaba de descargarlo lo quiere usar.
-            this.settings.update({ ollamaModel: modelo })
-            emitir({ fase: 'Listo', porcentaje: 100, terminado: true })
+          if (event.status === 'success') {
+            // Left selected: whoever just downloaded it wants to use it.
+            this.settings.update({ ollamaModel: model })
+            emit({ phase: 'Ready', percent: 100, done: true })
             return
           }
         }
       }
     } catch (err) {
       if ((err as Error).name === 'AbortError') return
-      emitir({ terminado: true, error: (err as Error).message })
+      emit({ done: true, error: (err as Error).message })
     } finally {
-      this.cancelar = null
+      this.pulling = null
     }
   }
 }
